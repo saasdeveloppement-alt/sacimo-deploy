@@ -1,0 +1,159 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  AGENT
+}
+
+enum BillingTier {
+  STARTER
+  PRO
+  AGENCY
+}
+
+enum ListingType {
+  APARTMENT
+  HOUSE
+  STUDIO
+  LOFT
+  PENTHOUSE
+  VILLA
+  TOWNHOUSE
+  OTHER
+}
+
+enum ListingSource {
+  LEBONCOIN
+  SELOGER
+  PAP
+  ORPI
+  CENTURY21
+  GUY_HOQUET
+  IMMONOT
+  OTHER
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  image     String?
+  role      UserRole @default(AGENT)
+  agencyId  String?
+  agency    Agency?  @relation(fields: [agencyId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Agency {
+  id          String      @id @default(cuid())
+  name        String
+  billingTier BillingTier @default(STARTER)
+  seats       Int         @default(1)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  users       User[]
+  searches    Search[]
+  reports     Report[]
+
+  @@map("agencies")
+}
+
+model Search {
+  id        String   @id @default(cuid())
+  agencyId  String
+  agency    Agency   @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  name      String
+  params    Json     // {postalCodes: string[], priceMin: number, priceMax: number, types: string[], surfaceMin: number, surfaceMax: number, roomsMin: number, roomsMax: number, textSearch?: string}
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("searches")
+}
+
+model Listing {
+  id            String       @id @default(cuid())
+  source        ListingSource
+  isPrivateSeller Boolean
+  title         String
+  price         Int
+  type          ListingType
+  surface       Int?
+  rooms         Int?
+  photos        String[]     @default([])
+  city          String
+  postalCode    String
+  geo           Json?        // {lat: number, lng: number}
+  publishedAt   DateTime
+  url           String
+  description   String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  // Relations
+  tags          Tag[]
+  competitorId  String?
+  competitor    Competitor?  @relation(fields: [competitorId], references: [id])
+
+  @@map("listings")
+}
+
+model Report {
+  id            String   @id @default(cuid())
+  agencyId      String
+  agency        Agency   @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  date          DateTime @unique
+  listingsCount Int      @default(0)
+  privateCount  Int      @default(0)
+  proCount      Int      @default(0)
+  fileUrlPdf    String?
+  fileUrlCsv    String?
+  isSent        Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("reports")
+}
+
+model Competitor {
+  id          String   @id @default(cuid())
+  name        String
+  zone        String
+  lastSeenAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  listings    Listing[]
+
+  @@map("competitors")
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  color     String   @default("#3B82F6")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  listings  Listing[]
+
+  @@map("tags")
+}
