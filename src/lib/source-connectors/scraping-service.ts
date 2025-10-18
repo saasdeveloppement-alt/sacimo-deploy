@@ -145,3 +145,6 @@ export class ScrapingService {
     return health
   }
 }
+
+// Export de l'instance singleton
+export const scrapingService = new ScrapingService()
