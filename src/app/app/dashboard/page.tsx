@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { 
   BarChart, 
   Bar, 
@@ -21,7 +22,7 @@ import {
   LineChart,
   Line
 } from "recharts"
-import { RefreshCw, Building2, TrendingUp, Users, Search, Filter, Download, Eye } from "lucide-react"
+import { RefreshCw, Building2, TrendingUp, Users, Search, Filter, Download, Eye, MapPin, Calendar, ExternalLink, Image as ImageIcon } from "lucide-react"
 
 export default function DashboardPage() {
   const [listings, setListings] = useState([])
@@ -30,6 +31,7 @@ export default function DashboardPage() {
   const [priceFilter, setPriceFilter] = useState("all")
   const [typeFilter, setTypeFilter] = useState("all")
   const [sellerFilter, setSellerFilter] = useState("all")
+  const [selectedListing, setSelectedListing] = useState(null)
 
   const loadScrapingData = async () => {
     setIsLoading(true)
@@ -404,15 +406,135 @@ export default function DashboardPage() {
                     </div>
                     
                     <div className="flex justify-between items-center">
-                      <a 
-                        href={listing.url} 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1"
-                      >
-                        <Eye className="h-4 w-4" />
-                        Voir l'annonce
-                      </a>
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => setSelectedListing(listing)}
+                            className="flex items-center gap-1"
+                          >
+                            <Eye className="h-4 w-4" />
+                            Voir détails
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                          <DialogHeader>
+                            <DialogTitle className="text-xl font-bold">{listing.title}</DialogTitle>
+                          </DialogHeader>
+                          
+                          <div className="space-y-6">
+                            {/* Prix et badges */}
+                            <div className="flex items-center justify-between">
+                              <div className="text-3xl font-bold text-blue-600">
+                                {listing.price.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
+                              </div>
+                              <div className="flex gap-2">
+                                <Badge variant={listing.isPrivateSeller ? "default" : "secondary"}>
+                                  {listing.isPrivateSeller ? "Particulier" : "Professionnel"}
+                                </Badge>
+                                <Badge variant="outline">{listing.source}</Badge>
+                                <Badge variant="outline">{listing.type}</Badge>
+                              </div>
+                            </div>
+
+                            {/* Photos */}
+                            <div className="space-y-2">
+                              <h3 className="text-lg font-semibold flex items-center gap-2">
+                                <ImageIcon className="h-5 w-5" />
+                                Photos
+                              </h3>
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                {listing.photos && listing.photos.length > 0 ? (
+                                  listing.photos.map((photo, photoIndex) => (
+                                    <div key={photoIndex} className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
+                                      <img 
+                                        src={photo} 
+                                        alt={`Photo ${photoIndex + 1}`}
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                          e.target.src = '/placeholder.svg'
+                                        }}
+                                      />
+                                    </div>
+                                  ))
+                                ) : (
+                                  <div className="col-span-2 md:col-span-3 aspect-video bg-gray-100 rounded-lg flex items-center justify-center">
+                                    <div className="text-center text-gray-500">
+                                      <ImageIcon className="h-12 w-12 mx-auto mb-2" />
+                                      <p>Aucune photo disponible</p>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Informations détaillées */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              <div className="space-y-4">
+                                <h3 className="text-lg font-semibold">Informations</h3>
+                                <div className="space-y-3">
+                                  <div className="flex items-center gap-2">
+                                    <MapPin className="h-4 w-4 text-gray-500" />
+                                    <span className="font-medium">Localisation :</span>
+                                    <span>{listing.city} ({listing.postalCode})</span>
+                                  </div>
+                                  {listing.surface && (
+                                    <div className="flex items-center gap-2">
+                                      <Building2 className="h-4 w-4 text-gray-500" />
+                                      <span className="font-medium">Surface :</span>
+                                      <span>{listing.surface} m²</span>
+                                    </div>
+                                  )}
+                                  {listing.rooms && (
+                                    <div className="flex items-center gap-2">
+                                      <Building2 className="h-4 w-4 text-gray-500" />
+                                      <span className="font-medium">Pièces :</span>
+                                      <span>{listing.rooms} pièces</span>
+                                    </div>
+                                  )}
+                                  <div className="flex items-center gap-2">
+                                    <Calendar className="h-4 w-4 text-gray-500" />
+                                    <span className="font-medium">Publié le :</span>
+                                    <span>{new Date(listing.publishedAt).toLocaleDateString('fr-FR')}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="space-y-4">
+                                <h3 className="text-lg font-semibold">Description</h3>
+                                <div className="bg-gray-50 p-4 rounded-lg">
+                                  {listing.description ? (
+                                    <p className="text-gray-700 leading-relaxed">{listing.description}</p>
+                                  ) : (
+                                    <p className="text-gray-500 italic">Aucune description disponible</p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex gap-3 pt-4 border-t">
+                              <Button asChild className="flex-1">
+                                <a 
+                                  href={listing.url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-2"
+                                >
+                                  <ExternalLink className="h-4 w-4" />
+                                  Voir sur {listing.source}
+                                </a>
+                              </Button>
+                              <Button variant="outline" className="flex-1">
+                                <Download className="h-4 w-4 mr-2" />
+                                Sauvegarder
+                              </Button>
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                      
                       <span className="text-xs text-gray-500">
                         {new Date(listing.publishedAt).toLocaleDateString('fr-FR')}
                       </span>
