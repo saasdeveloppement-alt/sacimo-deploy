@@ -1,65 +1,14 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { OnboardingWizard } from "@/components/onboarding-wizard"
-import { motion } from "framer-motion"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  LineChart,
-  Line
-} from "recharts"
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  Users, 
-  Building2, 
-  MapPin, 
-  Calendar,
-  Download,
-  Eye,
-  Phone,
-  Mail,
-  ArrowUpRight,
-  ArrowDownRight,
-  RefreshCw
-} from "lucide-react"
-
-interface Listing {
-  source: string
-  isPrivateSeller: boolean
-  title: string
-  price: number
-  type: string
-  surface?: number
-  rooms?: number
-  photos: string[]
-  city: string
-  postalCode: string
-  publishedAt: string
-  url: string
-  description?: string
-}
+import { RefreshCw, Building2, TrendingUp, Users } from "lucide-react"
 
 export default function DashboardPage() {
-  const [isOnboardingComplete, setIsOnboardingComplete] = useState(false)
-  const [listings, setListings] = useState<Listing[]>([])
+  const [listings, setListings] = useState([])
   const [isLoading, setIsLoading] = useState(false)
-  const [lastScraping, setLastScraping] = useState<Date | null>(null)
 
-  // Charger les données de scraping
   const loadScrapingData = async () => {
     setIsLoading(true)
     try {
@@ -73,10 +22,9 @@ export default function DashboardPage() {
       if (data.success) {
         const newListings = data.data.results[0]?.listings || []
         setListings(newListings)
-        setLastScraping(new Date())
       }
     } catch (error) {
-      console.error('Erreur lors du chargement des données:', error)
+      console.error('Erreur:', error)
     } finally {
       setIsLoading(false)
     }
@@ -86,54 +34,6 @@ export default function DashboardPage() {
     loadScrapingData()
   }, [])
 
-  // Calculer les statistiques
-  const totalListings = listings.length
-  const averagePrice = listings.length > 0 
-    ? Math.round(listings.reduce((sum, listing) => sum + listing.price, 0) / listings.length)
-    : 0
-  const privateSellers = listings.filter(l => l.isPrivateSeller).length
-  const professionalSellers = listings.filter(l => !l.isPrivateSeller).length
-
-  // Données pour les graphiques
-  const hourlyData = [
-    { hour: "00h", count: 0 },
-    { hour: "02h", count: 0 },
-    { hour: "04h", count: 0 },
-    { hour: "06h", count: 0 },
-    { hour: "08h", count: 0 },
-    { hour: "10h", count: 0 },
-    { hour: "12h", count: 0 },
-    { hour: "14h", count: 0 },
-    { hour: "16h", count: 0 },
-    { hour: "18h", count: 0 },
-    { hour: "20h", count: 0 },
-    { hour: "22h", count: totalListings }
-  ]
-
-  const typeDistribution = [
-    { name: "Appartements", value: listings.filter(l => l.type === 'APARTMENT').length, color: "#3B82F6" },
-    { name: "Maisons", value: listings.filter(l => l.type === 'HOUSE').length, color: "#10B981" },
-    { name: "Studios", value: listings.filter(l => l.type === 'STUDIO').length, color: "#F59E0B" },
-    { name: "Autres", value: listings.filter(l => !['APARTMENT', 'HOUSE', 'STUDIO'].includes(l.type)).length, color: "#8B5CF6" },
-  ].filter(item => item.value > 0)
-
-  const topPostalCodes = listings
-    .reduce((acc, listing) => {
-      const existing = acc.find(item => item.code === listing.postalCode)
-      if (existing) {
-        existing.count += 1
-      } else {
-        acc.push({ code: listing.postalCode, count: 1, change: "+0%" })
-      }
-      return acc
-    }, [] as { code: string; count: number; change: string }[])
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 5)
-
-  if (!isOnboardingComplete) {
-    return <OnboardingWizard onComplete={() => setIsOnboardingComplete(true)} />
-  }
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -142,12 +42,7 @@ export default function DashboardPage() {
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Dashboard SACIMO - Test</h1>
-              <p className="text-gray-600">
-                {lastScraping 
-                  ? `Dernière mise à jour: ${lastScraping.toLocaleString('fr-FR')}`
-                  : 'Aucune donnée disponible'
-                }
-              </p>
+              <p className="text-gray-600">Système de veille immobilière automatisée</p>
               <p className="text-sm text-blue-600">🚀 Test de déploiement réussi !</p>
             </div>
             <Button 
@@ -170,7 +65,7 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Total Annonces</p>
-                  <p className="text-2xl font-bold text-gray-900">{totalListings}</p>
+                  <p className="text-2xl font-bold text-gray-900">{listings.length}</p>
                 </div>
                 <Building2 className="h-8 w-8 text-blue-600" />
               </div>
@@ -183,7 +78,10 @@ export default function DashboardPage() {
                 <div>
                   <p className="text-sm font-medium text-gray-600">Prix Moyen</p>
                   <p className="text-2xl font-bold text-gray-900">
-                    {averagePrice.toLocaleString('fr-FR')}€
+                    {listings.length > 0 
+                      ? Math.round(listings.reduce((sum, listing) => sum + listing.price, 0) / listings.length).toLocaleString('fr-FR') + '€'
+                      : '0€'
+                    }
                   </p>
                 </div>
                 <TrendingUp className="h-8 w-8 text-green-600" />
@@ -196,7 +94,9 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Particuliers</p>
-                  <p className="text-2xl font-bold text-gray-900">{privateSellers}</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {listings.filter(l => l.isPrivateSeller).length}
+                  </p>
                 </div>
                 <Users className="h-8 w-8 text-purple-600" />
               </div>
@@ -208,83 +108,15 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Professionnels</p>
-                  <p className="text-2xl font-bold text-gray-900">{professionalSellers}</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {listings.filter(l => !l.isPrivateSeller).length}
+                  </p>
                 </div>
                 <Building2 className="h-8 w-8 text-orange-600" />
               </div>
             </CardContent>
           </Card>
         </div>
-
-        {/* Graphiques */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Activité par heure</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={hourlyData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="hour" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#3B82F6" />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Répartition par type</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={typeDistribution}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {typeDistribution.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Top codes postaux */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Top Codes Postaux</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {topPostalCodes.map((item, index) => (
-                <div key={item.code} className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-medium text-gray-500">#{index + 1}</span>
-                    <span className="font-medium">{item.code}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">{item.count} annonces</span>
-                    <Badge variant="secondary">{item.change}</Badge>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Liste des annonces */}
         <Card>
@@ -303,11 +135,8 @@ export default function DashboardPage() {
             ) : (
               <div className="space-y-4">
                 {listings.map((listing, index) => (
-                  <motion.div
+                  <div
                     key={index}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
                     className="border rounded-lg p-4 hover:shadow-md transition-shadow"
                   >
                     <div className="flex items-start justify-between">
@@ -320,22 +149,20 @@ export default function DashboardPage() {
                           <span className="text-lg font-bold text-blue-600">
                             {listing.price.toLocaleString('fr-FR')}€
                           </span>
-                          <Badge variant={listing.isPrivateSeller ? "default" : "secondary"}>
-                            {listing.isPrivateSeller ? "Particulier" : "Professionnel"}
-                          </Badge>
-                          <Badge variant="outline">{listing.source}</Badge>
+                          <span className={`px-2 py-1 rounded text-xs ${
+                            listing.isPrivateSeller 
+                              ? 'bg-blue-100 text-blue-800' 
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {listing.isPrivateSeller ? 'Particulier' : 'Professionnel'}
+                          </span>
+                          <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-800">
+                            {listing.source}
+                          </span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Button size="sm" variant="outline">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button size="sm" variant="outline">
-                          <Phone className="h-4 w-4" />
-                        </Button>
-                      </div>
                     </div>
-                  </motion.div>
+                  </div>
                 ))}
               </div>
             )}
