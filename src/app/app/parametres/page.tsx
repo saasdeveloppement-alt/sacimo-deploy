@@ -179,6 +179,7 @@ export default function ParametresPage() {
                 <ModernCard
                   title="Informations Personnelles"
                   icon={<User className="h-5 w-5 text-purple-600" />}
+                  className="shadow-lg hover:shadow-xl transition-shadow duration-200"
                 >
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
@@ -235,6 +236,7 @@ export default function ParametresPage() {
                 <ModernCard
                   title="Mot de Passe"
                   icon={<Key className="h-5 w-5 text-blue-600" />}
+                  className="shadow-lg hover:shadow-xl transition-shadow duration-200"
                 >
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
@@ -290,6 +292,7 @@ export default function ParametresPage() {
                 <ModernCard
                   title="Préférences de Notification"
                   icon={<Bell className="h-5 w-5 text-purple-600" />}
+                  className="shadow-lg hover:shadow-xl transition-shadow duration-200"
                 >
                   <div className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -357,6 +360,7 @@ export default function ParametresPage() {
                 <ModernCard
                   title="Types de Notifications"
                   icon={<Target className="h-5 w-5 text-blue-600" />}
+                  className="shadow-lg hover:shadow-xl transition-shadow duration-200"
                 >
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-4">
@@ -421,6 +425,7 @@ export default function ParametresPage() {
                 <ModernCard
                   title="Authentification à Deux Facteurs"
                   icon={<Shield className="h-5 w-5 text-purple-600" />}
+                  className="shadow-lg hover:shadow-xl transition-shadow duration-200"
                 >
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
@@ -448,6 +453,7 @@ export default function ParametresPage() {
                 <ModernCard
                   title="Paramètres de Session"
                   icon={<Clock className="h-5 w-5 text-blue-600" />}
+                  className="shadow-lg hover:shadow-xl transition-shadow duration-200"
                 >
                   <div className="space-y-4">
                     <div className="space-y-2">
@@ -509,6 +515,7 @@ export default function ParametresPage() {
                 <ModernCard
                   title="Apparence et Interface"
                   icon={<Palette className="h-5 w-5 text-purple-600" />}
+                  className="shadow-lg hover:shadow-xl transition-shadow duration-200"
                 >
                   <div className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -548,6 +555,7 @@ export default function ParametresPage() {
                 <ModernCard
                   title="Données et Confidentialité"
                   icon={<Shield className="h-5 w-5 text-blue-600" />}
+                  className="shadow-lg hover:shadow-xl transition-shadow duration-200"
                 >
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
@@ -573,6 +581,7 @@ export default function ParametresPage() {
                 <ModernCard
                   title="Actions Dangereuses"
                   icon={<Trash2 className="h-5 w-5 text-red-600" />}
+                  className="shadow-lg hover:shadow-xl transition-shadow duration-200"
                 >
                   <div className="space-y-4">
                     <div className="p-4 bg-red-50 border border-red-200 rounded-lg">

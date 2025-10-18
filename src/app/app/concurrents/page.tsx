@@ -164,10 +164,19 @@ export default function ConcurrentsPage() {
         subtitle="Analysez la concurrence et surveillez les agences immobilières"
         icon={<Building2 className="h-8 w-8 text-purple-600" />}
         action={
-          <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200">
-            <Zap className="mr-2 h-4 w-4" />
-            Actualiser les données
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline"
+              className="border-slate-200 hover:border-purple-300 hover:text-purple-600"
+            >
+              <Building2 className="mr-2 h-4 w-4" />
+              Ajouter un concurrent
+            </Button>
+            <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200">
+              <Zap className="mr-2 h-4 w-4" />
+              Actualiser les données
+            </Button>
+          </div>
         }
       />
 

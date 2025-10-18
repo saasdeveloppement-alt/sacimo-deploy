@@ -212,7 +212,7 @@ export default function RapportsPage() {
         action={
           <div className="flex gap-2">
             <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-              <SelectTrigger className="w-40 border-slate-200 focus:border-purple-300">
+              <SelectTrigger className="w-40 border-slate-200 focus:border-purple-300 focus:ring-purple-200">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -222,6 +222,13 @@ export default function RapportsPage() {
                 <SelectItem value="90d">3 derniers mois</SelectItem>
               </SelectContent>
             </Select>
+            <Button 
+              variant="outline"
+              className="border-slate-200 hover:border-purple-300 hover:text-purple-600"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Exporter
+            </Button>
             <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200">
               <FileText className="mr-2 h-4 w-4" />
               Nouveau rapport
@@ -545,7 +552,16 @@ export default function RapportsPage() {
                                   size="sm"
                                   className="border-slate-200 hover:border-blue-300 hover:text-blue-600"
                                 >
-                                  <BarChart3 className="h-4 w-4" />
+                                  <BarChart3 className="h-4 w-4 mr-1" />
+                                  Analyser
+                                </Button>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  className="border-slate-200 hover:border-green-300 hover:text-green-600"
+                                >
+                                  <Eye className="h-4 w-4 mr-1" />
+                                  Voir
                                 </Button>
                               </div>
                             </div>

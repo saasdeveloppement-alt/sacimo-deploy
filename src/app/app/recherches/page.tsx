@@ -196,9 +196,8 @@ export default function RecherchesPage() {
         action={
           <div className="flex gap-2">
             <Button 
-              variant="outline"
               onClick={() => setShowCreateDialog(true)}
-              className="border-slate-200 hover:border-purple-300 hover:text-purple-600"
+              className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
             >
               <Plus className="mr-2 h-4 w-4" />
               Nouvelle recherche
@@ -340,7 +339,7 @@ export default function RecherchesPage() {
                   </p>
                   <Button 
                     onClick={() => setShowCreateDialog(true)}
-                    className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+                    className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     Créer une recherche
