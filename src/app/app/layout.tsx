@@ -22,7 +22,8 @@ import {
   Target,
   AlertCircle,
   Eye,
-  UserCheck
+  UserCheck,
+  Brain
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -35,6 +36,7 @@ const navigation = [
   { name: "Localisation & estimation", href: "/app/localisation", icon: MapPin },
   { name: "Rapports", href: "/app/reports", icon: BarChart3 },
   { name: "Notifications & alertes", href: "/app/notifications", icon: Bell },
+  { name: "Copilote IA", href: "/app/copilote", icon: Brain },
   { name: "Paramètres", href: "/app/settings", icon: Settings },
 ]
 
