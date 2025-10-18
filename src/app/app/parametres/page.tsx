@@ -32,7 +32,10 @@ import {
   Building2,
   Zap,
   Target,
-  BarChart3
+  BarChart3,
+  Home,
+  Clock,
+  TrendingUp
 } from "lucide-react"
 import { motion } from "framer-motion"
 
