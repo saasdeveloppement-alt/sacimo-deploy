@@ -11,10 +11,5 @@
     "env": {
       "PRISMA_GENERATE_DATAPROXY": "true"
     }
-  },
-  "functions": {
-    "src/app/api/**/*.ts": {
-      "runtime": "nodejs18.x"
-    }
   }
 }
