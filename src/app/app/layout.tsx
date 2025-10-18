@@ -17,18 +17,24 @@ import {
   Home,
   FileText,
   Building2,
-  TrendingUp
+  TrendingUp,
+  MapPin,
+  Target,
+  AlertCircle,
+  Eye,
+  UserCheck
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
 const navigation = [
   { name: "Dashboard", href: "/app/dashboard", icon: Home },
-  { name: "Recherches", href: "/app/searches", icon: Search },
-  { name: "Annonces", href: "/app/listings", icon: FileText },
+  { name: "Mes recherches", href: "/app/searches", icon: Search },
+  { name: "Piges", href: "/app/annonces", icon: Target },
+  { name: "Suivi concurrents", href: "/app/competitors", icon: Building2 },
+  { name: "Localisation & estimation", href: "/app/localisation", icon: MapPin },
   { name: "Rapports", href: "/app/reports", icon: BarChart3 },
-  { name: "Concurrents", href: "/app/competitors", icon: Building2 },
-  { name: "Analytics", href: "/app/analytics", icon: TrendingUp },
+  { name: "Notifications & alertes", href: "/app/notifications", icon: Bell },
   { name: "Paramètres", href: "/app/settings", icon: Settings },
 ]
 
