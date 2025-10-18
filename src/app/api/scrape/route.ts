@@ -80,7 +80,7 @@ export async function POST(request: Request) {
 export async function GET() {
   try {
     // Vérifier la santé des connecteurs
-    const health = await scrapingService.getConnectorsHealth()
+    const health = await scrapingService.getConnectorHealth()
 
     return NextResponse.json({
       success: true,
