@@ -4,31 +4,7 @@ import { prisma } from '@/lib/prisma'
 
 export async function POST(request: Request) {
   try {
-    const { searchId } = await request.json()
-    
-    if (!searchId) {
-      return NextResponse.json({
-        success: false,
-        message: 'ID de recherche requis'
-      }, { status: 400 })
-    }
-
-    // Vérifier que la recherche existe
-    const search = await prisma.search.findUnique({
-      where: { id: searchId }
-    })
-
-    if (!search) {
-      return NextResponse.json({
-        success: false,
-        message: 'Recherche non trouvée'
-      }, { status: 404 })
-    }
-
-    // Lancer le scraping avec les paramètres de la recherche
-    const results = await scrapingService.scrapeAll(search.params as any)
-
-    // Simuler des données de test pour LeBonCoin
+    // Simuler des données de test pour LeBonCoin (sans base de données)
     const testListings = [
       {
         source: 'LEBONCOIN',
@@ -44,6 +20,21 @@ export async function POST(request: Request) {
         publishedAt: new Date(),
         url: 'https://www.leboncoin.fr/ventes_immobilieres/1.htm',
         description: 'Beau T3 rénové, proche commodités.'
+      },
+      {
+        source: 'LEBONCOIN',
+        isPrivateSeller: false,
+        title: 'Maison 5 pièces avec jardin - Lyon',
+        price: 620000,
+        type: 'HOUSE',
+        surface: 120,
+        rooms: 5,
+        photos: ['/placeholder.svg'],
+        city: 'Lyon',
+        postalCode: '69003',
+        publishedAt: new Date(),
+        url: 'https://www.leboncoin.fr/ventes_immobilieres/2.htm',
+        description: 'Maison familiale avec grand jardin.'
       }
     ]
 
@@ -51,7 +42,7 @@ export async function POST(request: Request) {
       success: true,
       message: `Scraping terminé: ${testListings.length} nouvelles annonces trouvées`,
       data: {
-        searchId,
+        searchId: 'test-search',
         results: [{
           success: true,
           listings: testListings,
