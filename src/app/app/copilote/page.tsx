@@ -295,7 +295,7 @@ Quel type de SMS voulez-vous rédiger ?`
 **5. Fermeture (Proposition claire)**
 "Êtes-vous prêt à me faire confiance pour vendre votre bien dans les meilleures conditions ?"
 
-**💡 Adaptez selon la personnalité du vendeur !**
+**💡 Adaptez selon la personnalité du vendeur !`
     }
     
     // Réponse par défaut
