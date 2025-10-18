@@ -10,33 +10,55 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { 
   Search, 
-  Filter, 
   Plus, 
-  Play, 
-  Pause, 
+  Filter, 
+  Download, 
   Edit, 
   Trash2, 
+  Play, 
+  Pause,
   Target,
   TrendingUp,
-  Calendar,
-  MapPin,
   Building2,
-  Zap
+  MapPin,
+  Home,
+  Zap,
+  Calendar,
+  Settings,
+  Eye,
+  BarChart3,
+  Clock
 } from "lucide-react"
 import { motion } from "framer-motion"
 
 interface SearchConfig {
   id: string
   name: string
-  location: string
-  priceRange: string
-  type: string
+  description: string
   isActive: boolean
-  lastRun: Date
+  createdAt: Date
+  lastRun?: Date
+  nextRun?: Date
   results: number
-  status: 'active' | 'paused' | 'error'
+  params: {
+    postalCodes: string[]
+    priceMin?: number
+    priceMax?: number
+    types: string[]
+    surfaceMin?: number
+    surfaceMax?: number
+    roomsMin?: number
+    roomsMax?: number
+    textSearch?: string
+  }
+  notifications: {
+    email: boolean
+    push: boolean
+    frequency: 'realtime' | 'daily' | 'weekly'
+  }
 }
 
 export default function RecherchesPage() {
@@ -44,6 +66,7 @@ export default function RecherchesPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
 
   // Données de démonstration
   useEffect(() => {
@@ -51,35 +74,71 @@ export default function RecherchesPage() {
       {
         id: '1',
         name: 'Paris 2P < 500k€',
-        location: 'Paris 1er, 2e, 3e',
-        priceRange: '300k€ - 500k€',
-        type: 'Appartement',
+        description: 'Appartements 2 pièces à Paris centre, budget max 500k€',
         isActive: true,
-        lastRun: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2h ago
-        results: 12,
-        status: 'active'
+        createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+        lastRun: new Date(Date.now() - 2 * 60 * 60 * 1000),
+        nextRun: new Date(Date.now() + 4 * 60 * 60 * 1000),
+        results: 23,
+        params: {
+          postalCodes: ['75001', '75002', '75003'],
+          priceMax: 500000,
+          types: ['APARTMENT'],
+          roomsMin: 2,
+          roomsMax: 2,
+          textSearch: 'balcon ou terrasse'
+        },
+        notifications: {
+          email: true,
+          push: true,
+          frequency: 'realtime'
+        }
       },
       {
         id: '2',
-        name: 'Lyon Maisons Centre',
-        location: 'Lyon 1er, 2e, 3e',
-        priceRange: '400k€ - 800k€',
-        type: 'Maison',
-        isActive: false,
-        lastRun: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1j ago
-        results: 8,
-        status: 'paused'
+        name: 'Lyon Maisons 4P+',
+        description: 'Maisons 4 pièces et plus à Lyon, surface min 100m²',
+        isActive: true,
+        createdAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000),
+        lastRun: new Date(Date.now() - 6 * 60 * 60 * 1000),
+        nextRun: new Date(Date.now() + 2 * 60 * 60 * 1000),
+        results: 15,
+        params: {
+          postalCodes: ['69001', '69002', '69003', '69004', '69005'],
+          priceMin: 300000,
+          priceMax: 800000,
+          types: ['HOUSE'],
+          roomsMin: 4,
+          surfaceMin: 100
+        },
+        notifications: {
+          email: true,
+          push: false,
+          frequency: 'daily'
+        }
       },
       {
         id: '3',
-        name: 'Marseille Studios',
-        location: 'Marseille 1er, 2e',
-        priceRange: '150k€ - 300k€',
-        type: 'Studio',
-        isActive: true,
-        lastRun: new Date(Date.now() - 30 * 60 * 1000), // 30min ago
-        results: 25,
-        status: 'active'
+        name: 'Marseille Investissement',
+        description: 'Biens d\'investissement à Marseille, rendement locatif',
+        isActive: false,
+        createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+        lastRun: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+        nextRun: undefined,
+        results: 8,
+        params: {
+          postalCodes: ['13001', '13002', '13003'],
+          priceMin: 150000,
+          priceMax: 400000,
+          types: ['APARTMENT', 'STUDIO'],
+          surfaceMin: 25,
+          surfaceMax: 60
+        },
+        notifications: {
+          email: false,
+          push: true,
+          frequency: 'weekly'
+        }
       }
     ]
     setSearches(mockSearches)
@@ -87,38 +146,43 @@ export default function RecherchesPage() {
 
   const filteredSearches = searches.filter(search => {
     const matchesSearch = search.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         search.location.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = statusFilter === "all" || search.status === statusFilter
+                         search.description.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesStatus = statusFilter === "all" || 
+      (statusFilter === "active" && search.isActive) ||
+      (statusFilter === "inactive" && !search.isActive)
     return matchesSearch && matchesStatus
   })
 
   const activeSearches = searches.filter(s => s.isActive).length
   const totalResults = searches.reduce((sum, s) => sum + s.results, 0)
   const avgResults = searches.length > 0 ? Math.round(totalResults / searches.length) : 0
+  const totalSearches = searches.length
 
   const toggleSearch = (id: string) => {
     setSearches(prev => prev.map(search => 
-      search.id === id 
-        ? { ...search, isActive: !search.isActive, status: !search.isActive ? 'active' : 'paused' }
-        : search
+      search.id === id ? { ...search, isActive: !search.isActive } : search
     ))
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active': return 'bg-green-100 text-green-700 border-green-200'
-      case 'paused': return 'bg-yellow-100 text-yellow-700 border-yellow-200'
-      case 'error': return 'bg-red-100 text-red-700 border-red-200'
-      default: return 'bg-slate-100 text-slate-700 border-slate-200'
+  const deleteSearch = (id: string) => {
+    setSearches(prev => prev.filter(search => search.id !== id))
+  }
+
+  const getFrequencyText = (frequency: string) => {
+    switch (frequency) {
+      case 'realtime': return 'Temps réel'
+      case 'daily': return 'Quotidien'
+      case 'weekly': return 'Hebdomadaire'
+      default: return 'Inconnu'
     }
   }
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'active': return 'Actif'
-      case 'paused': return 'En pause'
-      case 'error': return 'Erreur'
-      default: return 'Inconnu'
+  const getFrequencyColor = (frequency: string) => {
+    switch (frequency) {
+      case 'realtime': return 'bg-green-100 text-green-700 border-green-200'
+      case 'daily': return 'bg-blue-100 text-blue-700 border-blue-200'
+      case 'weekly': return 'bg-yellow-100 text-yellow-700 border-yellow-200'
+      default: return 'bg-slate-100 text-slate-700 border-slate-200'
     }
   }
 
@@ -127,13 +191,23 @@ export default function RecherchesPage() {
       {/* Header */}
       <SectionHeader
         title="Mes recherches"
-        subtitle="Gérez vos recherches automatisées et suivez les nouvelles annonces"
-        icon={<Target className="h-8 w-8 text-purple-600" />}
+        subtitle="Gérez vos recherches automatisées et surveillez le marché"
+        icon={<Search className="h-8 w-8 text-purple-600" />}
         action={
-          <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200">
-            <Plus className="mr-2 h-4 w-4" />
-            Nouvelle recherche
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline"
+              onClick={() => setShowCreateDialog(true)}
+              className="border-slate-200 hover:border-purple-300 hover:text-purple-600"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Nouvelle recherche
+            </Button>
+            <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200">
+              <Settings className="mr-2 h-4 w-4" />
+              Paramètres
+            </Button>
+          </div>
         }
       />
 
@@ -152,7 +226,7 @@ export default function RecherchesPage() {
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
                     <Input
-                      placeholder="Rechercher par nom ou localisation..."
+                      placeholder="Rechercher par nom ou description..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="pl-10 bg-white/80 border-slate-200 focus:border-purple-300 focus:ring-purple-200"
@@ -168,9 +242,8 @@ export default function RecherchesPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Tous les statuts</SelectItem>
-                      <SelectItem value="active">Actif</SelectItem>
-                      <SelectItem value="paused">En pause</SelectItem>
-                      <SelectItem value="error">Erreur</SelectItem>
+                      <SelectItem value="active">Actives</SelectItem>
+                      <SelectItem value="inactive">Inactives</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -189,6 +262,14 @@ export default function RecherchesPage() {
                     >
                       Réinitialiser
                     </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      className="border-slate-200 hover:border-purple-300 hover:text-purple-600"
+                    >
+                      <Download className="h-4 w-4 mr-1" />
+                      Exporter
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -203,13 +284,13 @@ export default function RecherchesPage() {
 
           {/* KPIs */}
           <motion.div 
-            className="grid grid-cols-1 md:grid-cols-3 gap-6"
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
             variants={staggerChildren}
           >
             <MetricCard
               title="Recherches Actives"
               value={activeSearches}
-              icon={Zap}
+              icon={Search}
               color="from-purple-500 to-purple-600"
               bgColor="bg-purple-50"
               textColor="text-purple-700"
@@ -217,7 +298,7 @@ export default function RecherchesPage() {
             <MetricCard
               title="Total Résultats"
               value={totalResults}
-              icon={TrendingUp}
+              icon={Target}
               color="from-blue-500 to-blue-600"
               bgColor="bg-blue-50"
               textColor="text-blue-700"
@@ -225,10 +306,18 @@ export default function RecherchesPage() {
             <MetricCard
               title="Moyenne par Recherche"
               value={avgResults}
-              icon={Target}
+              icon={TrendingUp}
               color="from-cyan-500 to-cyan-600"
               bgColor="bg-cyan-50"
               textColor="text-cyan-700"
+            />
+            <MetricCard
+              title="Total Recherches"
+              value={totalSearches}
+              icon={Building2}
+              color="from-emerald-500 to-emerald-600"
+              bgColor="bg-emerald-50"
+              textColor="text-emerald-700"
             />
           </motion.div>
 
@@ -236,7 +325,7 @@ export default function RecherchesPage() {
           <motion.div variants={fadeInUp}>
             <ModernCard
               title="Recherches Configurées"
-              icon={<Search className="h-5 w-5 text-emerald-600" />}
+              icon={<Search className="h-5 w-5 text-purple-600" />}
             >
               {filteredSearches.length === 0 ? (
                 <div className="text-center py-12">
@@ -247,9 +336,12 @@ export default function RecherchesPage() {
                     Aucune recherche trouvée
                   </h3>
                   <p className="text-slate-600 mb-4">
-                    Créez votre première recherche pour commencer à surveiller le marché
+                    {searches.length === 0 ? "Créez votre première recherche pour commencer" : "Aucune recherche ne correspond aux filtres"}
                   </p>
-                  <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white">
+                  <Button 
+                    onClick={() => setShowCreateDialog(true)}
+                    className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+                  >
                     <Plus className="h-4 w-4 mr-2" />
                     Créer une recherche
                   </Button>
@@ -264,67 +356,102 @@ export default function RecherchesPage() {
                       transition={{ duration: 0.2 }}
                     >
                       <div className="p-6 rounded-xl bg-slate-50/50 hover:bg-slate-100/50 transition-colors border border-slate-200/60">
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-3">
+                            <div className="flex items-center gap-3 mb-4">
                               <h3 className="text-lg font-semibold text-slate-900">{search.name}</h3>
-                              <Badge className={getStatusColor(search.status)}>
-                                {getStatusText(search.status)}
+                              <Badge 
+                                variant={search.isActive ? "default" : "secondary"}
+                                className={search.isActive ? "bg-green-100 text-green-700 border-green-200" : "bg-slate-100 text-slate-700 border-slate-200"}
+                              >
+                                {search.isActive ? "Active" : "Inactive"}
+                              </Badge>
+                              <Badge className={getFrequencyColor(search.notifications.frequency)}>
+                                {getFrequencyText(search.notifications.frequency)}
                               </Badge>
                             </div>
                             
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-slate-600">
+                            <p className="text-slate-600 mb-4">{search.description}</p>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-slate-600 mb-4">
                               <div className="flex items-center gap-2">
                                 <MapPin className="h-4 w-4 text-slate-400" />
-                                <span className="font-medium">Zone :</span>
-                                <span>{search.location}</span>
+                                <span className="font-medium">Zones :</span>
+                                <span>{search.params.postalCodes.join(', ')}</span>
                               </div>
                               <div className="flex items-center gap-2">
-                                <TrendingUp className="h-4 w-4 text-slate-400" />
-                                <span className="font-medium">Prix :</span>
-                                <span>{search.priceRange}</span>
+                                <Home className="h-4 w-4 text-slate-400" />
+                                <span className="font-medium">Types :</span>
+                                <span>{search.params.types.join(', ')}</span>
                               </div>
                               <div className="flex items-center gap-2">
-                                <Building2 className="h-4 w-4 text-slate-400" />
-                                <span className="font-medium">Type :</span>
-                                <span>{search.type}</span>
+                                <Target className="h-4 w-4 text-slate-400" />
+                                <span className="font-medium">Résultats :</span>
+                                <span className="font-semibold text-purple-600">{search.results}</span>
                               </div>
                               <div className="flex items-center gap-2">
                                 <Calendar className="h-4 w-4 text-slate-400" />
-                                <span className="font-medium">Dernière exécution :</span>
-                                <span>{search.lastRun.toLocaleString('fr-FR', { 
-                                  day: '2-digit', 
-                                  month: '2-digit', 
-                                  hour: '2-digit', 
-                                  minute: '2-digit' 
-                                })}</span>
+                                <span className="font-medium">Créée :</span>
+                                <span>{search.createdAt.toLocaleDateString('fr-FR')}</span>
                               </div>
                             </div>
                             
-                            <div className="mt-4 flex items-center justify-between">
-                              <div className="flex items-center gap-4">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm font-medium text-slate-600">Résultats :</span>
-                                  <Badge variant="outline" className="border-slate-200 text-slate-600">
-                                    {search.results} annonces
-                                  </Badge>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <Switch
-                                    checked={search.isActive}
-                                    onCheckedChange={() => toggleSearch(search.id)}
-                                  />
-                                  <span className="text-sm text-slate-600">
-                                    {search.isActive ? 'Activé' : 'Désactivé'}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-4 text-sm text-slate-500">
+                                {search.lastRun && (
+                                  <span className="flex items-center gap-1">
+                                    <Clock className="h-4 w-4" />
+                                    Dernière exécution : {search.lastRun.toLocaleString('fr-FR', { 
+                                      day: '2-digit', 
+                                      month: '2-digit', 
+                                      hour: '2-digit', 
+                                      minute: '2-digit' 
+                                    })}
                                   </span>
-                                </div>
+                                )}
+                                {search.nextRun && (
+                                  <span className="flex items-center gap-1">
+                                    <Zap className="h-4 w-4" />
+                                    Prochaine exécution : {search.nextRun.toLocaleString('fr-FR', { 
+                                      day: '2-digit', 
+                                      month: '2-digit', 
+                                      hour: '2-digit', 
+                                      minute: '2-digit' 
+                                    })}
+                                  </span>
+                                )}
                               </div>
                               
                               <div className="flex gap-2">
-                                <Button variant="outline" size="sm" className="border-slate-200 hover:border-purple-300 hover:text-purple-600">
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => toggleSearch(search.id)}
+                                  className="border-slate-200 hover:border-purple-300 hover:text-purple-600"
+                                >
+                                  {search.isActive ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                                  {search.isActive ? 'Pause' : 'Activer'}
+                                </Button>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  className="border-slate-200 hover:border-blue-300 hover:text-blue-600"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  className="border-slate-200 hover:border-yellow-300 hover:text-yellow-600"
+                                >
                                   <Edit className="h-4 w-4" />
                                 </Button>
-                                <Button variant="outline" size="sm" className="border-slate-200 hover:border-red-300 hover:text-red-600">
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => deleteSearch(search.id)}
+                                  className="border-slate-200 hover:border-red-300 hover:text-red-600"
+                                >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </div>
@@ -340,6 +467,34 @@ export default function RecherchesPage() {
           </motion.div>
         </div>
       </main>
+
+      {/* Dialog de création */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-slate-900">Nouvelle Recherche</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 mt-4">
+            <div className="text-center py-8">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-purple-100 to-blue-100 flex items-center justify-center">
+                <Plus className="h-8 w-8 text-purple-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-800 mb-2">
+                Assistant de création
+              </h3>
+              <p className="text-slate-600 mb-4">
+                L'assistant de création de recherche sera bientôt disponible
+              </p>
+              <Button 
+                onClick={() => setShowCreateDialog(false)}
+                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+              >
+                Fermer
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </PageContainer>
   )
 }
