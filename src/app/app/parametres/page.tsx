@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import PageContainer, { fadeInUp, staggerChildren } from "@/components/ui/PageContainer"
 import SectionHeader from "@/components/ui/SectionHeader"
 import ModernCard from "@/components/ui/ModernCard"
+import MetricCard from "@/components/ui/MetricCard"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -35,7 +36,10 @@ import {
   BarChart3,
   Home,
   Clock,
-  TrendingUp
+  TrendingUp,
+  CheckCircle2,
+  AlertTriangle,
+  Info
 } from "lucide-react"
 import { motion } from "framer-motion"
 
@@ -152,22 +156,75 @@ export default function ParametresPage() {
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-6xl mx-auto space-y-8">
+          
+          {/* KPIs */}
+          <motion.div 
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+            variants={staggerChildren}
+          >
+            <MetricCard
+              title="Compte Actif"
+              value="Premium"
+              icon={User}
+              color="from-purple-500 to-purple-600"
+              bgColor="bg-purple-50"
+              textColor="text-purple-700"
+            />
+            <MetricCard
+              title="Notifications"
+              value={notifications.email && notifications.push ? "Activées" : "Partielles"}
+              icon={Bell}
+              color="from-blue-500 to-blue-600"
+              bgColor="bg-blue-50"
+              textColor="text-blue-700"
+            />
+            <MetricCard
+              title="Sécurité"
+              value={security.twoFactor ? "Renforcée" : "Standard"}
+              icon={Shield}
+              color="from-cyan-500 to-cyan-600"
+              bgColor="bg-cyan-50"
+              textColor="text-cyan-700"
+            />
+            <MetricCard
+              title="Dernière MAJ"
+              value="Aujourd'hui"
+              icon={Clock}
+              color="from-emerald-500 to-emerald-600"
+              bgColor="bg-emerald-50"
+              textColor="text-emerald-700"
+            />
+          </motion.div>
+
+          {/* Tabs */}
           <Tabs defaultValue="profile" className="space-y-8">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="profile" className="flex items-center gap-2">
+            <TabsList className="grid w-full grid-cols-4 bg-slate-100 p-1 rounded-lg">
+              <TabsTrigger 
+                value="profile" 
+                className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+              >
                 <User className="h-4 w-4" />
                 Profil
               </TabsTrigger>
-              <TabsTrigger value="notifications" className="flex items-center gap-2">
+              <TabsTrigger 
+                value="notifications" 
+                className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+              >
                 <Bell className="h-4 w-4" />
                 Notifications
               </TabsTrigger>
-              <TabsTrigger value="security" className="flex items-center gap-2">
+              <TabsTrigger 
+                value="security" 
+                className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+              >
                 <Shield className="h-4 w-4" />
                 Sécurité
               </TabsTrigger>
-              <TabsTrigger value="preferences" className="flex items-center gap-2">
+              <TabsTrigger 
+                value="preferences" 
+                className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+              >
                 <Palette className="h-4 w-4" />
                 Préférences
               </TabsTrigger>
@@ -183,7 +240,7 @@ export default function ParametresPage() {
                 >
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <Label htmlFor="name">Nom complet</Label>
+                      <Label htmlFor="name" className="text-sm font-medium text-slate-700">Nom complet</Label>
                       <Input
                         id="name"
                         value={profile.name}
@@ -192,7 +249,7 @@ export default function ParametresPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="email">Email</Label>
+                      <Label htmlFor="email" className="text-sm font-medium text-slate-700">Email</Label>
                       <Input
                         id="email"
                         type="email"
@@ -202,7 +259,7 @@ export default function ParametresPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="phone">Téléphone</Label>
+                      <Label htmlFor="phone" className="text-sm font-medium text-slate-700">Téléphone</Label>
                       <Input
                         id="phone"
                         value={profile.phone || ''}
@@ -211,7 +268,7 @@ export default function ParametresPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="role">Rôle</Label>
+                      <Label htmlFor="role" className="text-sm font-medium text-slate-700">Rôle</Label>
                       <Input
                         id="role"
                         value={profile.role}
@@ -220,7 +277,7 @@ export default function ParametresPage() {
                       />
                     </div>
                     <div className="space-y-2 md:col-span-2">
-                      <Label htmlFor="agency">Agence</Label>
+                      <Label htmlFor="agency" className="text-sm font-medium text-slate-700">Agence</Label>
                       <Input
                         id="agency"
                         value={profile.agency}
@@ -240,7 +297,7 @@ export default function ParametresPage() {
                 >
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <Label htmlFor="current-password">Mot de passe actuel</Label>
+                      <Label htmlFor="current-password" className="text-sm font-medium text-slate-700">Mot de passe actuel</Label>
                       <div className="relative">
                         <Input
                           id="current-password"
@@ -259,7 +316,7 @@ export default function ParametresPage() {
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="new-password">Nouveau mot de passe</Label>
+                      <Label htmlFor="new-password" className="text-sm font-medium text-slate-700">Nouveau mot de passe</Label>
                       <Input
                         id="new-password"
                         type="password"
@@ -267,7 +324,7 @@ export default function ParametresPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="confirm-password">Confirmer le mot de passe</Label>
+                      <Label htmlFor="confirm-password" className="text-sm font-medium text-slate-700">Confirmer le mot de passe</Label>
                       <Input
                         id="confirm-password"
                         type="password"
@@ -275,7 +332,7 @@ export default function ParametresPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Force du mot de passe</Label>
+                      <Label className="text-sm font-medium text-slate-700">Force du mot de passe</Label>
                       <div className="w-full bg-slate-200 rounded-full h-2">
                         <div className="bg-green-500 h-2 rounded-full" style={{ width: '75%' }}></div>
                       </div>
@@ -299,7 +356,7 @@ export default function ParametresPage() {
                       <div className="space-y-4">
                         <h3 className="text-lg font-semibold text-slate-800">Canaux de notification</h3>
                         <div className="space-y-3">
-                          <div className="flex items-center justify-between">
+                          <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
                             <div className="flex items-center gap-3">
                               <Mail className="h-5 w-5 text-slate-400" />
                               <span className="font-medium">Email</span>
@@ -309,7 +366,7 @@ export default function ParametresPage() {
                               onCheckedChange={(checked) => setNotifications(prev => ({ ...prev, email: checked }))}
                             />
                           </div>
-                          <div className="flex items-center justify-between">
+                          <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
                             <div className="flex items-center gap-3">
                               <Bell className="h-5 w-5 text-slate-400" />
                               <span className="font-medium">Notifications push</span>
@@ -319,7 +376,7 @@ export default function ParametresPage() {
                               onCheckedChange={(checked) => setNotifications(prev => ({ ...prev, push: checked }))}
                             />
                           </div>
-                          <div className="flex items-center justify-between">
+                          <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
                             <div className="flex items-center gap-3">
                               <Phone className="h-5 w-5 text-slate-400" />
                               <span className="font-medium">SMS</span>
@@ -335,7 +392,7 @@ export default function ParametresPage() {
                       <div className="space-y-4">
                         <h3 className="text-lg font-semibold text-slate-800">Fréquence</h3>
                         <div className="space-y-3">
-                          <Label htmlFor="frequency">Fréquence des notifications</Label>
+                          <Label htmlFor="frequency" className="text-sm font-medium text-slate-700">Fréquence des notifications</Label>
                           <Select 
                             value={notifications.frequency} 
                             onValueChange={(value: any) => setNotifications(prev => ({ ...prev, frequency: value }))}
@@ -366,7 +423,7 @@ export default function ParametresPage() {
                     <div className="space-y-4">
                       <h3 className="text-lg font-semibold text-slate-800">Immobilier</h3>
                       <div className="space-y-3">
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
                           <div className="flex items-center gap-3">
                             <Home className="h-5 w-5 text-slate-400" />
                             <span className="font-medium">Nouvelles annonces</span>
@@ -376,7 +433,7 @@ export default function ParametresPage() {
                             onCheckedChange={(checked) => setNotifications(prev => ({ ...prev, newListings: checked }))}
                           />
                         </div>
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
                           <div className="flex items-center gap-3">
                             <TrendingUp className="h-5 w-5 text-slate-400" />
                             <span className="font-medium">Baisses de prix</span>
@@ -386,7 +443,7 @@ export default function ParametresPage() {
                             onCheckedChange={(checked) => setNotifications(prev => ({ ...prev, priceDrops: checked }))}
                           />
                         </div>
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
                           <div className="flex items-center gap-3">
                             <BarChart3 className="h-5 w-5 text-slate-400" />
                             <span className="font-medium">Alertes marché</span>
@@ -402,7 +459,7 @@ export default function ParametresPage() {
                     <div className="space-y-4">
                       <h3 className="text-lg font-semibold text-slate-800">Système</h3>
                       <div className="space-y-3">
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
                           <div className="flex items-center gap-3">
                             <Settings className="h-5 w-5 text-slate-400" />
                             <span className="font-medium">Mises à jour système</span>
@@ -428,7 +485,7 @@ export default function ParametresPage() {
                   className="shadow-lg hover:shadow-xl transition-shadow duration-200"
                 >
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
                       <div>
                         <h3 className="text-lg font-semibold text-slate-800">2FA Activé</h3>
                         <p className="text-slate-600">Protégez votre compte avec une authentification à deux facteurs</p>
@@ -440,9 +497,12 @@ export default function ParametresPage() {
                     </div>
                     {security.twoFactor && (
                       <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                        <p className="text-sm text-green-700">
-                          ✅ L'authentification à deux facteurs est activée. Votre compte est mieux protégé.
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="h-5 w-5 text-green-600" />
+                          <p className="text-sm text-green-700">
+                            L'authentification à deux facteurs est activée. Votre compte est mieux protégé.
+                          </p>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -457,7 +517,7 @@ export default function ParametresPage() {
                 >
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="session-timeout">Délai d'expiration de session (minutes)</Label>
+                      <Label htmlFor="session-timeout" className="text-sm font-medium text-slate-700">Délai d'expiration de session (minutes)</Label>
                       <Select 
                         value={security.sessionTimeout.toString()} 
                         onValueChange={(value) => setSecurity(prev => ({ ...prev, sessionTimeout: parseInt(value) }))}
@@ -476,7 +536,7 @@ export default function ParametresPage() {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="password-expiry">Expiration du mot de passe (jours)</Label>
+                      <Label htmlFor="password-expiry" className="text-sm font-medium text-slate-700">Expiration du mot de passe (jours)</Label>
                       <Select 
                         value={security.passwordExpiry.toString()} 
                         onValueChange={(value) => setSecurity(prev => ({ ...prev, passwordExpiry: parseInt(value) }))}
@@ -494,7 +554,7 @@ export default function ParametresPage() {
                       </Select>
                     </div>
                     
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
                       <div>
                         <h3 className="text-lg font-semibold text-slate-800">Alertes de connexion</h3>
                         <p className="text-slate-600">Recevez une notification lors de nouvelles connexions</p>
@@ -520,7 +580,7 @@ export default function ParametresPage() {
                   <div className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
-                        <Label htmlFor="theme">Thème</Label>
+                        <Label htmlFor="theme" className="text-sm font-medium text-slate-700">Thème</Label>
                         <Select defaultValue="light">
                           <SelectTrigger className="border-slate-200 focus:border-purple-300">
                             <SelectValue />
@@ -534,7 +594,7 @@ export default function ParametresPage() {
                       </div>
                       
                       <div className="space-y-2">
-                        <Label htmlFor="language">Langue</Label>
+                        <Label htmlFor="language" className="text-sm font-medium text-slate-700">Langue</Label>
                         <Select defaultValue="fr">
                           <SelectTrigger className="border-slate-200 focus:border-purple-300">
                             <SelectValue />
@@ -558,7 +618,7 @@ export default function ParametresPage() {
                   className="shadow-lg hover:shadow-xl transition-shadow duration-200"
                 >
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
                       <div>
                         <h3 className="text-lg font-semibold text-slate-800">Partage de données</h3>
                         <p className="text-slate-600">Autoriser le partage de données anonymisées pour améliorer le service</p>
@@ -566,7 +626,7 @@ export default function ParametresPage() {
                       <Switch defaultChecked />
                     </div>
                     
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
                       <div>
                         <h3 className="text-lg font-semibold text-slate-800">Cookies analytiques</h3>
                         <p className="text-slate-600">Accepter les cookies pour l'analyse d'usage</p>
@@ -581,11 +641,14 @@ export default function ParametresPage() {
                 <ModernCard
                   title="Actions Dangereuses"
                   icon={<Trash2 className="h-5 w-5 text-red-600" />}
-                  className="shadow-lg hover:shadow-xl transition-shadow duration-200"
+                  className="shadow-lg hover:shadow-xl transition-shadow duration-200 border-red-200"
                 >
                   <div className="space-y-4">
                     <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                      <h3 className="text-lg font-semibold text-red-800 mb-2">Supprimer le compte</h3>
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertTriangle className="h-5 w-5 text-red-600" />
+                        <h3 className="text-lg font-semibold text-red-800">Supprimer le compte</h3>
+                      </div>
                       <p className="text-red-700 mb-4">
                         Cette action est irréversible. Toutes vos données seront définitivement supprimées.
                       </p>
