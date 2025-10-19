@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import Link from "next/link"
 import { 
   Settings, 
   User, 
@@ -39,7 +40,13 @@ import {
   TrendingUp,
   CheckCircle2,
   AlertTriangle,
-  Info
+  Info,
+  Plus,
+  ArrowRight,
+  Users,
+  FileText,
+  Brain,
+  Lightbulb
 } from "lucide-react"
 import { motion } from "framer-motion"
 
@@ -117,6 +124,11 @@ export default function ParametresPage() {
     console.log("Import des paramètres")
   }
 
+  // Calculs pour les KPIs
+  const activeNotifications = (notifications.email ? 1 : 0) + (notifications.push ? 1 : 0) + (notifications.sms ? 1 : 0)
+  const securityLevel = security.twoFactor ? "Renforcée" : "Standard"
+  const lastUpdate = "Aujourd'hui"
+
   return (
     <PageContainer>
       {/* Header */}
@@ -156,9 +168,9 @@ export default function ParametresPage() {
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-        <div className="max-w-6xl mx-auto space-y-8">
+        <div className="max-w-7xl mx-auto space-y-8">
           
-          {/* KPIs */}
+          {/* KPIs Généraux */}
           <motion.div 
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
             variants={staggerChildren}
@@ -173,7 +185,7 @@ export default function ParametresPage() {
             />
             <MetricCard
               title="Notifications"
-              value={notifications.email && notifications.push ? "Activées" : "Partielles"}
+              value={activeNotifications}
               icon={Bell}
               color="from-blue-500 to-blue-600"
               bgColor="bg-blue-50"
@@ -181,7 +193,7 @@ export default function ParametresPage() {
             />
             <MetricCard
               title="Sécurité"
-              value={security.twoFactor ? "Renforcée" : "Standard"}
+              value={securityLevel}
               icon={Shield}
               color="from-cyan-500 to-cyan-600"
               bgColor="bg-cyan-50"
@@ -189,7 +201,7 @@ export default function ParametresPage() {
             />
             <MetricCard
               title="Dernière MAJ"
-              value="Aujourd'hui"
+              value={lastUpdate}
               icon={Clock}
               color="from-emerald-500 to-emerald-600"
               bgColor="bg-emerald-50"
@@ -197,471 +209,371 @@ export default function ParametresPage() {
             />
           </motion.div>
 
-          {/* Tabs */}
-          <Tabs defaultValue="profile" className="space-y-8">
-            <TabsList className="grid w-full grid-cols-4 bg-slate-100 p-1 rounded-lg">
-              <TabsTrigger 
-                value="profile" 
-                className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+          {/* Grille des modules */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            
+            {/* BLOC 1 - Profil */}
+            <motion.div variants={fadeInUp}>
+              <ModernCard
+                title="Informations Personnelles"
+                icon={<User className="h-5 w-5 text-purple-600" />}
+                className="h-full"
               >
-                <User className="h-4 w-4" />
-                Profil
-              </TabsTrigger>
-              <TabsTrigger 
-                value="notifications" 
-                className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
-              >
-                <Bell className="h-4 w-4" />
-                Notifications
-              </TabsTrigger>
-              <TabsTrigger 
-                value="security" 
-                className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
-              >
-                <Shield className="h-4 w-4" />
-                Sécurité
-              </TabsTrigger>
-              <TabsTrigger 
-                value="preferences" 
-                className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
-              >
-                <Palette className="h-4 w-4" />
-                Préférences
-              </TabsTrigger>
-            </TabsList>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-2xl font-bold text-slate-900">{profile.name}</p>
+                      <p className="text-sm text-slate-600">{profile.role}</p>
+                    </div>
+                    <Badge variant="secondary" className="bg-purple-100 text-purple-700 border-purple-200">
+                      {profile.agency}
+                    </Badge>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="p-3 bg-slate-50 rounded-lg">
+                      <p className="text-sm font-medium text-slate-900">Email</p>
+                      <p className="text-xs text-slate-600">{profile.email}</p>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-lg">
+                      <p className="text-sm font-medium text-slate-900">Téléphone</p>
+                      <p className="text-xs text-slate-600">{profile.phone || 'Non renseigné'}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1 border-slate-200 hover:border-purple-300 hover:text-purple-600"
+                    >
+                      <Eye className="mr-2 h-4 w-4" />
+                      Voir profil
+                    </Button>
+                    <Button className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white border-0">
+                      <User className="mr-2 h-4 w-4" />
+                      Modifier
+                    </Button>
+                  </div>
+                </div>
+              </ModernCard>
+            </motion.div>
 
-            {/* Profil */}
-            <TabsContent value="profile" className="space-y-6">
-              <motion.div variants={fadeInUp}>
-                <ModernCard
-                  title="Informations Personnelles"
-                  icon={<User className="h-5 w-5 text-purple-600" />}
-                  className="shadow-lg hover:shadow-xl transition-shadow duration-200"
-                >
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="name" className="text-sm font-medium text-slate-700">Nom complet</Label>
-                      <Input
-                        id="name"
-                        value={profile.name}
-                        onChange={(e) => setProfile(prev => ({ ...prev, name: e.target.value }))}
-                        className="border-slate-200 focus:border-purple-300 focus:ring-purple-200"
+            {/* BLOC 2 - Notifications */}
+            <motion.div variants={fadeInUp}>
+              <ModernCard
+                title="Préférences Notifications"
+                icon={<Bell className="h-5 w-5 text-blue-600" />}
+                className="h-full"
+              >
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-2xl font-bold text-slate-900">{activeNotifications}</p>
+                      <p className="text-sm text-slate-600">canaux actifs</p>
+                    </div>
+                    <Badge variant="secondary" className="bg-blue-100 text-blue-700 border-blue-200">
+                      {notifications.frequency}
+                    </Badge>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Mail className="h-4 w-4 text-slate-400" />
+                        <span className="text-sm font-medium text-slate-900">Email</span>
+                      </div>
+                      <Switch
+                        checked={notifications.email}
+                        onCheckedChange={(checked) => setNotifications(prev => ({ ...prev, email: checked }))}
+                        size="sm"
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="email" className="text-sm font-medium text-slate-700">Email</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={profile.email}
-                        onChange={(e) => setProfile(prev => ({ ...prev, email: e.target.value }))}
-                        className="border-slate-200 focus:border-purple-300 focus:ring-purple-200"
+                    <div className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Bell className="h-4 w-4 text-slate-400" />
+                        <span className="text-sm font-medium text-slate-900">Push</span>
+                      </div>
+                      <Switch
+                        checked={notifications.push}
+                        onCheckedChange={(checked) => setNotifications(prev => ({ ...prev, push: checked }))}
+                        size="sm"
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="phone" className="text-sm font-medium text-slate-700">Téléphone</Label>
-                      <Input
-                        id="phone"
-                        value={profile.phone || ''}
-                        onChange={(e) => setProfile(prev => ({ ...prev, phone: e.target.value }))}
-                        className="border-slate-200 focus:border-purple-300 focus:ring-purple-200"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="role" className="text-sm font-medium text-slate-700">Rôle</Label>
-                      <Input
-                        id="role"
-                        value={profile.role}
-                        disabled
-                        className="border-slate-200 bg-slate-50"
-                      />
-                    </div>
-                    <div className="space-y-2 md:col-span-2">
-                      <Label htmlFor="agency" className="text-sm font-medium text-slate-700">Agence</Label>
-                      <Input
-                        id="agency"
-                        value={profile.agency}
-                        disabled
-                        className="border-slate-200 bg-slate-50"
+                    <div className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Phone className="h-4 w-4 text-slate-400" />
+                        <span className="text-sm font-medium text-slate-900">SMS</span>
+                      </div>
+                      <Switch
+                        checked={notifications.sms}
+                        onCheckedChange={(checked) => setNotifications(prev => ({ ...prev, sms: checked }))}
+                        size="sm"
                       />
                     </div>
                   </div>
-                </ModernCard>
-              </motion.div>
+                  
+                  <Link href="/app/notifications">
+                    <Button className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white border-0">
+                      <Bell className="mr-2 h-4 w-4" />
+                      Configurer
+                    </Button>
+                  </Link>
+                </div>
+              </ModernCard>
+            </motion.div>
 
-              <motion.div variants={fadeInUp}>
-                <ModernCard
-                  title="Mot de Passe"
-                  icon={<Key className="h-5 w-5 text-blue-600" />}
-                  className="shadow-lg hover:shadow-xl transition-shadow duration-200"
-                >
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="current-password" className="text-sm font-medium text-slate-700">Mot de passe actuel</Label>
-                      <div className="relative">
-                        <Input
-                          id="current-password"
-                          type={showPassword ? "text" : "password"}
-                          className="border-slate-200 focus:border-purple-300 focus:ring-purple-200 pr-10"
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                          onClick={() => setShowPassword(!showPassword)}
-                        >
-                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </Button>
-                      </div>
+            {/* BLOC 3 - Sécurité */}
+            <motion.div variants={fadeInUp}>
+              <ModernCard
+                title="Sécurité du Compte"
+                icon={<Shield className="h-5 w-5 text-emerald-600" />}
+                className="h-full"
+              >
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-2xl font-bold text-slate-900">{securityLevel}</p>
+                      <p className="text-sm text-slate-600">niveau de sécurité</p>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="new-password" className="text-sm font-medium text-slate-700">Nouveau mot de passe</Label>
-                      <Input
-                        id="new-password"
-                        type="password"
-                        className="border-slate-200 focus:border-purple-300 focus:ring-purple-200"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="confirm-password" className="text-sm font-medium text-slate-700">Confirmer le mot de passe</Label>
-                      <Input
-                        id="confirm-password"
-                        type="password"
-                        className="border-slate-200 focus:border-purple-300 focus:ring-purple-200"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium text-slate-700">Force du mot de passe</Label>
-                      <div className="w-full bg-slate-200 rounded-full h-2">
-                        <div className="bg-green-500 h-2 rounded-full" style={{ width: '75%' }}></div>
-                      </div>
-                      <p className="text-sm text-slate-600">Fort</p>
-                    </div>
+                    <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 border-emerald-200">
+                      {security.sessionTimeout}min
+                    </Badge>
                   </div>
-                </ModernCard>
-              </motion.div>
-            </TabsContent>
-
-            {/* Notifications */}
-            <TabsContent value="notifications" className="space-y-6">
-              <motion.div variants={fadeInUp}>
-                <ModernCard
-                  title="Préférences de Notification"
-                  icon={<Bell className="h-5 w-5 text-purple-600" />}
-                  className="shadow-lg hover:shadow-xl transition-shadow duration-200"
-                >
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-4">
-                        <h3 className="text-lg font-semibold text-slate-800">Canaux de notification</h3>
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                            <div className="flex items-center gap-3">
-                              <Mail className="h-5 w-5 text-slate-400" />
-                              <span className="font-medium">Email</span>
-                            </div>
-                            <Switch
-                              checked={notifications.email}
-                              onCheckedChange={(checked) => setNotifications(prev => ({ ...prev, email: checked }))}
-                            />
-                          </div>
-                          <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                            <div className="flex items-center gap-3">
-                              <Bell className="h-5 w-5 text-slate-400" />
-                              <span className="font-medium">Notifications push</span>
-                            </div>
-                            <Switch
-                              checked={notifications.push}
-                              onCheckedChange={(checked) => setNotifications(prev => ({ ...prev, push: checked }))}
-                            />
-                          </div>
-                          <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                            <div className="flex items-center gap-3">
-                              <Phone className="h-5 w-5 text-slate-400" />
-                              <span className="font-medium">SMS</span>
-                            </div>
-                            <Switch
-                              checked={notifications.sms}
-                              onCheckedChange={(checked) => setNotifications(prev => ({ ...prev, sms: checked }))}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-4">
-                        <h3 className="text-lg font-semibold text-slate-800">Fréquence</h3>
-                        <div className="space-y-3">
-                          <Label htmlFor="frequency" className="text-sm font-medium text-slate-700">Fréquence des notifications</Label>
-                          <Select 
-                            value={notifications.frequency} 
-                            onValueChange={(value: any) => setNotifications(prev => ({ ...prev, frequency: value }))}
-                          >
-                            <SelectTrigger className="border-slate-200 focus:border-purple-300">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="realtime">Temps réel</SelectItem>
-                              <SelectItem value="daily">Quotidien</SelectItem>
-                              <SelectItem value="weekly">Hebdomadaire</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </ModernCard>
-              </motion.div>
-
-              <motion.div variants={fadeInUp}>
-                <ModernCard
-                  title="Types de Notifications"
-                  icon={<Target className="h-5 w-5 text-blue-600" />}
-                  className="shadow-lg hover:shadow-xl transition-shadow duration-200"
-                >
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-semibold text-slate-800">Immobilier</h3>
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <Home className="h-5 w-5 text-slate-400" />
-                            <span className="font-medium">Nouvelles annonces</span>
-                          </div>
-                          <Switch
-                            checked={notifications.newListings}
-                            onCheckedChange={(checked) => setNotifications(prev => ({ ...prev, newListings: checked }))}
-                          />
-                        </div>
-                        <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <TrendingUp className="h-5 w-5 text-slate-400" />
-                            <span className="font-medium">Baisses de prix</span>
-                          </div>
-                          <Switch
-                            checked={notifications.priceDrops}
-                            onCheckedChange={(checked) => setNotifications(prev => ({ ...prev, priceDrops: checked }))}
-                          />
-                        </div>
-                        <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <BarChart3 className="h-5 w-5 text-slate-400" />
-                            <span className="font-medium">Alertes marché</span>
-                          </div>
-                          <Switch
-                            checked={notifications.marketAlerts}
-                            onCheckedChange={(checked) => setNotifications(prev => ({ ...prev, marketAlerts: checked }))}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-semibold text-slate-800">Système</h3>
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <Settings className="h-5 w-5 text-slate-400" />
-                            <span className="font-medium">Mises à jour système</span>
-                          </div>
-                          <Switch
-                            checked={notifications.systemUpdates}
-                            onCheckedChange={(checked) => setNotifications(prev => ({ ...prev, systemUpdates: checked }))}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </ModernCard>
-              </motion.div>
-            </TabsContent>
-
-            {/* Sécurité */}
-            <TabsContent value="security" className="space-y-6">
-              <motion.div variants={fadeInUp}>
-                <ModernCard
-                  title="Authentification à Deux Facteurs"
-                  icon={<Shield className="h-5 w-5 text-purple-600" />}
-                  className="shadow-lg hover:shadow-xl transition-shadow duration-200"
-                >
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
-                      <div>
-                        <h3 className="text-lg font-semibold text-slate-800">2FA Activé</h3>
-                        <p className="text-slate-600">Protégez votre compte avec une authentification à deux facteurs</p>
+                  
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Shield className="h-4 w-4 text-slate-400" />
+                        <span className="text-sm font-medium text-slate-900">2FA Activé</span>
                       </div>
                       <Switch
                         checked={security.twoFactor}
                         onCheckedChange={(checked) => setSecurity(prev => ({ ...prev, twoFactor: checked }))}
+                        size="sm"
                       />
                     </div>
-                    {security.twoFactor && (
-                      <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                        <div className="flex items-center gap-2">
-                          <CheckCircle2 className="h-5 w-5 text-green-600" />
-                          <p className="text-sm text-green-700">
-                            L'authentification à deux facteurs est activée. Votre compte est mieux protégé.
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </ModernCard>
-              </motion.div>
-
-              <motion.div variants={fadeInUp}>
-                <ModernCard
-                  title="Paramètres de Session"
-                  icon={<Clock className="h-5 w-5 text-blue-600" />}
-                  className="shadow-lg hover:shadow-xl transition-shadow duration-200"
-                >
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="session-timeout" className="text-sm font-medium text-slate-700">Délai d'expiration de session (minutes)</Label>
-                      <Select 
-                        value={security.sessionTimeout.toString()} 
-                        onValueChange={(value) => setSecurity(prev => ({ ...prev, sessionTimeout: parseInt(value) }))}
-                      >
-                        <SelectTrigger className="border-slate-200 focus:border-purple-300">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="15">15 minutes</SelectItem>
-                          <SelectItem value="30">30 minutes</SelectItem>
-                          <SelectItem value="60">1 heure</SelectItem>
-                          <SelectItem value="120">2 heures</SelectItem>
-                          <SelectItem value="480">8 heures</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="password-expiry" className="text-sm font-medium text-slate-700">Expiration du mot de passe (jours)</Label>
-                      <Select 
-                        value={security.passwordExpiry.toString()} 
-                        onValueChange={(value) => setSecurity(prev => ({ ...prev, passwordExpiry: parseInt(value) }))}
-                      >
-                        <SelectTrigger className="border-slate-200 focus:border-purple-300">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="30">30 jours</SelectItem>
-                          <SelectItem value="60">60 jours</SelectItem>
-                          <SelectItem value="90">90 jours</SelectItem>
-                          <SelectItem value="180">6 mois</SelectItem>
-                          <SelectItem value="365">1 an</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
-                      <div>
-                        <h3 className="text-lg font-semibold text-slate-800">Alertes de connexion</h3>
-                        <p className="text-slate-600">Recevez une notification lors de nouvelles connexions</p>
+                    <div className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Bell className="h-4 w-4 text-slate-400" />
+                        <span className="text-sm font-medium text-slate-900">Alertes connexion</span>
                       </div>
                       <Switch
                         checked={security.loginAlerts}
                         onCheckedChange={(checked) => setSecurity(prev => ({ ...prev, loginAlerts: checked }))}
+                        size="sm"
                       />
                     </div>
                   </div>
-                </ModernCard>
-              </motion.div>
-            </TabsContent>
+                  
+                  <Button className="w-full bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white border-0">
+                    <Shield className="mr-2 h-4 w-4" />
+                    Renforcer la sécurité
+                  </Button>
+                </div>
+              </ModernCard>
+            </motion.div>
 
-            {/* Préférences */}
-            <TabsContent value="preferences" className="space-y-6">
-              <motion.div variants={fadeInUp}>
-                <ModernCard
-                  title="Apparence et Interface"
-                  icon={<Palette className="h-5 w-5 text-purple-600" />}
-                  className="shadow-lg hover:shadow-xl transition-shadow duration-200"
-                >
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-2">
-                        <Label htmlFor="theme" className="text-sm font-medium text-slate-700">Thème</Label>
-                        <Select defaultValue="light">
-                          <SelectTrigger className="border-slate-200 focus:border-purple-300">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="light">Clair</SelectItem>
-                            <SelectItem value="dark">Sombre</SelectItem>
-                            <SelectItem value="auto">Automatique</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="language" className="text-sm font-medium text-slate-700">Langue</Label>
-                        <Select defaultValue="fr">
-                          <SelectTrigger className="border-slate-200 focus:border-purple-300">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="fr">Français</SelectItem>
-                            <SelectItem value="en">English</SelectItem>
-                            <SelectItem value="es">Español</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+            {/* BLOC 4 - Apparence */}
+            <motion.div variants={fadeInUp}>
+              <ModernCard
+                title="Apparence & Interface"
+                icon={<Palette className="h-5 w-5 text-cyan-600" />}
+                className="h-full"
+              >
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-2xl font-bold text-slate-900">Clair</p>
+                      <p className="text-sm text-slate-600">thème actuel</p>
+                    </div>
+                    <Badge variant="secondary" className="bg-cyan-100 text-cyan-700 border-cyan-200">
+                      Français
+                    </Badge>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="p-3 bg-slate-50 rounded-lg">
+                      <p className="text-sm font-medium text-slate-900">Thème</p>
+                      <p className="text-xs text-slate-600">Mode clair activé</p>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-lg">
+                      <p className="text-sm font-medium text-slate-900">Langue</p>
+                      <p className="text-xs text-slate-600">Français (FR)</p>
                     </div>
                   </div>
-                </ModernCard>
-              </motion.div>
+                  
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1 border-slate-200 hover:border-cyan-300 hover:text-cyan-600"
+                    >
+                      <Palette className="mr-2 h-4 w-4" />
+                      Personnaliser
+                    </Button>
+                    <Button className="flex-1 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white border-0">
+                      <Globe className="mr-2 h-4 w-4" />
+                      Langues
+                    </Button>
+                  </div>
+                </div>
+              </ModernCard>
+            </motion.div>
 
-              <motion.div variants={fadeInUp}>
-                <ModernCard
-                  title="Données et Confidentialité"
-                  icon={<Shield className="h-5 w-5 text-blue-600" />}
-                  className="shadow-lg hover:shadow-xl transition-shadow duration-200"
-                >
+            {/* BLOC 5 - Données */}
+            <motion.div variants={fadeInUp}>
+              <ModernCard
+                title="Données & Confidentialité"
+                icon={<FileText className="h-5 w-5 text-orange-600" />}
+                className="h-full"
+              >
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-2xl font-bold text-slate-900">2.4 GB</p>
+                      <p className="text-sm text-slate-600">données stockées</p>
+                    </div>
+                    <Badge variant="secondary" className="bg-orange-100 text-orange-700 border-orange-200">
+                      Sécurisé
+                    </Badge>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="p-3 bg-slate-50 rounded-lg">
+                      <p className="text-sm font-medium text-slate-900">Partage de données</p>
+                      <p className="text-xs text-slate-600">Autorisé pour améliorer le service</p>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-lg">
+                      <p className="text-sm font-medium text-slate-900">Cookies analytiques</p>
+                      <p className="text-xs text-slate-600">Acceptés</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1 border-slate-200 hover:border-orange-300 hover:text-orange-600"
+                    >
+                      <Download className="mr-2 h-4 w-4" />
+                      Exporter
+                    </Button>
+                    <Button className="flex-1 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white border-0">
+                      <FileText className="mr-2 h-4 w-4" />
+                      Gérer
+                    </Button>
+                  </div>
+                </div>
+              </ModernCard>
+            </motion.div>
+
+            {/* BLOC 6 - Actions Dangereuses */}
+            <motion.div variants={fadeInUp}>
+              <ModernCard
+                title="Actions Dangereuses"
+                icon={<Trash2 className="h-5 w-5 text-red-600" />}
+                className="h-full border-red-200"
+              >
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-2xl font-bold text-slate-900">⚠️</p>
+                      <p className="text-sm text-slate-600">zone de danger</p>
+                    </div>
+                    <Badge variant="secondary" className="bg-red-100 text-red-700 border-red-200">
+                      Irréversible
+                    </Badge>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <p className="text-sm font-medium text-red-800">Supprimer le compte</p>
+                      <p className="text-xs text-red-600">Toutes les données seront perdues</p>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-lg">
+                      <p className="text-sm font-medium text-slate-900">Réinitialiser les paramètres</p>
+                      <p className="text-xs text-slate-600">Retour aux valeurs par défaut</p>
+                    </div>
+                  </div>
+                  
+                  <Button 
+                    variant="destructive" 
+                    className="w-full"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Supprimer le compte
+                  </Button>
+                </div>
+              </ModernCard>
+            </motion.div>
+
+            {/* BLOC 7 - Configuration Avancée */}
+            <motion.div variants={fadeInUp} className="lg:col-span-2 xl:col-span-3">
+              <ModernCard
+                title="Configuration Avancée"
+                icon={<Settings className="h-5 w-5 text-purple-600" />}
+                className="h-full"
+              >
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
-                      <div>
-                        <h3 className="text-lg font-semibold text-slate-800">Partage de données</h3>
-                        <p className="text-slate-600">Autoriser le partage de données anonymisées pour améliorer le service</p>
-                      </div>
-                      <Switch defaultChecked />
+                    <div>
+                      <p className="text-lg font-semibold text-slate-900 mb-2">Paramètres détaillés</p>
+                      <p className="text-sm text-slate-600 mb-4">Accédez aux configurations avancées de votre compte</p>
                     </div>
                     
-                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
-                      <div>
-                        <h3 className="text-lg font-semibold text-slate-800">Cookies analytiques</h3>
-                        <p className="text-slate-600">Accepter les cookies pour l'analyse d'usage</p>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <User className="h-5 w-5 text-slate-400" />
+                          <span className="font-medium">Profil complet</span>
+                        </div>
+                        <ArrowRight className="h-4 w-4 text-slate-400" />
                       </div>
-                      <Switch defaultChecked />
+                      
+                      <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <Bell className="h-5 w-5 text-slate-400" />
+                          <span className="font-medium">Notifications avancées</span>
+                        </div>
+                        <ArrowRight className="h-4 w-4 text-slate-400" />
+                      </div>
+                      
+                      <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <Shield className="h-5 w-5 text-slate-400" />
+                          <span className="font-medium">Sécurité renforcée</span>
+                        </div>
+                        <ArrowRight className="h-4 w-4 text-slate-400" />
+                      </div>
                     </div>
                   </div>
-                </ModernCard>
-              </motion.div>
-
-              <motion.div variants={fadeInUp}>
-                <ModernCard
-                  title="Actions Dangereuses"
-                  icon={<Trash2 className="h-5 w-5 text-red-600" />}
-                  className="shadow-lg hover:shadow-xl transition-shadow duration-200 border-red-200"
-                >
+                  
                   <div className="space-y-4">
-                    <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                      <div className="flex items-center gap-2 mb-2">
-                        <AlertTriangle className="h-5 w-5 text-red-600" />
-                        <h3 className="text-lg font-semibold text-red-800">Supprimer le compte</h3>
+                    <div>
+                      <p className="text-sm font-medium text-slate-900 mb-3">Actions rapides</p>
+                      <div className="grid grid-cols-1 gap-2">
+                        {[
+                          "Changer le mot de passe",
+                          "Exporter mes données",
+                          "Configurer 2FA",
+                          "Gérer les sessions"
+                        ].map((action, index) => (
+                          <Button
+                            key={index}
+                            variant="outline"
+                            size="sm"
+                            className="justify-start text-left border-slate-200 hover:border-purple-300 hover:text-purple-600"
+                          >
+                            <Settings className="mr-2 h-3 w-3" />
+                            {action}
+                          </Button>
+                        ))}
                       </div>
-                      <p className="text-red-700 mb-4">
-                        Cette action est irréversible. Toutes vos données seront définitivement supprimées.
-                      </p>
-                      <Button variant="destructive" size="sm">
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Supprimer le compte
-                      </Button>
                     </div>
                   </div>
-                </ModernCard>
-              </motion.div>
-            </TabsContent>
-          </Tabs>
+                </div>
+              </ModernCard>
+            </motion.div>
+
+          </div>
         </div>
       </main>
     </PageContainer>
