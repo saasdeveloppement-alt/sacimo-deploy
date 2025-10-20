@@ -1,7 +1,0 @@
-{
-  "env": {
-    "DATABASE_URL": "prisma+postgres://neondb_owner:npg_c7CKWBz4Pnoi@ep-dawn-morning-agkvqrf4-pooler.c-2.eu-central-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require",
-    "NEXTAUTH_SECRET": "fa252e780245086038614f76d9ab64eb4d7fe0455b6b28d5145f88fbc6dd0f78",
-    "NEXTAUTH_URL": "https://sacimo-deploy-git-main-saasdeveloppements-projects.vercel.app"
-  }
-}
