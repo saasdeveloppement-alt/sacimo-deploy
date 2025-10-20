@@ -66,16 +66,26 @@ export class LeBonCoinRealScraper {
     searchParams.set('category', '9'); // Immobilier
     searchParams.set('real_estate_type', '2'); // Vente
     
-    // Localisation
+    // Localisation (plus simple)
     searchParams.set('locations', params.ville);
     
-    // Prix
-    if (params.minPrix) searchParams.set('price', `${params.minPrix}`);
-    if (params.maxPrix) searchParams.set('price', `${params.minPrix || 0}-${params.maxPrix}`);
+    // Prix (format simplifié)
+    if (params.minPrix && params.maxPrix) {
+      searchParams.set('price', `${params.minPrix}-${params.maxPrix}`);
+    } else if (params.minPrix) {
+      searchParams.set('price', `${params.minPrix}`);
+    } else if (params.maxPrix) {
+      searchParams.set('price', `0-${params.maxPrix}`);
+    }
     
-    // Surface
-    if (params.minSurface) searchParams.set('square', `${params.minSurface}`);
-    if (params.maxSurface) searchParams.set('square', `${params.minSurface || 0}-${params.maxSurface}`);
+    // Surface (format simplifié)
+    if (params.minSurface && params.maxSurface) {
+      searchParams.set('square', `${params.minSurface}-${params.maxSurface}`);
+    } else if (params.minSurface) {
+      searchParams.set('square', `${params.minSurface}`);
+    } else if (params.maxSurface) {
+      searchParams.set('square', `0-${params.maxSurface}`);
+    }
     
     // Type de bien
     if (params.typeBien) {
@@ -95,12 +105,58 @@ export class LeBonCoinRealScraper {
     // Pagination
     searchParams.set('page', page.toString());
     
-    return `${this.baseUrl}/recherche?${searchParams.toString()}`;
+    const url = `${this.baseUrl}/recherche?${searchParams.toString()}`;
+    console.log(`🔗 URL construite: ${url}`);
+    return url;
   }
 
   private parseAnnonceFromHtml(html: string): LeBonCoinAnnonce[] {
     const $ = cheerio.load(html);
     const annonces: LeBonCoinAnnonce[] = [];
+
+    console.log(`📄 Parsing HTML, longueur: ${html.length} caractères`);
+    console.log(`🔍 Recherche des sélecteurs...`);
+
+    // Essayer plusieurs sélecteurs possibles
+    const selectors = [
+      '[data-qa-id="aditem_container"]',
+      '.aditem',
+      '.ad-listitem',
+      '[data-test-id="aditem_container"]',
+      '.aditem_container'
+    ];
+
+    let foundElements = 0;
+    for (const selector of selectors) {
+      const elements = $(selector);
+      console.log(`🔍 Sélecteur "${selector}": ${elements.length} éléments trouvés`);
+      if (elements.length > 0) {
+        foundElements = elements.length;
+        break;
+      }
+    }
+
+    if (foundElements === 0) {
+      console.log('❌ Aucun élément d\'annonce trouvé avec les sélecteurs habituels');
+      console.log('🔍 Recherche de sélecteurs alternatifs...');
+      
+      // Chercher des patterns alternatifs
+      const altSelectors = [
+        'a[href*="/ventes_immobilieres/"]',
+        'a[href*="/locations/"]',
+        '.ad-listitem',
+        '.aditem'
+      ];
+      
+      for (const selector of altSelectors) {
+        const elements = $(selector);
+        console.log(`🔍 Sélecteur alternatif "${selector}": ${elements.length} éléments trouvés`);
+        if (elements.length > 0) {
+          foundElements = elements.length;
+          break;
+        }
+      }
+    }
 
     $('[data-qa-id="aditem_container"]').each((index, element) => {
       try {
