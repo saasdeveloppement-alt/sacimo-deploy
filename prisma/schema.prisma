@@ -159,3 +159,24 @@ model Tag {
 
   @@map("tags")
 }
+
+model AnnonceScrape {
+  id            String   @id @default(cuid())
+  title         String
+  price         Int
+  surface       Int?
+  rooms         Int?
+  postalCode    String?
+  city          String
+  url           String   @unique
+  publishedAt   DateTime
+  images        String[]
+  description   String?
+  source        String   @default("LEBONCOIN")
+  isNew         Boolean  @default(true)
+  lastScrapedAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("annonce_scrapes")
+}
