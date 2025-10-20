@@ -10,3 +10,4 @@ export async function GET() {
     hasNextAuthSecret: !!process.env.NEXTAUTH_SECRET
   })
 }
+

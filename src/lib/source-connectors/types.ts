@@ -43,3 +43,4 @@ export interface ScrapingResult {
   scrapedAt: Date
   source: string
 }
+

@@ -1,15 +1,7 @@
 {
-  "framework": "nextjs",
-  "buildCommand": "npm run build",
-  "devCommand": "npm run dev",
-  "installCommand": "npm install",
-  "regions": ["cdg1"],
   "env": {
-    "NODE_ENV": "production"
-  },
-  "build": {
-    "env": {
-      "PRISMA_GENERATE_DATAPROXY": "true"
-    }
+    "DATABASE_URL": "postgresql://neondb_owner:npg_c7CKWBz4Pnoi@ep-dawn-morning-agkvqrf4-pooler.c-2.eu-central-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require",
+    "NEXTAUTH_SECRET": "fa252e780245086038614f76d9ab64eb4d7fe0455b6b28d5145f88fbc6dd0f78",
+    "NEXTAUTH_URL": "https://sacimo-nxs022qt7-saasdeveloppements-projects.vercel.app"
   }
 }

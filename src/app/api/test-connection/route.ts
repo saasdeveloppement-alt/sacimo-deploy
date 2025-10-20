@@ -9,16 +9,16 @@ export async function GET() {
     await prisma.$connect()
     
     // Test d'une requête simple
-    const userCount = await prisma.user.count()
+    const result = await prisma.$queryRaw`SELECT 1 as test`
     
     return NextResponse.json({
       success: true,
-      message: 'Connexion à la base de données réussie !',
-      userCount: userCount,
+      message: 'Connexion à la base de données Neon réussie !',
+      test: result,
       timestamp: new Date().toISOString()
     })
   } catch (error) {
-    console.error('Erreur de connexion à la base de données:', error)
+    console.error('Erreur de connexion:', error)
     
     return NextResponse.json({
       success: false,
