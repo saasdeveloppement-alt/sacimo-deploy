@@ -3,10 +3,10 @@ import { leboncoinZenRowsScraper } from '@/lib/scrapers/leboncoin-zenrows';
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const ville = searchParams.get('ville') || 'Paris';
-    const minPrix = searchParams.get('minPrix') ? parseInt(searchParams.get('minPrix')!) : undefined;
-    const maxPrix = searchParams.get('maxPrix') ? parseInt(searchParams.get('maxPrix')!) : undefined;
+    const { searchParams: urlSearchParams } = new URL(request.url);
+    const ville = urlSearchParams.get('ville') || 'Paris';
+    const minPrix = urlSearchParams.get('minPrix') ? parseInt(urlSearchParams.get('minPrix')!) : undefined;
+    const maxPrix = urlSearchParams.get('maxPrix') ? parseInt(urlSearchParams.get('maxPrix')!) : undefined;
 
     console.log('🔍 Debug HTML pour:', { ville, minPrix, maxPrix });
 
