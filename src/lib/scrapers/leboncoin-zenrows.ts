@@ -119,15 +119,27 @@ export class LeBonCoinZenRowsScraper {
     const annonces: LeBonCoinAnnonce[] = [];
 
     console.log(`📄 Parsing HTML avec ZenRows, longueur: ${html.length} caractères`);
+    
+    // Debug: sauvegarder le HTML pour inspection
+    if (html.length > 1000) {
+      console.log(`🔍 HTML reçu (premiers 500 caractères): ${html.substring(0, 500)}...`);
+    }
 
-    // Sélecteurs LeBonCoin (mis à jour)
+    // Sélecteurs LeBonCoin (mis à jour 2024)
     const selectors = [
       '[data-qa-id="aditem_container"]',
       '.aditem',
       '.ad-listitem',
       '[data-test-id="aditem_container"]',
       '.aditem_container',
-      'a[href*="/ventes_immobilieres/"]'
+      'a[href*="/ventes_immobilieres/"]',
+      '[data-qa-id="aditem"]',
+      '.AdCardWith',
+      '.aditem_container',
+      'article[data-qa-id="aditem"]',
+      '.aditem[data-qa-id="aditem"]',
+      '[data-testid="aditem"]',
+      '.aditem[data-testid="aditem"]'
     ];
 
     let foundElements = 0;
@@ -157,7 +169,10 @@ export class LeBonCoinZenRowsScraper {
         // Titre
         const title = $el.find('[data-qa-id="aditem_title"]').text().trim() || 
                      $el.find('.aditem_title').text().trim() ||
+                     $el.find('.AdCardWith-title').text().trim() ||
                      $el.find('h2').text().trim() ||
+                     $el.find('h3').text().trim() ||
+                     $el.find('a[data-qa-id="aditem_title"]').text().trim() ||
                      $el.text().trim().split('\n')[0];
         
         if (!title || title.length < 10) return;
@@ -165,7 +180,9 @@ export class LeBonCoinZenRowsScraper {
         // Prix
         const priceText = $el.find('[data-qa-id="aditem_price"]').text().trim() ||
                          $el.find('.aditem_price').text().trim() ||
-                         $el.find('.price').text().trim();
+                         $el.find('.AdCardWith-price').text().trim() ||
+                         $el.find('.price').text().trim() ||
+                         $el.find('[data-qa-id="aditem_price"]').text().trim();
         const price = parseInt(priceText.replace(/[^\d]/g, '')) || 0;
         if (price === 0) return;
 
