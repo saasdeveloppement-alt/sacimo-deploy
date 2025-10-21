@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { leboncoinRealScraper, LeBonCoinSearchParams } from '@/lib/scrapers/leboncoin-real';
+import { LeBonCoinSearchParams } from '@/lib/scrapers/leboncoin-zenrows';
+import { leboncoinZenRowsScraper } from '@/lib/scrapers/leboncoin-zenrows';
 import { prisma } from '@/lib/prisma';
 
 // Fonction pour vérifier l'autorisation
@@ -44,8 +45,9 @@ export async function GET(request: NextRequest) {
 
     console.log('🚀 Début du scraping LeBonCoin avec paramètres:', params);
 
-    // Scraping des annonces
-    const annonces = await leboncoinRealScraper.scrapeAnnonces(params);
+    // Scraping des annonces avec ZenRows (contourne DataDome)
+    const annonces = await leboncoinZenRowsScraper.scrapeAnnonces(params);
+    console.log(`✅ Scraping ZenRows réussi: ${annonces.length} annonces`);
 
     // Sauvegarde en base de données
     const savedAnnonces = [];
@@ -136,8 +138,9 @@ export async function POST(request: NextRequest) {
 
     console.log('🚀 Début du scraping LeBonCoin (POST) avec paramètres:', params);
 
-    // Scraping des annonces
-    const annonces = await leboncoinRealScraper.scrapeAnnonces(params);
+    // Scraping des annonces avec ZenRows (contourne DataDome)
+    const annonces = await leboncoinZenRowsScraper.scrapeAnnonces(params);
+    console.log(`✅ Scraping ZenRows réussi: ${annonces.length} annonces`);
 
     // Sauvegarde en base de données
     const savedAnnonces = [];
