@@ -1,36 +1,43 @@
-import { NextResponse } from 'next/server';
-import { leboncoinScraper } from '@/lib/scrapers/leboncoin';
+import { NextRequest, NextResponse } from 'next/server';
+import { LeBonCoinSearchParams } from '@/lib/scrapers/leboncoin-zenrows';
+import { leboncoinZenRowsScraper } from '@/lib/scrapers/leboncoin-zenrows';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    console.log('🧪 Test du scraping LeBonCoin...');
-    
-    // Test avec des paramètres de recherche
-    const testParams = {
-      location: 'Paris',
-      minPrice: 300000,
-      maxPrice: 500000,
-      minSurface: 30,
-      maxSurface: 80,
-      propertyType: 'APARTMENT' as const,
-      rooms: 3,
+    const { searchParams } = new URL(request.url);
+    const ville = searchParams.get('ville') || 'Paris';
+    const minPrix = searchParams.get('minPrix') ? parseInt(searchParams.get('minPrix')!) : undefined;
+    const maxPrix = searchParams.get('maxPrix') ? parseInt(searchParams.get('maxPrix')!) : undefined;
+
+    const params: LeBonCoinSearchParams = {
+      ville,
+      minPrix,
+      maxPrix,
+      pages: 1, // Test avec 1 page seulement
     };
 
-    const listings = await leboncoinScraper.searchListings(testParams);
+    console.log('🧪 Test scraping avec paramètres:', params);
+
+    // Test du scraping avec ZenRows
+    const annonces = await leboncoinZenRowsScraper.scrapeAnnonces(params);
+    console.log(`✅ Test scraping réussi: ${annonces.length} annonces`);
 
     return NextResponse.json({
       success: true,
-      message: `Test de scraping réussi ! ${listings.length} annonces trouvées`,
-      testParams,
-      listings,
+      message: `Test scraping terminé ! ${annonces.length} annonces trouvées`,
+      data: {
+        totalFound: annonces.length,
+        annonces: annonces.slice(0, 5), // Limite à 5 pour le test
+      },
+      params,
       timestamp: new Date().toISOString(),
     });
 
   } catch (error: any) {
-    console.error('❌ Erreur lors du test de scraping:', error);
+    console.error('❌ Erreur lors du test scraping:', error);
     return NextResponse.json({ 
       success: false, 
-      message: 'Erreur lors du test de scraping',
+      message: 'Erreur lors du test scraping',
       error: error.message 
     }, { status: 500 });
   }
