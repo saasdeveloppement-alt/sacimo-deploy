@@ -42,32 +42,32 @@ export class LeBonCoinZenRowsScraper {
   private buildSearchUrl(params: LeBonCoinSearchParams, page = 1): string {
     const searchParams = new URLSearchParams();
     
-    // Catégorie immobilier
+    // Catégorie immobilier (vente)
     searchParams.set('category', '9'); // Immobilier
     searchParams.set('real_estate_type', '2'); // Vente
     
-    // Localisation
+    // Localisation (format correct pour LeBonCoin)
     searchParams.set('locations', params.ville);
     
-    // Prix
+    // Prix (format correct)
     if (params.minPrix && params.maxPrix) {
       searchParams.set('price', `${params.minPrix}-${params.maxPrix}`);
     } else if (params.minPrix) {
-      searchParams.set('price', `${params.minPrix}`);
+      searchParams.set('price', `${params.minPrix}-`);
     } else if (params.maxPrix) {
-      searchParams.set('price', `0-${params.maxPrix}`);
+      searchParams.set('price', `-${params.maxPrix}`);
     }
     
-    // Surface
+    // Surface (format correct)
     if (params.minSurface && params.maxSurface) {
       searchParams.set('square', `${params.minSurface}-${params.maxSurface}`);
     } else if (params.minSurface) {
-      searchParams.set('square', `${params.minSurface}`);
+      searchParams.set('square', `${params.minSurface}-`);
     } else if (params.maxSurface) {
-      searchParams.set('square', `0-${params.maxSurface}`);
+      searchParams.set('square', `-${params.maxSurface}`);
     }
     
-    // Type de bien
+    // Type de bien (format correct)
     if (params.typeBien) {
       const typeMap: Record<string, string> = {
         'appartement': '1',
@@ -83,7 +83,9 @@ export class LeBonCoinZenRowsScraper {
     if (params.pieces) searchParams.set('rooms', params.pieces.toString());
     
     // Pagination
-    searchParams.set('page', page.toString());
+    if (page > 1) {
+      searchParams.set('page', page.toString());
+    }
     
     const url = `${this.baseUrl}/recherche?${searchParams.toString()}`;
     console.log(`🔗 URL construite: ${url}`);
@@ -108,7 +110,9 @@ export class LeBonCoinZenRowsScraper {
     });
 
     if (!response.ok) {
-      throw new Error(`Erreur ZenRows: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      console.error(`❌ Erreur ZenRows ${response.status}:`, errorText);
+      throw new Error(`Erreur ZenRows: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
     return await response.text();
