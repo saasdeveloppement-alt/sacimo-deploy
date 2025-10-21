@@ -10,8 +10,21 @@ export async function GET(request: NextRequest) {
 
     console.log('🔍 Debug HTML pour:', { ville, minPrix, maxPrix });
 
-    // Construire l'URL de recherche
-    const searchUrl = `https://www.leboncoin.fr/recherche?category=9&real_estate_type=2&locations=${ville}&price=${minPrix || 0}-${maxPrix || 1000000}&page=1`;
+    // Construire l'URL de recherche (format correct)
+    const searchParams = new URLSearchParams();
+    searchParams.set('category', '9'); // Immobilier
+    searchParams.set('real_estate_type', '2'); // Vente
+    searchParams.set('locations', ville);
+    
+    if (minPrix && maxPrix) {
+      searchParams.set('price', `${minPrix}-${maxPrix}`);
+    } else if (minPrix) {
+      searchParams.set('price', `${minPrix}-`);
+    } else if (maxPrix) {
+      searchParams.set('price', `-${maxPrix}`);
+    }
+    
+    const searchUrl = `https://www.leboncoin.fr/recherche?${searchParams.toString()}`;
     
     console.log('🔗 URL de recherche:', searchUrl);
 
