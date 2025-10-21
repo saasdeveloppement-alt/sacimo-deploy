@@ -9,6 +9,13 @@ function verifyAuth(request: NextRequest): boolean {
   const token = authHeader?.replace('Bearer ', '');
   const expectedToken = process.env.SCRAPE_SECRET_KEY;
   
+  console.log('🔐 Auth Debug:', {
+    authHeader,
+    token,
+    expectedToken,
+    match: token === expectedToken
+  });
+  
   return token === expectedToken;
 }
 
