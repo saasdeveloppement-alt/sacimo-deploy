@@ -103,17 +103,15 @@ export class LeBonCoinZenRowsScraper {
       console.log(`🔍 HTML reçu (premiers 500 caractères): ${html.substring(0, 500)}...`);
     }
 
-    // Sélecteurs LeBonCoin (mis à jour 2024)
+    // Sélecteurs LeBonCoin (mis à jour 2024 - basés sur l'analyse HTML)
     const selectors = [
-      '[data-qa-id="aditem_container"]',
+      '[data-qa-id="aditem_container"]', // Sélecteur principal confirmé
+      '.aditem_container', // Classe CSS confirmée
+      'a[href*="/ventes_immobilieres/"]', // Liens vers annonces
+      '[data-qa-id="aditem"]',
       '.aditem',
       '.ad-listitem',
       '[data-test-id="aditem_container"]',
-      '.aditem_container',
-      'a[href*="/ventes_immobilieres/"]',
-      '[data-qa-id="aditem"]',
-      '.AdCardWith',
-      '.aditem_container',
       'article[data-qa-id="aditem"]',
       '.aditem[data-qa-id="aditem"]',
       '[data-testid="aditem"]',
