@@ -40,16 +40,58 @@ export class LeBonCoinZenRowsScraper {
   }
 
   private buildSearchUrl(params: LeBonCoinSearchParams, page = 1): string {
-    // URL ultra-simplifiée pour éviter les blocages ZenRows
-    // Commençons par une recherche basique sans filtres
-    let url = `${this.baseUrl}/recherche?category=9&real_estate_type=2`;
+    // Construction d'URL optimisée pour éviter les erreurs 422
+    const searchParams = new URLSearchParams();
     
-    // Seulement la localisation pour commencer
+    // Paramètres obligatoires
+    searchParams.set('category', '9'); // Immobilier
+    searchParams.set('real_estate_type', '2'); // Vente
+    
+    // Localisation (obligatoire)
     if (params.ville) {
-      url += `&locations=${encodeURIComponent(params.ville)}`;
+      searchParams.set('locations', params.ville);
     }
     
-    console.log(`🔗 URL ultra-simplifiée: ${url}`);
+    // Filtres de prix (seulement si spécifiés)
+    if (params.minPrix && params.maxPrix) {
+      searchParams.set('price', `${params.minPrix}-${params.maxPrix}`);
+    } else if (params.minPrix) {
+      searchParams.set('price', `${params.minPrix}-`);
+    } else if (params.maxPrix) {
+      searchParams.set('price', `-${params.maxPrix}`);
+    }
+    
+    // Filtres de surface (seulement si spécifiés)
+    if (params.minSurface && params.maxSurface) {
+      searchParams.set('square', `${params.minSurface}-${params.maxSurface}`);
+    } else if (params.minSurface) {
+      searchParams.set('square', `${params.minSurface}-`);
+    } else if (params.maxSurface) {
+      searchParams.set('square', `-${params.maxSurface}`);
+    }
+    
+    // Type de bien (seulement si spécifié)
+    if (params.typeBien) {
+      const typeMapping = {
+        'appartement': '1',
+        'maison': '2',
+        'studio': '3',
+        'loft': '4',
+        'penthouse': '5'
+      };
+      const typeCode = typeMapping[params.typeBien];
+      if (typeCode) {
+        searchParams.set('real_estate_type', typeCode);
+      }
+    }
+    
+    // Pagination
+    if (page > 1) {
+      searchParams.set('page', page.toString());
+    }
+    
+    const url = `${this.baseUrl}/recherche?${searchParams.toString()}`;
+    console.log(`🔗 URL de recherche optimisée: ${url}`);
     return url;
   }
 
@@ -58,17 +100,30 @@ export class LeBonCoinZenRowsScraper {
       throw new Error('ZENROWS_API_KEY non configurée');
     }
 
-    const zenrowsUrl = `https://api.zenrows.com/v1/?apikey=${this.zenrowsApiKey}&url=${encodeURIComponent(url)}&js_render=true&premium_proxy=true&proxy_country=fr`;
+    // Paramètres optimaux pour éviter les erreurs 422 et charger le contenu React
+    const zenrowsUrl = `https://api.zenrows.com/v1/?apikey=${this.zenrowsApiKey}&url=${encodeURIComponent(url)}&js_render=true&premium_proxy=true&proxy_country=fr&wait=5000&wait_for=body`;
     
-    console.log(`🔒 Utilisation de ZenRows pour contourner DataDome...`);
+    console.log(`🔒 Utilisation de ZenRows avec paramètres optimaux...`);
+    console.log(`📡 URL ZenRows: ${zenrowsUrl.substring(0, 100)}...`);
     
     const response = await fetch(zenrowsUrl, {
+      method: 'GET',
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Upgrade-Insecure-Requests': '1',
       },
     });
+
+    console.log(`📡 Response status: ${response.status}`);
+    console.log(`📡 Response headers:`, Object.fromEntries(response.headers.entries()));
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -76,7 +131,15 @@ export class LeBonCoinZenRowsScraper {
       throw new Error(`Erreur ZenRows: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
-    return await response.text();
+    const html = await response.text();
+    console.log(`✅ HTML reçu: ${html.length} caractères`);
+    
+    // Vérifier que le contenu n'est pas vide
+    if (html.length < 1000) {
+      console.warn(`⚠️ HTML très court (${html.length} caractères), possible problème de rendu`);
+    }
+
+    return html;
   }
 
   private parseAnnonceFromHtml(html: string): LeBonCoinAnnonce[] {
@@ -90,29 +153,45 @@ export class LeBonCoinZenRowsScraper {
       console.log(`🔍 HTML reçu (premiers 500 caractères): ${html.substring(0, 500)}...`);
     }
 
-    // Sélecteurs LeBonCoin (mis à jour 2024 - basés sur l'analyse HTML)
+    // Sélecteurs LeBonCoin 2024 - optimisés pour React et DataDome
     const selectors = [
-      '[data-qa-id="aditem_container"]', // Sélecteur principal confirmé
-      '.aditem_container', // Classe CSS confirmée
-      'a[href*="/ventes_immobilieres/"]', // Liens vers annonces
-      '[data-qa-id="aditem"]',
+      // Sélecteurs principaux LeBonCoin 2024
+      '[data-qa-id="aditem_container"]',
+      '[data-testid="aditem_container"]',
+      '[data-test-id="aditem_container"]',
+      '.aditem_container',
       '.aditem',
       '.ad-listitem',
-      '[data-test-id="aditem_container"]',
-      'article[data-qa-id="aditem"]',
-      '.aditem[data-qa-id="aditem"]',
-      '[data-testid="aditem"]',
-      '.aditem[data-testid="aditem"]',
-      // Nouveaux sélecteurs plus robustes
-      'article',
-      '[class*="ad"]',
-      '[class*="card"]',
-      '[class*="item"]',
+      
+      // Sélecteurs de liens d'annonces
+      'a[href*="/ventes_immobilieres/"]',
       'a[href*="/ventes/"]',
       'a[href*="/annonces/"]',
+      
+      // Sélecteurs génériques pour React
+      'article[data-qa-id*="ad"]',
+      'article[data-testid*="ad"]',
+      'article[data-test-id*="ad"]',
+      'div[data-qa-id*="ad"]',
+      'div[data-testid*="ad"]',
+      'div[data-test-id*="ad"]',
+      
+      // Sélecteurs de fallback
+      'article',
+      '[class*="aditem"]',
+      '[class*="ad-card"]',
+      '[class*="ad-card"]',
+      '[class*="listing"]',
+      '[class*="property"]',
+      '[class*="real-estate"]',
+      
+      // Sélecteurs très génériques
       '[data-qa-id*="ad"]',
+      '[data-testid*="ad"]',
       '[data-test-id*="ad"]',
-      '[data-testid*="ad"]'
+      '[class*="ad"]',
+      '[class*="card"]',
+      '[class*="item"]'
     ];
 
     let foundElements = 0;
