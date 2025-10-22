@@ -40,55 +40,29 @@ export class LeBonCoinZenRowsScraper {
   }
 
   private buildSearchUrl(params: LeBonCoinSearchParams, page = 1): string {
-    const searchParams = new URLSearchParams();
+    // URL simplifiée pour éviter les blocages
+    let url = `${this.baseUrl}/recherche?category=9&real_estate_type=2`;
     
-    // Catégorie immobilier (vente)
-    searchParams.set('category', '9'); // Immobilier
-    searchParams.set('real_estate_type', '2'); // Vente
+    // Localisation simple
+    if (params.ville) {
+      url += `&locations=${encodeURIComponent(params.ville)}`;
+    }
     
-    // Localisation (format correct pour LeBonCoin)
-    searchParams.set('locations', params.ville);
-    
-    // Prix (format correct)
+    // Prix simple
     if (params.minPrix && params.maxPrix) {
-      searchParams.set('price', `${params.minPrix}-${params.maxPrix}`);
+      url += `&price=${params.minPrix}-${params.maxPrix}`;
     } else if (params.minPrix) {
-      searchParams.set('price', `${params.minPrix}-`);
+      url += `&price=${params.minPrix}-`;
     } else if (params.maxPrix) {
-      searchParams.set('price', `-${params.maxPrix}`);
+      url += `&price=-${params.maxPrix}`;
     }
-    
-    // Surface (format correct)
-    if (params.minSurface && params.maxSurface) {
-      searchParams.set('square', `${params.minSurface}-${params.maxSurface}`);
-    } else if (params.minSurface) {
-      searchParams.set('square', `${params.minSurface}-`);
-    } else if (params.maxSurface) {
-      searchParams.set('square', `-${params.maxSurface}`);
-    }
-    
-    // Type de bien (format correct)
-    if (params.typeBien) {
-      const typeMap: Record<string, string> = {
-        'appartement': '1',
-        'maison': '2',
-        'studio': '3',
-        'loft': '4',
-        'penthouse': '5'
-      };
-      searchParams.set('real_estate_type', typeMap[params.typeBien] || '1');
-    }
-    
-    // Pièces
-    if (params.pieces) searchParams.set('rooms', params.pieces.toString());
     
     // Pagination
     if (page > 1) {
-      searchParams.set('page', page.toString());
+      url += `&page=${page}`;
     }
     
-    const url = `${this.baseUrl}/recherche?${searchParams.toString()}`;
-    console.log(`🔗 URL construite: ${url}`);
+    console.log(`🔗 URL simplifiée: ${url}`);
     return url;
   }
 
