@@ -40,29 +40,16 @@ export class LeBonCoinZenRowsScraper {
   }
 
   private buildSearchUrl(params: LeBonCoinSearchParams, page = 1): string {
-    // URL simplifiée pour éviter les blocages
+    // URL ultra-simplifiée pour éviter les blocages ZenRows
+    // Commençons par une recherche basique sans filtres
     let url = `${this.baseUrl}/recherche?category=9&real_estate_type=2`;
     
-    // Localisation simple
+    // Seulement la localisation pour commencer
     if (params.ville) {
       url += `&locations=${encodeURIComponent(params.ville)}`;
     }
     
-    // Prix simple
-    if (params.minPrix && params.maxPrix) {
-      url += `&price=${params.minPrix}-${params.maxPrix}`;
-    } else if (params.minPrix) {
-      url += `&price=${params.minPrix}-`;
-    } else if (params.maxPrix) {
-      url += `&price=-${params.maxPrix}`;
-    }
-    
-    // Pagination
-    if (page > 1) {
-      url += `&page=${page}`;
-    }
-    
-    console.log(`🔗 URL simplifiée: ${url}`);
+    console.log(`🔗 URL ultra-simplifiée: ${url}`);
     return url;
   }
 
