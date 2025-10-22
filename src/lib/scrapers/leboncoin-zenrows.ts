@@ -102,7 +102,17 @@ export class LeBonCoinZenRowsScraper {
       'article[data-qa-id="aditem"]',
       '.aditem[data-qa-id="aditem"]',
       '[data-testid="aditem"]',
-      '.aditem[data-testid="aditem"]'
+      '.aditem[data-testid="aditem"]',
+      // Nouveaux sélecteurs plus robustes
+      'article',
+      '[class*="ad"]',
+      '[class*="card"]',
+      '[class*="item"]',
+      'a[href*="/ventes/"]',
+      'a[href*="/annonces/"]',
+      '[data-qa-id*="ad"]',
+      '[data-test-id*="ad"]',
+      '[data-testid*="ad"]'
     ];
 
     let foundElements = 0;
@@ -129,35 +139,48 @@ export class LeBonCoinZenRowsScraper {
       try {
         const $el = $(element);
         
-        // Titre
+        // Titre - sélecteurs multiples et robustes
         const title = $el.find('[data-qa-id="aditem_title"]').text().trim() || 
-                     $el.find('.aditem_title').text().trim() ||
-                     $el.find('.AdCardWith-title').text().trim() ||
-                     $el.find('h2').text().trim() ||
-                     $el.find('h3').text().trim() ||
-                     $el.find('a[data-qa-id="aditem_title"]').text().trim() ||
-                     $el.text().trim().split('\n')[0];
+                      $el.find('.aditem_title').text().trim() ||
+                      $el.find('.AdCardWith-title').text().trim() ||
+                      $el.find('h2').text().trim() ||
+                      $el.find('h3').text().trim() ||
+                      $el.find('h4').text().trim() ||
+                      $el.find('a[data-qa-id="aditem_title"]').text().trim() ||
+                      $el.find('[class*="title"]').text().trim() ||
+                      $el.find('a').text().trim() ||
+                      $el.text().trim().split('\n')[0];
         
         if (!title || title.length < 10) return;
 
-        // Prix
+        // Prix - sélecteurs multiples et robustes
         const priceText = $el.find('[data-qa-id="aditem_price"]').text().trim() ||
                          $el.find('.aditem_price').text().trim() ||
                          $el.find('.AdCardWith-price').text().trim() ||
                          $el.find('.price').text().trim() ||
-                         $el.find('[data-qa-id="aditem_price"]').text().trim();
+                         $el.find('[class*="price"]').text().trim() ||
+                         $el.find('[class*="euro"]').text().trim() ||
+                         $el.text().match(/(\d+[\s,]*€)/)?.[1] ||
+                         $el.text().match(/(\d+[\s,]*euros?)/i)?.[1] ||
+                         '';
         const price = parseInt(priceText.replace(/[^\d]/g, '')) || 0;
         if (price === 0) return;
 
-        // URL
-        const relativeUrl = $el.find('a').attr('href') || $el.attr('href');
+        // URL - sélecteurs multiples et robustes
+        const relativeUrl = $el.find('a').attr('href') || 
+                           $el.attr('href') ||
+                           $el.find('[href]').attr('href');
         const url = relativeUrl ? 
           (relativeUrl.startsWith('http') ? relativeUrl : `${this.baseUrl}${relativeUrl}`) : '';
 
-        // Surface et pièces
+        if (!url || !url.includes('leboncoin.fr')) return;
+
+        // Surface et pièces - sélecteurs multiples et robustes
         const details = $el.find('[data-qa-id="aditem_criteria"]').text() ||
                        $el.find('.aditem_criteria').text() ||
-                       $el.find('.criteria').text();
+                       $el.find('.criteria').text() ||
+                       $el.find('[class*="criteria"]').text() ||
+                       $el.text();
         
         const surfaceMatch = details.match(/(\d+)\s*m²/);
         const roomsMatch = details.match(/(\d+)\s*pièce/);
@@ -165,12 +188,15 @@ export class LeBonCoinZenRowsScraper {
         const surface = surfaceMatch ? parseInt(surfaceMatch[1]) : undefined;
         const rooms = roomsMatch ? parseInt(roomsMatch[1]) : undefined;
 
-        // Localisation
+        // Localisation - sélecteurs multiples et robustes
         const location = $el.find('[data-qa-id="aditem_location"]').text().trim() ||
                         $el.find('.aditem_location').text().trim() ||
-                        $el.find('.location').text().trim();
+                        $el.find('.location').text().trim() ||
+                        $el.find('[class*="location"]').text().trim() ||
+                        $el.text().match(/(\d{5}\s+[A-Za-z\s]+)/)?.[1] ||
+                        '';
         
-        const city = location.split(' ')[0] || '';
+        const city = location.split(' ').slice(1).join(' ') || location.split(' ')[0] || '';
         const postalCodeMatch = location.match(/(\d{5})/);
         const postalCode = postalCodeMatch ? postalCodeMatch[1] : undefined;
 
@@ -200,7 +226,7 @@ export class LeBonCoinZenRowsScraper {
         };
 
         annonces.push(annonce);
-        console.log(`✅ Annonce trouvée: ${title} - ${price}€`);
+        console.log(`✅ Annonce trouvée: ${title} - ${price}€ - ${city}`);
 
       } catch (error) {
         console.error('Erreur lors du parsing d\'une annonce:', error);
