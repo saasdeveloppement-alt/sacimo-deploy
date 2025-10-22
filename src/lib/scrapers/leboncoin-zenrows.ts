@@ -218,31 +218,19 @@ export class LeBonCoinZenRowsScraper {
       try {
         const $el = $(element);
         
-        // Titre - sélecteurs multiples et robustes
-        const title = $el.find('[data-qa-id="aditem_title"]').text().trim() || 
-                      $el.find('.aditem_title').text().trim() ||
-                      $el.find('.AdCardWith-title').text().trim() ||
-                      $el.find('h2').text().trim() ||
-                      $el.find('h3').text().trim() ||
-                      $el.find('h4').text().trim() ||
-                      $el.find('a[data-qa-id="aditem_title"]').text().trim() ||
-                      $el.find('[class*="title"]').text().trim() ||
+        // Titre - sélecteurs basés sur l'analyse HTML réelle
+        const title = $el.find('h3').text().trim() || 
+                      $el.find('a[aria-label*="Voir l\'annonce"]').attr('aria-label') ||
                       $el.find('a').text().trim() ||
+                      $el.find('[class*="title"]').text().trim() ||
                       $el.text().trim().split('\n')[0];
         
         if (!title || title.length < 10) return;
 
-        // Prix - sélecteurs multiples et robustes
-        const priceText = $el.find('[data-qa-id="aditem_price"]').text().trim() ||
-                         $el.find('.aditem_price').text().trim() ||
-                         $el.find('.AdCardWith-price').text().trim() ||
-                         $el.find('.price').text().trim() ||
-                         $el.find('[class*="price"]').text().trim() ||
-                         $el.find('[class*="euro"]').text().trim() ||
-                         $el.text().match(/(\d+[\s,]*€)/)?.[1] ||
-                         $el.text().match(/(\d+[\s,]*euros?)/i)?.[1] ||
-                         '';
-        const price = parseInt(priceText.replace(/[^\d]/g, '')) || 0;
+        // Prix - extraction depuis le texte complet
+        const fullText = $el.text();
+        const priceMatch = fullText.match(/(\d+[\s,]*€)/);
+        const price = priceMatch ? parseInt(priceMatch[1].replace(/[^\d]/g, '')) : 0;
         if (price === 0) return;
 
         // URL - sélecteurs multiples et robustes
@@ -254,26 +242,16 @@ export class LeBonCoinZenRowsScraper {
 
         if (!url || !url.includes('leboncoin.fr')) return;
 
-        // Surface et pièces - sélecteurs multiples et robustes
-        const details = $el.find('[data-qa-id="aditem_criteria"]').text() ||
-                       $el.find('.aditem_criteria').text() ||
-                       $el.find('.criteria').text() ||
-                       $el.find('[class*="criteria"]').text() ||
-                       $el.text();
-        
-        const surfaceMatch = details.match(/(\d+)\s*m²/);
-        const roomsMatch = details.match(/(\d+)\s*pièce/);
+        // Surface et pièces - extraction depuis le texte complet
+        const surfaceMatch = fullText.match(/(\d+)\s*mètres?\s*carre?s?/i);
+        const roomsMatch = fullText.match(/(\d+)\s*pièces?/i);
         
         const surface = surfaceMatch ? parseInt(surfaceMatch[1]) : undefined;
         const rooms = roomsMatch ? parseInt(roomsMatch[1]) : undefined;
 
-        // Localisation - sélecteurs multiples et robustes
-        const location = $el.find('[data-qa-id="aditem_location"]').text().trim() ||
-                        $el.find('.aditem_location').text().trim() ||
-                        $el.find('.location').text().trim() ||
-                        $el.find('[class*="location"]').text().trim() ||
-                        $el.text().match(/(\d{5}\s+[A-Za-z\s]+)/)?.[1] ||
-                        '';
+        // Localisation - extraction depuis le texte complet
+        const locationMatch = fullText.match(/(\d{5}\s+[A-Za-z\s]+)/);
+        const location = locationMatch ? locationMatch[1] : '';
         
         const city = location.split(' ').slice(1).join(' ') || location.split(' ')[0] || '';
         const postalCodeMatch = location.match(/(\d{5})/);
