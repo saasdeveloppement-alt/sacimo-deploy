@@ -8,32 +8,25 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'ZENROWS_API_KEY not configured' }, { status: 500 });
     }
 
-    // Test avec une URL LeBonCoin simple (page d'accueil)
+    // Utiliser la page d'accueil LeBonCoin qui fonctionne
     const testUrl = 'https://www.leboncoin.fr/';
     
-    console.log('🧪 Test simple avec URL:', testUrl);
+    console.log('🏠 Scraping page d\'accueil LeBonCoin:', testUrl);
 
     const zenrowsUrl = `https://api.zenrows.com/v1/?apikey=${zenrowsApiKey}&url=${encodeURIComponent(testUrl)}&js_render=true&premium_proxy=true&proxy_country=fr`;
     
-    console.log('🔒 ZenRows URL:', zenrowsUrl);
-
     const response = await fetch(zenrowsUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       },
     });
 
-    console.log('📡 Response status:', response.status);
-    console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
-
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`❌ Erreur ZenRows ${response.status}:`, errorText);
       return NextResponse.json({ 
         success: false, 
         error: `ZenRows API error: ${response.status} ${response.statusText}`,
-        details: errorText,
-        zenrowsUrl: zenrowsUrl.substring(0, 100) + '...'
+        details: errorText
       }, { status: 500 });
     }
 
@@ -116,13 +109,11 @@ export async function GET(request: NextRequest) {
       dataQaCount: (html.match(/data-qa-id/g) || []).length,
       ventesImmobilieresCount: (html.match(/ventes_immobilieres/g) || []).length,
     };
-    
+
     return NextResponse.json({
       success: true,
       message: `Scraping page d'accueil terminé ! ${annonces.length} éléments trouvés`,
       data: {
-        testUrl,
-        htmlLength: html.length,
         totalFound: annonces.length,
         annonces: annonces.slice(0, 10), // Limite à 10
         analysis,
@@ -132,7 +123,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('❌ Erreur test simple:', error);
+    console.error('❌ Erreur scraping page d\'accueil:', error);
     return NextResponse.json({ 
       success: false, 
       error: error.message 
