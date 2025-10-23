@@ -33,6 +33,7 @@ export class LeBonCoinZenRowsScraper {
     this.zenrowsApiKey = process.env.ZENROWS_API_KEY || process.env.ZENROWS_KEY || '';
     
     // Debug: Afficher toutes les variables d'environnement liées à ZenRows
+    console.log("🔑 Clé ZenRows détectée :", !!process.env.ZENROWS_KEY);
     console.log('🔍 Variables d\'environnement ZenRows:');
     console.log('  ZENROWS_API_KEY:', process.env.ZENROWS_API_KEY ? '✅ Configurée' : '❌ Non configurée');
     console.log('  ZENROWS_KEY:', process.env.ZENROWS_KEY ? '✅ Configurée' : '❌ Non configurée');
@@ -111,7 +112,7 @@ export class LeBonCoinZenRowsScraper {
     }
 
     // Paramètres optimaux pour éviter les erreurs 422 et charger le contenu React
-    const zenrowsUrl = `https://api.zenrows.com/v1/?apikey=${this.zenrowsApiKey}&url=${encodeURIComponent(url)}&js_render=true&premium_proxy=true&proxy_country=fr&wait=5000&wait_for=body`;
+    const zenrowsUrl = `https://api.zenrows.com/v1/?apikey=${this.zenrowsApiKey}&url=${encodeURIComponent(url)}&js_render=true&premium_proxy=true&proxy_country=fr&wait=10000&wait_for=body&custom_headers=true&original_status=true&stealth=true`;
     
     console.log(`🔒 Utilisation de ZenRows avec paramètres optimaux...`);
     console.log(`📡 URL ZenRows: ${zenrowsUrl.substring(0, 100)}...`);
@@ -131,6 +132,14 @@ export class LeBonCoinZenRowsScraper {
         'Upgrade-Insecure-Requests': '1',
       },
     });
+    
+    const html = await response.text();
+
+// 🧠 Debug : afficher un extrait du HTML pour vérifier le contenu reçu
+console.log("✅ HTML reçu :", html.slice(0, 1000));
+
+    
+
 
     console.log(`📡 Response status: ${response.status}`);
     console.log(`📡 Response headers:`, Object.fromEntries(response.headers.entries()));
