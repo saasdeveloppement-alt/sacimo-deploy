@@ -30,6 +30,13 @@ export class LeBonCoinZenRowsScraper {
   
   constructor() {
     this.zenrowsApiKey = process.env.ZENROWS_API_KEY || '';
+    
+    // Debug: Afficher toutes les variables d'environnement liées à ZenRows
+    console.log('🔍 Variables d\'environnement ZenRows:');
+    console.log('  ZENROWS_API_KEY:', process.env.ZENROWS_API_KEY ? '✅ Configurée' : '❌ Non configurée');
+    console.log('  ZENROWS_KEY:', process.env.ZENROWS_KEY ? '✅ Configurée' : '❌ Non configurée');
+    console.log('  Valeur ZENROWS_API_KEY:', process.env.ZENROWS_API_KEY ? process.env.ZENROWS_API_KEY.substring(0, 10) + '...' : 'undefined');
+    
     if (!this.zenrowsApiKey) {
       console.warn('⚠️ ZENROWS_API_KEY non configurée, utilisation du mode fallback');
     }
