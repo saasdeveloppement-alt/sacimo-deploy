@@ -134,6 +134,9 @@ export class LeBonCoinZenRowsScraper {
     const html = await response.text();
     console.log(`✅ HTML reçu: ${html.length} caractères`);
     
+    // Debug: Afficher les 500 premiers caractères du HTML
+    console.log("✅ HTML reçu (premiers 500 caractères):", html.substring(0, 500));
+    
     // Vérifier que le contenu n'est pas vide
     if (html.length < 1000) {
       console.warn(`⚠️ HTML très court (${html.length} caractères), possible problème de rendu`);
@@ -148,10 +151,18 @@ export class LeBonCoinZenRowsScraper {
 
     console.log(`📄 Parsing HTML avec ZenRows, longueur: ${html.length} caractères`);
     
-    // Debug: sauvegarder le HTML pour inspection
-    if (html.length > 1000) {
-      console.log(`🔍 HTML reçu (premiers 500 caractères): ${html.substring(0, 500)}...`);
-    }
+    // Debug: Afficher plus d'informations sur la structure HTML
+    console.log(`🔍 HTML reçu (premiers 1000 caractères):`, html.substring(0, 1000));
+    
+    // Debug: Analyser les balises principales
+    console.log(`🔍 Balises principales trouvées:`, {
+      title: $('title').text().substring(0, 100),
+      body: $('body').length > 0 ? 'Présent' : 'Absent',
+      articles: $('article').length,
+      divs: $('div').length,
+      links: $('a').length,
+      scripts: $('script').length
+    });
 
     // Sélecteurs LeBonCoin 2024 - optimisés pour React et DataDome
     const selectors = [
@@ -200,7 +211,21 @@ export class LeBonCoinZenRowsScraper {
     for (const selector of selectors) {
       const elements = $(selector);
       console.log(`🔍 Sélecteur "${selector}": ${elements.length} éléments trouvés`);
+      
+      // Debug: Si des éléments sont trouvés, afficher leurs classes et attributs
       if (elements.length > 0) {
+        console.log(`✅ Éléments trouvés avec le sélecteur "${selector}":`);
+        elements.slice(0, 3).each((index, element) => {
+          const $el = $(element);
+          console.log(`  - Élément ${index + 1}:`, {
+            tag: element.type === 'tag' ? element.name : 'unknown',
+            classes: $el.attr('class'),
+            id: $el.attr('id'),
+            'data-qa-id': $el.attr('data-qa-id'),
+            'data-testid': $el.attr('data-testid'),
+            text: $el.text().substring(0, 100)
+          });
+        });
         foundElements = elements.length;
         workingSelector = selector;
         break;
@@ -208,7 +233,40 @@ export class LeBonCoinZenRowsScraper {
     }
 
     if (foundElements === 0) {
-      console.log('❌ Aucun élément d\'annonce trouvé');
+      console.log('❌ Aucun élément d\'annonce trouvé avec les sélecteurs standards');
+      
+      // Debug: Analyser tous les liens pour trouver des annonces
+      const allLinks = $('a[href*="/ventes_immobilieres/"], a[href*="/ventes/"], a[href*="/annonces/"]');
+      console.log(`🔍 Liens d'annonces potentiels trouvés: ${allLinks.length}`);
+      
+      if (allLinks.length > 0) {
+        console.log('📋 Exemples de liens trouvés:');
+        allLinks.slice(0, 5).each((index, element) => {
+          const $el = $(element);
+          console.log(`  - Lien ${index + 1}:`, {
+            href: $el.attr('href'),
+            text: $el.text().substring(0, 100),
+            classes: $el.attr('class'),
+            parent: $el.parent().attr('class')
+          });
+        });
+      }
+      
+      // Debug: Analyser les divs avec des classes suspectes
+      const suspectDivs = $('div[class*="ad"], div[class*="card"], div[class*="item"], div[class*="listing"]');
+      console.log(`🔍 Divs suspects trouvés: ${suspectDivs.length}`);
+      
+      if (suspectDivs.length > 0) {
+        console.log('📋 Exemples de divs suspects:');
+        suspectDivs.slice(0, 3).each((index, element) => {
+          const $el = $(element);
+          console.log(`  - Div ${index + 1}:`, {
+            classes: $el.attr('class'),
+            text: $el.text().substring(0, 100)
+          });
+        });
+      }
+      
       return annonces;
     }
 
