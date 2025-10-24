@@ -23,29 +23,18 @@ export async function GET(request: NextRequest) {
 
     console.log(`✅ Test terminé: ${annonces.length} annonces récupérées`);
 
-    // Formatage des résultats pour le debug
+    // Formatage des résultats selon la nouvelle interface
     const results = {
-      success: true,
-      totalAnnonces: annonces.length,
-      testParams,
+      status: "success",
+      count: annonces.length,
       annonces: annonces.map(annonce => ({
         title: annonce.title,
         price: annonce.price,
         surface: annonce.surface,
-        rooms: annonce.rooms,
-        city: annonce.city,
         postalCode: annonce.postalCode,
-        url: annonce.url,
-        hasImages: annonce.images.length > 0,
-        imageCount: annonce.images.length,
-        description: annonce.description?.substring(0, 100) + '...'
-      })),
-      summary: {
-        averagePrice: annonces.length > 0 ? Math.round(annonces.reduce((sum, a) => sum + a.price, 0) / annonces.length) : 0,
-        averageSurface: annonces.length > 0 ? Math.round(annonces.filter(a => a.surface).reduce((sum, a) => sum + (a.surface || 0), 0) / annonces.filter(a => a.surface).length) : 0,
-        citiesFound: [...new Set(annonces.map(a => a.city))],
-        totalWithImages: annonces.filter(a => a.images.length > 0).length
-      }
+        image: annonce.images.length > 0 ? annonce.images[0] : null,
+        url: annonce.url
+      }))
     };
 
     return NextResponse.json(results, { status: 200 });
@@ -54,7 +43,7 @@ export async function GET(request: NextRequest) {
     console.error('❌ Erreur lors du test:', error);
     
     return NextResponse.json({
-      success: false,
+      status: "error",
       error: error instanceof Error ? error.message : 'Erreur inconnue',
       details: error instanceof Error ? error.stack : undefined
     }, { status: 500 });
@@ -84,27 +73,16 @@ export async function POST(request: NextRequest) {
     console.log(`✅ Test personnalisé terminé: ${annonces.length} annonces récupérées`);
 
     const results = {
-      success: true,
-      totalAnnonces: annonces.length,
-      testParams,
+      status: "success",
+      count: annonces.length,
       annonces: annonces.map(annonce => ({
         title: annonce.title,
         price: annonce.price,
         surface: annonce.surface,
-        rooms: annonce.rooms,
-        city: annonce.city,
         postalCode: annonce.postalCode,
-        url: annonce.url,
-        hasImages: annonce.images.length > 0,
-        imageCount: annonce.images.length,
-        description: annonce.description?.substring(0, 100) + '...'
-      })),
-      summary: {
-        averagePrice: annonces.length > 0 ? Math.round(annonces.reduce((sum, a) => sum + a.price, 0) / annonces.length) : 0,
-        averageSurface: annonces.length > 0 ? Math.round(annonces.filter(a => a.surface).reduce((sum, a) => sum + (a.surface || 0), 0) / annonces.filter(a => a.surface).length) : 0,
-        citiesFound: [...new Set(annonces.map(a => a.city))],
-        totalWithImages: annonces.filter(a => a.images.length > 0).length
-      }
+        image: annonce.images.length > 0 ? annonce.images[0] : null,
+        url: annonce.url
+      }))
     };
 
     return NextResponse.json(results, { status: 200 });
@@ -113,7 +91,7 @@ export async function POST(request: NextRequest) {
     console.error('❌ Erreur lors du test personnalisé:', error);
     
     return NextResponse.json({
-      success: false,
+      status: "error",
       error: error instanceof Error ? error.message : 'Erreur inconnue',
       details: error instanceof Error ? error.stack : undefined
     }, { status: 500 });
