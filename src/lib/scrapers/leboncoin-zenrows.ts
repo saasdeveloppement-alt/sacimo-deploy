@@ -45,6 +45,7 @@ export class LeBonCoinZenRowsScraper {
       console.log('✅ Clé API ZenRows configurée et prête à l\'emploi !');
     }
   }
+
   
   private async delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));

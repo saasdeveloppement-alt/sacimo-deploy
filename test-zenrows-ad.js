@@ -2,7 +2,7 @@ import fetch from "node-fetch";
 
 const zenrowsUrl = new URL("https://api.zenrows.com/v1/");
 zenrowsUrl.searchParams.set("apikey", "d3b645718fe52aa686631ef96ef5833b6f73065e");
-zenrowsUrl.searchParams.set("url", "https://www.leboncoin.fr/c/ventes_immobilieres");
+zenrowsUrl.searchParams.set("url", "https://www.leboncoin.fr/");
 zenrowsUrl.searchParams.set("js_render", "true");
 zenrowsUrl.searchParams.set("wait", "10000");
 zenrowsUrl.searchParams.set("premium_proxy", "true");
