@@ -2,12 +2,14 @@ import fetch from "node-fetch";
 
 const zenrowsUrl = new URL("https://api.zenrows.com/v1/");
 zenrowsUrl.searchParams.set("apikey", "d3b645718fe52aa686631ef96ef5833b6f73065e");
-zenrowsUrl.searchParams.set("url", "https://www.leboncoin.fr/recherche?category=9&real_estate_type=1&locations=Paris&price=200000-500000&square=20-60");
+zenrowsUrl.searchParams.set("url", "https://www.leboncoin.fr/");
 zenrowsUrl.searchParams.set("js_render", "true");
-zenrowsUrl.searchParams.set("wait", "8000");
+zenrowsUrl.searchParams.set("wait", "10000");
 zenrowsUrl.searchParams.set("premium_proxy", "true");
 zenrowsUrl.searchParams.set("proxy_country", "FR");
-zenrowsUrl.searchParams.set("stealth", "true");
+zenrowsUrl.searchParams.set("wait_for", "body");
+zenrowsUrl.searchParams.set("custom_headers", "true");
+zenrowsUrl.searchParams.set("original_status", "true");
 
 console.log("🔍 Requesting:", zenrowsUrl.toString().substring(0, 200));
 

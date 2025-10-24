@@ -112,7 +112,7 @@ export class LeBonCoinZenRowsScraper {
     }
 
     // Paramètres optimaux pour éviter les erreurs 422 et charger le contenu React
-    const zenrowsUrl = `https://api.zenrows.com/v1/?apikey=${this.zenrowsApiKey}&url=${encodeURIComponent(url)}&js_render=true&premium_proxy=true&proxy_country=fr&wait=10000&wait_for=body&custom_headers=true&original_status=true&stealth=true`;
+    const zenrowsUrl = `https://api.zenrows.com/v1/?apikey=${this.zenrowsApiKey}&url=${encodeURIComponent(url)}&js_render=true&premium_proxy=true&proxy_country=fr&wait=10000&wait_for=body&custom_headers=true&original_status=true`;
     
     console.log(`🔒 Utilisation de ZenRows avec paramètres optimaux...`);
     console.log(`📡 URL ZenRows: ${zenrowsUrl.substring(0, 100)}...`);
@@ -145,12 +145,10 @@ console.log("✅ HTML reçu :", html.slice(0, 1000));
     console.log(`📡 Response headers:`, Object.fromEntries(response.headers.entries()));
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`❌ Erreur ZenRows ${response.status}:`, errorText);
-      throw new Error(`Erreur ZenRows: ${response.status} ${response.statusText} - ${errorText}`);
+      console.error(`❌ Erreur ZenRows ${response.status}: ${response.statusText}`);
+      throw new Error(`Erreur ZenRows: ${response.status} ${response.statusText}`);
     }
 
-    const html = await response.text();
     console.log(`✅ HTML reçu: ${html.length} caractères`);
     
     // Debug: Afficher les 500 premiers caractères du HTML
