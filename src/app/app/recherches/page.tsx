@@ -62,6 +62,8 @@ interface SearchConfig {
 }
 
 export default function RecherchesPage() {
+  console.log("🚀🚀🚀 RECHERCHES PAGE LOADED - SCRAPER BUTTON SHOULD BE VISIBLE 🚀🚀🚀")
+  
   const [searches, setSearches] = useState<SearchConfig[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
@@ -141,6 +143,7 @@ export default function RecherchesPage() {
         }
       }
     ]
+    console.log("📋 Mock searches loaded:", mockSearches.length, "searches")
     setSearches(mockSearches)
   }, [])
 
@@ -467,7 +470,10 @@ export default function RecherchesPage() {
                                 <Button 
                                   variant="outline" 
                                   size="sm"
-                                  onClick={() => runScraping(search)}
+                                  onClick={() => {
+                                    console.log("⚡ SCRAPER BUTTON CLICKED for:", search.name)
+                                    runScraping(search)
+                                  }}
                                   disabled={isLoading}
                                   className="border-slate-200 hover:border-green-300 hover:text-green-600"
                                 >
