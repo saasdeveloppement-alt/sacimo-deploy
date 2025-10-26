@@ -164,6 +164,48 @@ export default function RecherchesPage() {
     ))
   }
 
+  const runScraping = async (search: SearchConfig) => {
+    setIsLoading(true)
+    try {
+      console.log("🔍 Lancement du scraping pour:", search.name)
+      
+      // Convertir les paramètres de recherche en format scraper
+      const scraperParams = {
+        ville: search.params.postalCodes[0]?.substring(0, 2) === '75' ? 'Paris' : 'Lyon',
+        minPrix: search.params.priceMin,
+        maxPrix: search.params.priceMax,
+        minSurface: search.params.surfaceMin,
+        maxSurface: search.params.surfaceMax,
+        typeBien: search.params.types[0]?.toLowerCase() === 'apartment' ? 'appartement' : 'maison',
+        pages: 1
+      }
+
+      const response = await fetch('/api/scraper/leboncoin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(scraperParams)
+      })
+
+      const data = await response.json()
+      
+      if (data.status === 'success') {
+        // Mettre à jour le nombre de résultats
+        setSearches(prev => prev.map(s => 
+          s.id === search.id 
+            ? { ...s, results: data.count, lastRun: new Date() }
+            : s
+        ))
+        console.log(`✅ Scraping terminé: ${data.count} annonces trouvées`)
+      } else {
+        console.error("❌ Erreur scraping:", data.message)
+      }
+    } catch (err) {
+      console.error("❌ Erreur scraping:", err)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const deleteSearch = (id: string) => {
     setSearches(prev => prev.filter(search => search.id !== id))
   }
@@ -422,6 +464,16 @@ export default function RecherchesPage() {
                               </div>
                               
                               <div className="flex gap-2">
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => runScraping(search)}
+                                  disabled={isLoading}
+                                  className="border-slate-200 hover:border-green-300 hover:text-green-600"
+                                >
+                                  <Zap className="h-4 w-4" />
+                                  Scraper
+                                </Button>
                                 <Button 
                                   variant="outline" 
                                   size="sm"

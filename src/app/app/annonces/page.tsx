@@ -72,19 +72,51 @@ export default function AnnoncesPage() {
   const loadScrapingData = async () => {
     setIsLoading(true)
     try {
-      const response = await fetch('/api/scrape', {
+      console.log("🔍 Chargement des données LeBonCoin...")
+      
+      // Utiliser l'API scraper LeBonCoin
+      const response = await fetch('/api/scraper/leboncoin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ searchId: 'test-search' }),
+        body: JSON.stringify({
+          ville: 'Paris',
+          minPrix: 200000,
+          maxPrix: 500000,
+          minSurface: 20,
+          maxSurface: 60,
+          typeBien: 'appartement',
+          pages: 1
+        }),
       })
+      
       const data = await response.json()
+      console.log("📦 Données reçues:", data)
 
-      if (data.success) {
-        const fetchedListings = data.data.results.flatMap((res: any) => res.listings)
-        setListings(fetchedListings)
+      if (data.status === 'success') {
+        // Convertir les données LeBonCoin au format attendu
+        const convertedListings = data.annonces.map((annonce: any) => ({
+          title: annonce.title,
+          price: parseInt(annonce.price.replace(/[^\d]/g, '')) || 0,
+          surface: parseInt(annonce.surface?.replace(/[^\d]/g, '')) || undefined,
+          rooms: undefined, // Pas disponible dans le scraper actuel
+          city: 'Paris', // À extraire du scraper si possible
+          postalCode: annonce.postalCode || '75000',
+          type: 'APARTMENT',
+          source: 'LeBonCoin',
+          url: annonce.url,
+          publishedAt: new Date().toISOString(),
+          isPrivateSeller: true, // Par défaut
+          description: annonce.description || '',
+          photos: annonce.images || []
+        }))
+        
+        setListings(convertedListings)
+        console.log(`✅ ${convertedListings.length} annonces chargées`)
+      } else {
+        console.error("❌ Erreur scraping:", data.message)
       }
     } catch (err) {
-      console.error(err)
+      console.error("❌ Erreur chargement:", err)
     } finally {
       setIsLoading(false)
     }
