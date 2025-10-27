@@ -1,4 +1,4 @@
-import fetch from "node-fetch";
+// No import needed for 'fetch' in a Codespace Node.js 18+ environment (fetch is global).
 
 const zenrowsUrl = new URL("https://api.zenrows.com/v1/");
 zenrowsUrl.searchParams.set("apikey", "d3b645718fe52aa686631ef96ef5833b6f73065e");

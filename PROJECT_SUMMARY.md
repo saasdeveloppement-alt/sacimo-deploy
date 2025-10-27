@@ -147,6 +147,7 @@ npm install
 ### 2. Configuration
 ```bash
 cp .env.example .env.local
+
 # Configurer les variables d'environnement
 ```
 
@@ -251,6 +252,8 @@ Le projet est prêt pour :
 ---
 
 **SACIMO** - Transformez votre veille immobilière ! 🏠✨
+
+
 
 
 

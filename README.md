@@ -7,3 +7,6 @@ Force rebuild - Scraper button integration
 - Integrated LeBonCoin scraper with ZenRows API
 - Debug logs added for component lifecycle
 
+---
+**Force Vercel rebuild** - October 27, 2024
+
