@@ -112,11 +112,8 @@ export class LeBonCoinZenRowsScraper {
       throw new Error('ZENROWS_API_KEY non configurée');
     }
 
-    // URL de test pour la page de ventes immobilières LeBonCoin
-    const testUrl = "https://www.leboncoin.fr/c/ventes_immobilieres";
-    
     // Paramètres optimaux pour éviter les erreurs 422 et charger le contenu React
-    const zenrowsUrl = `https://api.zenrows.com/v1/?apikey=${this.zenrowsApiKey}&url=${encodeURIComponent(testUrl)}&js_render=true&premium_proxy=true&proxy_country=fr&wait=10000&wait_for=body&custom_headers=true&original_status=true`;
+    const zenrowsUrl = `https://api.zenrows.com/v1/?apikey=${this.zenrowsApiKey}&url=${encodeURIComponent(url)}&js_render=true&premium_proxy=true&proxy_country=fr&wait=10000&wait_for=body&custom_headers=true&original_status=true`;
     
     console.log(`🔒 Utilisation de ZenRows avec paramètres optimaux...`);
     console.log(`📡 URL ZenRows: ${zenrowsUrl.substring(0, 100)}...`);
