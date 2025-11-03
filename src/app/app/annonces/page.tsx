@@ -93,25 +93,62 @@ export default function AnnoncesPage() {
       console.log("📦 Données reçues:", data)
 
       if (data.status === 'success') {
+        // Dédupliquer par URL
+        const seenUrls = new Set<string>()
+        const uniqueAnnonces = data.annonces.filter((annonce: any) => {
+          if (seenUrls.has(annonce.url)) return false
+          seenUrls.add(annonce.url)
+          return true
+        })
+        
         // Convertir les données LeBonCoin au format attendu
-        const convertedListings = data.annonces.map((annonce: any) => ({
-          title: annonce.title,
-          price: parseInt(annonce.price.replace(/[^\d]/g, '')) || 0,
-          surface: parseInt(annonce.surface?.replace(/[^\d]/g, '')) || undefined,
-          rooms: undefined, // Pas disponible dans le scraper actuel
-          city: 'Paris', // À extraire du scraper si possible
-          postalCode: annonce.postalCode || '75000',
-          type: 'APARTMENT',
-          source: 'LeBonCoin',
-          url: annonce.url,
-          publishedAt: new Date().toISOString(),
-          isPrivateSeller: true, // Par défaut
-          description: annonce.description || '',
-          photos: annonce.images || []
-        }))
+        const convertedListings = uniqueAnnonces.map((annonce: any) => {
+          // Extraire le type depuis l'URL ou le titre
+          const inferType = (title: string, url: string): string => {
+            const lowerTitle = title.toLowerCase()
+            const lowerUrl = url.toLowerCase()
+            if (lowerTitle.includes('maison') || lowerTitle.includes('villa') || lowerUrl.includes('maison')) return 'HOUSE'
+            if (lowerTitle.includes('studio') || lowerUrl.includes('studio')) return 'STUDIO'
+            if (lowerTitle.includes('loft') || lowerUrl.includes('loft')) return 'LOFT'
+            return 'APARTMENT'
+          }
+          
+          // Extraire la ville depuis le code postal ou default
+          const inferCity = (postalCode?: string): string => {
+            if (!postalCode) return 'Paris'
+            const code = postalCode.substring(0, 2)
+            const cityMap: Record<string, string> = {
+              '75': 'Paris',
+              '69': 'Lyon',
+              '13': 'Marseille',
+              '31': 'Toulouse',
+              '33': 'Bordeaux',
+              '44': 'Nantes',
+              '06': 'Nice'
+            }
+            return cityMap[code] || 'Paris'
+          }
+          
+          return {
+            title: annonce.title,
+            price: parseInt(annonce.price.replace(/[^\d]/g, '')) || 0,
+            surface: parseInt(annonce.surface?.replace(/[^\d]/g, '')) || undefined,
+            rooms: annonce.rooms,
+            city: annonce.city || inferCity(annonce.postalCode),
+            postalCode: annonce.postalCode || '75000',
+            type: inferType(annonce.title, annonce.url),
+            source: 'LeBonCoin',
+            url: annonce.url,
+            publishedAt: annonce.publishedAt?.toISOString() || new Date().toISOString(),
+            isPrivateSeller: true, // LeBonCoin = particuliers par défaut
+            description: annonce.description || '',
+            photos: annonce.images || []
+          }
+        })
         
         setListings(convertedListings)
-        console.log(`✅ ${convertedListings.length} annonces chargées`)
+        const duplicatesRemoved = data.annonces.length - convertedListings.length
+        console.log(`✅ ${convertedListings.length} annonces uniques chargées${duplicatesRemoved > 0 ? ` (${data.annonces.length} total, ${duplicatesRemoved} doublons supprimés)` : ''}`)
       } else {
         console.error("❌ Erreur scraping:", data.message)
       }

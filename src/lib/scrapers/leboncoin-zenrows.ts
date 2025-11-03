@@ -97,6 +97,11 @@ export class LeBonCoinZenRowsScraper {
       }
     }
     
+    // Nombre de pièces (seulement si spécifié)
+    if (params.pieces) {
+      searchParams.set('rooms', params.pieces.toString());
+    }
+    
     // Pagination
     if (page > 1) {
       searchParams.set('page', page.toString());

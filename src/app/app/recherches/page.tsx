@@ -173,13 +173,39 @@ export default function RecherchesPage() {
       console.log("🔍 Lancement du scraping pour:", search.name)
       
       // Convertir les paramètres de recherche en format scraper
+      const mapType = (type: string) => {
+        const mapping: Record<string, string> = {
+          'apartment': 'appartement',
+          'house': 'maison',
+          'studio': 'studio',
+          'loft': 'loft',
+          'penthouse': 'penthouse'
+        }
+        return mapping[type.toLowerCase()] || 'appartement'
+      }
+      
+      const mapCity = (postalCode: string) => {
+        const code = postalCode.substring(0, 2)
+        const cityMap: Record<string, string> = {
+          '75': 'Paris',
+          '69': 'Lyon',
+          '13': 'Marseille',
+          '31': 'Toulouse',
+          '33': 'Bordeaux',
+          '44': 'Nantes',
+          '06': 'Nice'
+        }
+        return cityMap[code] || postalCode
+      }
+      
       const scraperParams = {
-        ville: search.params.postalCodes[0]?.substring(0, 2) === '75' ? 'Paris' : 'Lyon',
+        ville: search.params.postalCodes[0] ? mapCity(search.params.postalCodes[0]) : 'Paris',
         minPrix: search.params.priceMin,
         maxPrix: search.params.priceMax,
         minSurface: search.params.surfaceMin,
         maxSurface: search.params.surfaceMax,
-        typeBien: search.params.types[0]?.toLowerCase() === 'apartment' ? 'appartement' : 'maison',
+        typeBien: mapType(search.params.types[0] || 'apartment'),
+        pieces: search.params.roomsMin,
         pages: 1
       }
 
