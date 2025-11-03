@@ -62,95 +62,69 @@ interface Listing {
 export default function AnnoncesPage() {
   const [listings, setListings] = useState<Listing[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [totalCount, setTotalCount] = useState(0)
   const [searchTerm, setSearchTerm] = useState("")
   const [priceFilter, setPriceFilter] = useState("all")
   const [typeFilter, setTypeFilter] = useState("all")
   const [sellerFilter, setSellerFilter] = useState("all")
+  const [cityFilter, setCityFilter] = useState("all")
+  const [sortBy, setSortBy] = useState<"price" | "publishedAt">("publishedAt")
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null)
 
   const loadScrapingData = async () => {
     setIsLoading(true)
     try {
-      console.log("🔍 Chargement des données LeBonCoin...")
+      console.log("🔍 Chargement des annonces depuis la base de données...")
       
-      // Utiliser l'API scraper LeBonCoin
-      const response = await fetch('/api/scraper/leboncoin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ville: 'Paris',
-          minPrix: 200000,
-          maxPrix: 500000,
-          minSurface: 20,
-          maxSurface: 60,
-          typeBien: 'appartement',
-          pages: 1
-        }),
-      })
+      // Construire les paramètres de recherche
+      const params = new URLSearchParams()
+      if (searchTerm) params.append('search', searchTerm)
+      if (cityFilter !== 'all') params.append('city', cityFilter)
       
+      if (priceFilter !== 'all') {
+        if (priceFilter === 'low') {
+          params.append('minPrice', '0')
+          params.append('maxPrice', '300000')
+        } else if (priceFilter === 'medium') {
+          params.append('minPrice', '300000')
+          params.append('maxPrice', '600000')
+        } else if (priceFilter === 'high') {
+          params.append('minPrice', '600000')
+        }
+      }
+      
+      params.append('sortBy', sortBy)
+      params.append('sortOrder', sortOrder)
+      
+      const response = await fetch(`/api/annonces/list?${params.toString()}`)
       const data = await response.json()
       console.log("📦 Données reçues:", data)
 
       if (data.status === 'success') {
-        // Dédupliquer par URL
-        const seenUrls = new Set<string>()
-        const uniqueAnnonces = data.annonces.filter((annonce: any) => {
-          if (seenUrls.has(annonce.url)) return false
-          seenUrls.add(annonce.url)
-          return true
-        })
-        
-        // Convertir les données LeBonCoin au format attendu
-        const convertedListings = uniqueAnnonces.map((annonce: any) => {
-          // Extraire le type depuis l'URL ou le titre
-          const inferType = (title: string, url: string): string => {
-            const lowerTitle = title.toLowerCase()
-            const lowerUrl = url.toLowerCase()
-            if (lowerTitle.includes('maison') || lowerTitle.includes('villa') || lowerUrl.includes('maison')) return 'HOUSE'
-            if (lowerTitle.includes('studio') || lowerUrl.includes('studio')) return 'STUDIO'
-            if (lowerTitle.includes('loft') || lowerUrl.includes('loft')) return 'LOFT'
-            return 'APARTMENT'
-          }
-          
-          // Extraire la ville depuis le code postal ou default
-          const inferCity = (postalCode?: string): string => {
-            if (!postalCode) return 'Paris'
-            const code = postalCode.substring(0, 2)
-            const cityMap: Record<string, string> = {
-              '75': 'Paris',
-              '69': 'Lyon',
-              '13': 'Marseille',
-              '31': 'Toulouse',
-              '33': 'Bordeaux',
-              '44': 'Nantes',
-              '06': 'Nice'
-            }
-            return cityMap[code] || 'Paris'
-          }
-          
-          return {
-            title: annonce.title,
-            price: parseInt(annonce.price.replace(/[^\d]/g, '')) || 0,
-            surface: parseInt(annonce.surface?.replace(/[^\d]/g, '')) || undefined,
-            rooms: annonce.rooms,
-            city: annonce.city || inferCity(annonce.postalCode),
-            postalCode: annonce.postalCode || '75000',
-            type: inferType(annonce.title, annonce.url),
-            source: 'LeBonCoin',
-            url: annonce.url,
-            publishedAt: annonce.publishedAt?.toISOString() || new Date().toISOString(),
-            isPrivateSeller: true, // LeBonCoin = particuliers par défaut
-            description: annonce.description || '',
-            photos: annonce.images || []
-          }
-        })
+        // Convertir les données Prisma au format attendu
+        const convertedListings = data.data.map((annonce: any) => ({
+          title: annonce.title,
+          price: annonce.price,
+          surface: annonce.surface || undefined,
+          rooms: annonce.rooms || undefined,
+          city: annonce.city,
+          postalCode: annonce.postalCode || '',
+          type: inferTypeFromTitle(annonce.title, annonce.url),
+          source: 'LeBonCoin',
+          url: annonce.url,
+          publishedAt: annonce.publishedAt?.toISOString() || new Date().toISOString(),
+          isPrivateSeller: true,
+          description: annonce.description || '',
+          photos: annonce.images || []
+        }))
         
         setListings(convertedListings)
-        const duplicatesRemoved = data.annonces.length - convertedListings.length
-        console.log(`✅ ${convertedListings.length} annonces uniques chargées${duplicatesRemoved > 0 ? ` (${data.annonces.length} total, ${duplicatesRemoved} doublons supprimés)` : ''}`)
+        setTotalCount(data.pagination?.total || convertedListings.length)
+        console.log(`✅ ${convertedListings.length} annonces chargées depuis la base`)
       } else {
-        console.error("❌ Erreur scraping:", data.message)
+        console.error("❌ Erreur chargement:", data.message)
       }
     } catch (err) {
       console.error("❌ Erreur chargement:", err)
@@ -158,28 +132,30 @@ export default function AnnoncesPage() {
       setIsLoading(false)
     }
   }
+  
+  // Helper pour extraire le type depuis le titre/URL
+  const inferTypeFromTitle = (title: string, url: string): string => {
+    const lowerTitle = title.toLowerCase()
+    const lowerUrl = url.toLowerCase()
+    if (lowerTitle.includes('maison') || lowerTitle.includes('villa') || lowerUrl.includes('maison')) return 'HOUSE'
+    if (lowerTitle.includes('studio') || lowerUrl.includes('studio')) return 'STUDIO'
+    if (lowerTitle.includes('loft') || lowerUrl.includes('loft')) return 'LOFT'
+    return 'APARTMENT'
+  }
 
   useEffect(() => {
     loadScrapingData()
-  }, [])
+  }, [cityFilter, priceFilter, sortBy, sortOrder, searchTerm])
 
-  // Logique de filtrage
+  // Logique de filtrage côté client (pour filtres type et seller uniquement, car Prisma ne les gère pas encore)
   const filteredListings = listings.filter(listing => {
-    const matchesSearch = listing.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         listing.city.toLowerCase().includes(searchTerm.toLowerCase())
-    
-    const matchesPrice = priceFilter === "all" || 
-      (priceFilter === "low" && listing.price < 300000) ||
-      (priceFilter === "medium" && listing.price >= 300000 && listing.price < 600000) ||
-      (priceFilter === "high" && listing.price >= 600000)
-    
     const matchesType = typeFilter === "all" || listing.type === typeFilter
     
     const matchesSeller = sellerFilter === "all" || 
       (sellerFilter === "private" && listing.isPrivateSeller) ||
       (sellerFilter === "professional" && !listing.isPrivateSeller)
     
-    return matchesSearch && matchesPrice && matchesType && matchesSeller
+    return matchesType && matchesSeller
   })
 
   // Données pour les graphiques
@@ -253,18 +229,37 @@ export default function AnnoncesPage() {
               title="Filtres et Recherche"
               icon={<Filter className="h-5 w-5 text-purple-600" />}
             >
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-700">Recherche</label>
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
                     <Input
-                      placeholder="Rechercher par titre ou ville..."
+                      placeholder="Rechercher par titre..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="pl-10 bg-white/80 border-slate-200 focus:border-purple-300 focus:ring-purple-200"
                     />
                   </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">Ville</label>
+                  <Select value={cityFilter} onValueChange={setCityFilter}>
+                    <SelectTrigger className="bg-white/80 border-slate-200 focus:border-purple-300 focus:ring-purple-200">
+                      <SelectValue placeholder="Toutes les villes" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Toutes les villes</SelectItem>
+                      <SelectItem value="Paris">Paris</SelectItem>
+                      <SelectItem value="Lyon">Lyon</SelectItem>
+                      <SelectItem value="Marseille">Marseille</SelectItem>
+                      <SelectItem value="Toulouse">Toulouse</SelectItem>
+                      <SelectItem value="Bordeaux">Bordeaux</SelectItem>
+                      <SelectItem value="Nantes">Nantes</SelectItem>
+                      <SelectItem value="Nice">Nice</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 
                 <div className="space-y-2">
@@ -298,15 +293,20 @@ export default function AnnoncesPage() {
                 </div>
                 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Vendeur</label>
-                  <Select value={sellerFilter} onValueChange={setSellerFilter}>
+                  <label className="text-sm font-medium text-slate-700">Trier par</label>
+                  <Select value={`${sortBy}-${sortOrder}`} onValueChange={(value) => {
+                    const [by, order] = value.split('-')
+                    setSortBy(by as "price" | "publishedAt")
+                    setSortOrder(order as "asc" | "desc")
+                  }}>
                     <SelectTrigger className="bg-white/80 border-slate-200 focus:border-purple-300 focus:ring-purple-200">
-                      <SelectValue placeholder="Tous les vendeurs" />
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Tous les vendeurs</SelectItem>
-                      <SelectItem value="private">Particuliers</SelectItem>
-                      <SelectItem value="professional">Professionnels</SelectItem>
+                      <SelectItem value="publishedAt-desc">Plus récentes</SelectItem>
+                      <SelectItem value="publishedAt-asc">Plus anciennes</SelectItem>
+                      <SelectItem value="price-asc">Prix croissant</SelectItem>
+                      <SelectItem value="price-desc">Prix décroissant</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -314,7 +314,7 @@ export default function AnnoncesPage() {
               
               <div className="mt-6 flex items-center justify-between">
                 <Badge variant="secondary" className="bg-purple-100 text-purple-700 border-purple-200">
-                  {filteredListings.length} annonce{filteredListings.length > 1 ? 's' : ''} trouvée{filteredListings.length > 1 ? 's' : ''}
+                  {totalCount > 0 ? `${totalCount} annonce${totalCount > 1 ? 's' : ''} trouvée${totalCount > 1 ? 's' : ''}` : filteredListings.length > 0 ? `${filteredListings.length} affichée${filteredListings.length > 1 ? 's' : ''}` : 'Aucune annonce'}
                 </Badge>
                 <div className="flex gap-2">
                   <Button 
@@ -325,6 +325,9 @@ export default function AnnoncesPage() {
                       setPriceFilter("all")
                       setTypeFilter("all")
                       setSellerFilter("all")
+                      setCityFilter("all")
+                      setSortBy("publishedAt")
+                      setSortOrder("desc")
                     }}
                     className="border-slate-200 hover:border-purple-300 hover:text-purple-600"
                   >
