@@ -59,10 +59,29 @@ interface Listing {
   photos: string[];
 }
 
+interface Stats {
+  total: number
+  avgPrice: number
+  minPrice: number
+  maxPrice: number
+  cities: Array<{
+    city: string
+    count: number
+    avgPrice: number
+    minPrice: number
+    maxPrice: number
+  }>
+  sellers: {
+    private: number
+    professional: number
+  }
+}
+
 export default function AnnoncesPage() {
   const [listings, setListings] = useState<Listing[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [totalCount, setTotalCount] = useState(0)
+  const [stats, setStats] = useState<Stats | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [priceFilter, setPriceFilter] = useState("all")
   const [typeFilter, setTypeFilter] = useState("all")
@@ -122,7 +141,11 @@ export default function AnnoncesPage() {
         
         setListings(convertedListings)
         setTotalCount(data.pagination?.total || convertedListings.length)
+        setStats(data.stats || null)
         console.log(`✅ ${convertedListings.length} annonces chargées depuis la base`)
+        if (data.stats) {
+          console.log(`📊 Statistiques: ${data.stats.total} total, prix moyen: ${data.stats.avgPrice}€`)
+        }
       } else {
         console.error("❌ Erreur chargement:", data.message)
       }
@@ -172,16 +195,20 @@ export default function AnnoncesPage() {
     { name: "Autres", value: filteredListings.filter(l => !['APARTMENT', 'HOUSE', 'STUDIO'].includes(l.type)).length, color: "#10B981" }
   ].filter(item => item.value > 0)
 
-  const cityDistribution = filteredListings.reduce((acc, listing) => {
-    const city = listing.city
-    acc[city] = (acc[city] || 0) + 1
-    return acc
-  }, {} as Record<string, number>)
-
-  const cityData = Object.entries(cityDistribution).map(([city, count]) => ({
-    city,
-    count
-  })).sort((a, b) => b.count - a.count).slice(0, 5)
+  // Utiliser les statistiques de villes depuis l'API si disponibles, sinon calculer depuis filteredListings
+  const cityData = stats?.cities 
+    ? stats.cities.slice(0, 5).map(c => ({ city: c.city, count: c.count }))
+    : (() => {
+        const cityDistribution = filteredListings.reduce((acc, listing) => {
+          const city = listing.city
+          acc[city] = (acc[city] || 0) + 1
+          return acc
+        }, {} as Record<string, number>)
+        return Object.entries(cityDistribution).map(([city, count]) => ({
+          city,
+          count
+        })).sort((a, b) => b.count - a.count).slice(0, 5)
+      })()
 
   return (
     <PageContainer>
@@ -349,7 +376,7 @@ export default function AnnoncesPage() {
           >
             <MetricCard
               title="Total Annonces"
-              value={filteredListings.length}
+              value={stats?.total || totalCount || 0}
               icon={Home}
               color="from-purple-500 to-purple-600"
               bgColor="bg-purple-50"
@@ -357,9 +384,11 @@ export default function AnnoncesPage() {
             />
             <MetricCard
               title="Prix Moyen"
-              value={filteredListings.length > 0 
-                ? Math.round(filteredListings.reduce((sum, l) => sum + l.price, 0) / filteredListings.length).toLocaleString('fr-FR') + '€'
-                : '0€'
+              value={stats?.avgPrice 
+                ? stats.avgPrice.toLocaleString('fr-FR') + '€'
+                : filteredListings.length > 0 
+                  ? Math.round(filteredListings.reduce((sum, l) => sum + l.price, 0) / filteredListings.length).toLocaleString('fr-FR') + '€'
+                  : '0€'
               }
               icon={TrendingUp}
               color="from-blue-500 to-blue-600"
@@ -368,7 +397,7 @@ export default function AnnoncesPage() {
             />
             <MetricCard
               title="Particuliers"
-              value={filteredListings.filter(l => l.isPrivateSeller).length}
+              value={stats?.sellers?.private || filteredListings.filter(l => l.isPrivateSeller).length}
               icon={Users}
               color="from-cyan-500 to-cyan-600"
               bgColor="bg-cyan-50"
@@ -376,7 +405,7 @@ export default function AnnoncesPage() {
             />
             <MetricCard
               title="Professionnels"
-              value={filteredListings.filter(l => !l.isPrivateSeller).length}
+              value={stats?.sellers?.professional || filteredListings.filter(l => !l.isPrivateSeller).length}
               icon={Building2}
               color="from-emerald-500 to-emerald-600"
               bgColor="bg-emerald-50"
@@ -425,7 +454,7 @@ export default function AnnoncesPage() {
                       cx="50%"
                       cy="50%"
                       labelLine={false}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      label={({ name, percent }: any) => `${name} ${((percent as number) * 100).toFixed(0)}%`}
                       outerRadius={80}
                       fill="#8884d8"
                       dataKey="value"
@@ -493,28 +522,55 @@ export default function AnnoncesPage() {
               icon={<Target className="h-5 w-5 text-emerald-600" />}
             >
               {filteredListings.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-purple-100 to-blue-100 flex items-center justify-center">
-                    <Building2 className="h-8 w-8 text-purple-600" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-slate-800 mb-2">
-                    {listings.length === 0 ? "Aucune annonce trouvée" : "Aucune annonce ne correspond aux filtres"}
-                  </h3>
-                  <p className="text-slate-600 mb-4">
-                    {listings.length === 0 ? "Lancez le scraping pour découvrir de nouvelles annonces" : "Essayez de modifier vos critères de recherche"}
-                  </p>
-                  <Button 
-                    onClick={loadScrapingData} 
-                    className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+                <div className="text-center py-16">
+                  <motion.div 
+                    className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-r from-purple-100 to-blue-100 flex items-center justify-center"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ duration: 0.5, type: "spring" }}
                   >
-                    {listings.length === 0 ? "Lancer le scraping" : "Réinitialiser les filtres"}
-                  </Button>
+                    <Building2 className="h-10 w-10 text-purple-600" />
+                  </motion.div>
+                  <h3 className="text-xl font-bold text-slate-800 mb-3">
+                    {totalCount === 0 ? "Aucune annonce trouvée" : "Aucune annonce ne correspond aux filtres"}
+                  </h3>
+                  <p className="text-slate-600 mb-6 max-w-md mx-auto">
+                    {totalCount === 0 
+                      ? "La base de données est vide. Lancez le scraping depuis la page 'Mes recherches' pour découvrir de nouvelles annonces." 
+                      : "Essayez de modifier vos critères de recherche ou de réinitialiser les filtres."}
+                  </p>
+                  <div className="flex gap-3 justify-center">
+                    {totalCount === 0 ? (
+                      <Button 
+                        onClick={() => window.location.href = '/app/recherches'} 
+                        className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+                      >
+                        <Zap className="h-4 w-4 mr-2" />
+                        Aller aux recherches
+                      </Button>
+                    ) : (
+                      <Button 
+                        onClick={() => {
+                          setSearchTerm("")
+                          setPriceFilter("all")
+                          setTypeFilter("all")
+                          setSellerFilter("all")
+                          setCityFilter("all")
+                          setSortBy("publishedAt")
+                          setSortOrder("desc")
+                        }}
+                        className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+                      >
+                        Réinitialiser les filtres
+                      </Button>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-4"}>
-                  {filteredListings.map((listing, index) => (
+                  {filteredListings.map((listing) => (
                     <motion.div
-                      key={index}
+                      key={listing.url}
                       variants={fadeInUp}
                       whileHover={{ y: -4, scale: 1.02 }}
                       transition={{ duration: 0.2 }}
@@ -529,8 +585,9 @@ export default function AnnoncesPage() {
                                   src={listing.photos[0]} 
                                   alt={listing.title}
                                   className="w-full h-full object-cover"
-                                  onError={(e) => {
-                                    e.target.src = '/placeholder.svg'
+                                  onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+                                    const target = e.target as HTMLImageElement
+                                    target.src = '/placeholder.svg'
                                   }}
                                 />
                               ) : (
@@ -627,8 +684,9 @@ export default function AnnoncesPage() {
                                                 src={photo} 
                                                 alt={`Photo ${photoIndex + 1}`}
                                                 className="w-full h-full object-cover"
-                                                onError={(e) => {
-                                                  e.target.src = '/placeholder.svg'
+                                                onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+                                                  const target = e.target as HTMLImageElement
+                                                  target.src = '/placeholder.svg'
                                                 }}
                                               />
                                             </div>

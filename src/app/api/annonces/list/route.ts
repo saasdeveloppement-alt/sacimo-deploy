@@ -49,8 +49,8 @@ export async function GET(request: NextRequest) {
       orderBy.publishedAt = sortOrder;
     }
     
-    // Récupérer les annonces et le total
-    const [annonces, total] = await Promise.all([
+    // Récupérer les annonces (url est déjà unique dans le schéma, donc pas de doublons)
+    const [annonces, total, stats] = await Promise.all([
       prisma.annonceScrape.findMany({
         where,
         orderBy,
@@ -58,36 +58,104 @@ export async function GET(request: NextRequest) {
         take: limit,
       }),
       prisma.annonceScrape.count({ where }),
+      // Statistiques globales
+      prisma.annonceScrape.aggregate({
+        where,
+        _count: {
+          id: true,
+        },
+        _avg: {
+          price: true,
+        },
+        _min: {
+          price: true,
+        },
+        _max: {
+          price: true,
+        },
+      }),
     ]);
     
-    // Compter les annonces par ville (pour les statistiques)
-    const stats = await prisma.annonceScrape.aggregateRaw({
-      pipeline: [
-        ...(Object.keys(where).length > 0 ? [{ $match: where }] : []),
-        {
-          $group: {
-            _id: "$city",
-            count: { $sum: 1 },
-            avgPrice: { $avg: "$price" },
-            minPrice: { $min: "$price" },
-            maxPrice: { $max: "$price" },
-          },
-        },
-        { $sort: { count: -1 } },
-        { $limit: 10 },
-      ],
+    // Statistiques par ville - construire la requête SQL conditionnellement
+    let sqlQuery = `
+      SELECT 
+        city,
+        COUNT(DISTINCT url) as count,
+        AVG(price)::numeric as avg_price,
+        MIN(price) as min_price,
+        MAX(price) as max_price
+      FROM annonce_scrapes
+    `;
+    const sqlParams: any[] = [];
+    const conditions: string[] = [];
+    
+    if (city) {
+      conditions.push(`city = $${sqlParams.length + 1}`);
+      sqlParams.push(city);
+    }
+    if (minPrice) {
+      conditions.push(`price >= $${sqlParams.length + 1}`);
+      sqlParams.push(minPrice);
+    }
+    if (maxPrice) {
+      conditions.push(`price <= $${sqlParams.length + 1}`);
+      sqlParams.push(maxPrice);
+    }
+    if (search) {
+      conditions.push(`(title ILIKE $${sqlParams.length + 1} OR description ILIKE $${sqlParams.length + 1})`);
+      sqlParams.push(`%${search}%`);
+      sqlParams.push(`%${search}%`);
+    }
+    
+    if (conditions.length > 0) {
+      sqlQuery += ` WHERE ${conditions.join(' AND ')}`;
+    }
+    
+    sqlQuery += ` GROUP BY city ORDER BY count DESC LIMIT 10`;
+    
+    const cityStats = await prisma.$queryRawUnsafe<Array<{
+      city: string;
+      count: bigint;
+      avg_price: number;
+      min_price: number;
+      max_price: number;
+    }>>(sqlQuery, ...sqlParams);
+    
+    // Statistiques particuliers/professionnels (toujours true pour LeBonCoin, mais préparé pour le futur)
+    const sellerStats = await prisma.annonceScrape.groupBy({
+      by: ['isNew'], // Utiliser isNew comme proxy (nouvelles = true)
+      where,
+      _count: {
+        id: true,
+      },
     });
     
     return NextResponse.json({
       status: "success",
       data: annonces,
       pagination: {
-        total,
+        total: Number(total),
         page,
         limit,
-        totalPages: Math.ceil(total / limit),
+        totalPages: Math.ceil(Number(total) / limit),
       },
-      stats: stats,
+      stats: {
+        total: stats._count.id,
+        avgPrice: stats._avg.price ? Math.round(stats._avg.price) : 0,
+        minPrice: stats._min.price || 0,
+        maxPrice: stats._max.price || 0,
+        cities: cityStats.map(c => ({
+          city: c.city,
+          count: Number(c.count),
+          avgPrice: Math.round(Number(c.avg_price)),
+          minPrice: Number(c.min_price),
+          maxPrice: Number(c.max_price),
+        })),
+        sellers: {
+          private: sellerStats.find(s => s.isNew)?._count.id || 0,
+          professional: sellerStats.find(s => !s.isNew)?._count.id || 0,
+        },
+      },
     });
   } catch (err: any) {
     console.error("❌ Erreur récupération annonces:", err);
