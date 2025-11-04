@@ -1,15 +1,139 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
   engineType = "binary"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  image     String?
+  role      UserRole @default(AGENT)
+  agencyId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  agency    Agency?  @relation(fields: [agencyId], references: [id])
+
+  @@map("users")
+}
+
+model Agency {
+  id          String      @id @default(cuid())
+  name        String
+  billingTier BillingTier @default(STARTER)
+  seats       Int         @default(1)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  reports     Report[]
+  searches    Search[]
+  users       User[]
+
+  @@map("agencies")
+}
+
+model Search {
+  id        String   @id @default(cuid())
+  agencyId  String
+  name      String
+  params    Json
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  agency    Agency   @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+
+  @@map("searches")
+}
+
+model Listing {
+  id              String        @id @default(cuid())
+  source          ListingSource
+  isPrivateSeller Boolean
+  title           String
+  price           Int
+  type            ListingType
+  surface         Int?
+  rooms           Int?
+  photos          String[]      @default([])
+  city            String
+  postalCode      String
+  geo             Json?
+  publishedAt     DateTime
+  url             String
+  description     String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  competitorId    String?
+  competitor      Competitor?   @relation(fields: [competitorId], references: [id])
+  tags            Tag[]         @relation("ListingToTag")
+
+  @@map("listings")
+}
+
+model Report {
+  id            String   @id @default(cuid())
+  agencyId      String
+  date          DateTime @unique
+  listingsCount Int      @default(0)
+  privateCount  Int      @default(0)
+  proCount      Int      @default(0)
+  fileUrlPdf    String?
+  fileUrlCsv    String?
+  isSent        Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  agency        Agency   @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+
+  @@map("reports")
+}
+
+model Competitor {
+  id         String    @id @default(cuid())
+  name       String
+  zone       String
+  lastSeenAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  listings   Listing[]
+
+  @@map("competitors")
+}
+
+model Tag {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  color     String    @default("#3B82F6")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  listings  Listing[] @relation("ListingToTag")
+
+  @@map("tags")
+}
+
+model AnnonceScrape {
+  id            String   @id @default(cuid())
+  title         String
+  price         Int
+  surface       Int?
+  rooms         Int?
+  postalCode    String?
+  city          String
+  url           String   @unique
+  publishedAt   DateTime
+  images        String[]
+  description   String?
+  source        String   @default("LEBONCOIN")
+  isNew         Boolean  @default(true)
+  lastScrapedAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("annonce_scrapes")
 }
 
 enum UserRole {
@@ -44,139 +168,4 @@ enum ListingSource {
   GUY_HOQUET
   IMMONOT
   OTHER
-}
-
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  image     String?
-  role      UserRole @default(AGENT)
-  agencyId  String?
-  agency    Agency?  @relation(fields: [agencyId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("users")
-}
-
-model Agency {
-  id          String      @id @default(cuid())
-  name        String
-  billingTier BillingTier @default(STARTER)
-  seats       Int         @default(1)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-
-  // Relations
-  users       User[]
-  searches    Search[]
-  reports     Report[]
-
-  @@map("agencies")
-}
-
-model Search {
-  id        String   @id @default(cuid())
-  agencyId  String
-  agency    Agency   @relation(fields: [agencyId], references: [id], onDelete: Cascade)
-  name      String
-  params    Json     // {postalCodes: string[], priceMin: number, priceMax: number, types: string[], surfaceMin: number, surfaceMax: number, roomsMin: number, roomsMax: number, textSearch?: string}
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("searches")
-}
-
-model Listing {
-  id            String       @id @default(cuid())
-  source        ListingSource
-  isPrivateSeller Boolean
-  title         String
-  price         Int
-  type          ListingType
-  surface       Int?
-  rooms         Int?
-  photos        String[]     @default([])
-  city          String
-  postalCode    String
-  geo           Json?        // {lat: number, lng: number}
-  publishedAt   DateTime
-  url           String
-  description   String?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-
-  // Relations
-  tags          Tag[]
-  competitorId  String?
-  competitor    Competitor?  @relation(fields: [competitorId], references: [id])
-
-  @@map("listings")
-}
-
-model Report {
-  id            String   @id @default(cuid())
-  agencyId      String
-  agency        Agency   @relation(fields: [agencyId], references: [id], onDelete: Cascade)
-  date          DateTime @unique
-  listingsCount Int      @default(0)
-  privateCount  Int      @default(0)
-  proCount      Int      @default(0)
-  fileUrlPdf    String?
-  fileUrlCsv    String?
-  isSent        Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  @@map("reports")
-}
-
-model Competitor {
-  id          String   @id @default(cuid())
-  name        String
-  zone        String
-  lastSeenAt  DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  listings    Listing[]
-
-  @@map("competitors")
-}
-
-model Tag {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  color     String   @default("#3B82F6")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  listings  Listing[]
-
-  @@map("tags")
-}
-
-model AnnonceScrape {
-  id            String   @id @default(cuid())
-  title         String
-  price         Int
-  surface       Int?
-  rooms         Int?
-  postalCode    String?
-  city          String
-  url           String   @unique
-  publishedAt   DateTime
-  images        String[]
-  description   String?
-  source        String   @default("LEBONCOIN")
-  isNew         Boolean  @default(true)
-  lastScrapedAt DateTime @default(now())
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  @@map("annonce_scrapes")
 }
