@@ -10,6 +10,10 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Separator } from "@/components/ui/separator"
+import AdvancedFilters from "@/components/filters/AdvancedFilters"
+import { AdvancedFilters as AdvancedFiltersType, initialFilters } from "@/hooks/useAdvancedFilters"
+import ListingCard from "@/components/ListingCard"
 import { 
   BarChart, 
   Bar, 
@@ -83,10 +87,7 @@ export default function AnnoncesPage() {
   const [totalCount, setTotalCount] = useState(0)
   const [stats, setStats] = useState<Stats | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
-  const [priceFilter, setPriceFilter] = useState("all")
-  const [typeFilter, setTypeFilter] = useState("all")
-  const [sellerFilter, setSellerFilter] = useState("all")
-  const [cityFilter, setCityFilter] = useState("all")
+  const [advancedFilters, setAdvancedFilters] = useState<AdvancedFiltersType>(initialFilters)
   const [sortBy, setSortBy] = useState<"price" | "publishedAt">("publishedAt")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
@@ -99,20 +100,26 @@ export default function AnnoncesPage() {
       
       // Construire les paramètres de recherche
       const params = new URLSearchParams()
-      if (searchTerm) params.append('search', searchTerm)
-      if (cityFilter !== 'all') params.append('city', cityFilter)
       
-      if (priceFilter !== 'all') {
-        if (priceFilter === 'low') {
-          params.append('minPrice', '0')
-          params.append('maxPrice', '300000')
-        } else if (priceFilter === 'medium') {
-          params.append('minPrice', '300000')
-          params.append('maxPrice', '600000')
-        } else if (priceFilter === 'high') {
-          params.append('minPrice', '600000')
-        }
+      // Recherche texte (legacy)
+      if (searchTerm) params.append('search', searchTerm)
+      
+      // Filtres avancés
+      if (advancedFilters.cities.length > 0) {
+        advancedFilters.cities.forEach(city => params.append('cities', city))
       }
+      
+      if (advancedFilters.types.length > 0) {
+        advancedFilters.types.forEach(type => params.append('types', type))
+      }
+      
+      if (advancedFilters.minPrice) params.append('minPrice', advancedFilters.minPrice)
+      if (advancedFilters.maxPrice) params.append('maxPrice', advancedFilters.maxPrice)
+      if (advancedFilters.minSurface) params.append('minSurface', advancedFilters.minSurface)
+      if (advancedFilters.maxSurface) params.append('maxSurface', advancedFilters.maxSurface)
+      if (advancedFilters.rooms) params.append('rooms', advancedFilters.rooms)
+      if (advancedFilters.sellerType !== 'all') params.append('sellerType', advancedFilters.sellerType)
+      if (advancedFilters.dateFrom) params.append('dateFrom', advancedFilters.dateFrom)
       
       params.append('sortBy', sortBy)
       params.append('sortOrder', sortOrder)
@@ -175,17 +182,15 @@ export default function AnnoncesPage() {
 
   useEffect(() => {
     loadScrapingData()
-  }, [cityFilter, priceFilter, sortBy, sortOrder, searchTerm])
+  }, [advancedFilters, sortBy, sortOrder, searchTerm])
 
-  // Logique de filtrage côté client (pour filtres type et seller uniquement, car Prisma ne les gère pas encore)
+  // Logique de filtrage côté client (pour les types seulement, car pas encore stocké en base)
   const filteredListings = listings.filter(listing => {
-    const matchesType = typeFilter === "all" || listing.type === typeFilter
-    
-    const matchesSeller = sellerFilter === "all" || 
-      (sellerFilter === "private" && listing.isPrivateSeller) ||
-      (sellerFilter === "professional" && !listing.isPrivateSeller)
-    
-    return matchesType && matchesSeller
+    // Filtre par type (côté client car pas encore dans Prisma)
+    if (advancedFilters.types.length > 0) {
+      return advancedFilters.types.includes(listing.type)
+    }
+    return true
   })
 
   // Données pour les graphiques
@@ -257,19 +262,20 @@ export default function AnnoncesPage() {
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
         <div className="max-w-7xl mx-auto space-y-8">
-          {/* Filtres */}
+          {/* Filtres avancés et recherche */}
           <motion.div variants={fadeInUp}>
             <ModernCard
               title="Filtres et Recherche"
               icon={<Filter className="h-5 w-5 text-purple-600" />}
             >
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="space-y-6">
+                {/* Recherche texte */}
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Recherche</label>
+                  <label className="text-sm font-medium text-slate-700">Recherche texte</label>
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
                     <Input
-                      placeholder="Rechercher par titre..."
+                      placeholder="Rechercher par titre, ville ou description..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="pl-10 bg-white/80 border-slate-200 focus:border-purple-300 focus:ring-purple-200"
@@ -277,96 +283,44 @@ export default function AnnoncesPage() {
                   </div>
                 </div>
                 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Ville</label>
-                  <Select value={cityFilter} onValueChange={setCityFilter}>
-                    <SelectTrigger className="bg-white/80 border-slate-200 focus:border-purple-300 focus:ring-purple-200">
-                      <SelectValue placeholder="Toutes les villes" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Toutes les villes</SelectItem>
-                      <SelectItem value="Paris">Paris</SelectItem>
-                      <SelectItem value="Lyon">Lyon</SelectItem>
-                      <SelectItem value="Marseille">Marseille</SelectItem>
-                      <SelectItem value="Toulouse">Toulouse</SelectItem>
-                      <SelectItem value="Bordeaux">Bordeaux</SelectItem>
-                      <SelectItem value="Nantes">Nantes</SelectItem>
-                      <SelectItem value="Nice">Nice</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <Separator />
                 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Prix</label>
-                  <Select value={priceFilter} onValueChange={setPriceFilter}>
-                    <SelectTrigger className="bg-white/80 border-slate-200 focus:border-purple-300 focus:ring-purple-200">
-                      <SelectValue placeholder="Tous les prix" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Tous les prix</SelectItem>
-                      <SelectItem value="low">Moins de 300k€</SelectItem>
-                      <SelectItem value="medium">300k€ - 600k€</SelectItem>
-                      <SelectItem value="high">Plus de 600k€</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                {/* Filtres avancés */}
+                <AdvancedFilters
+                  onFilterChange={setAdvancedFilters}
+                  initialFilters={advancedFilters}
+                  availableCities={stats?.cities?.map(c => c.city) || []}
+                />
                 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Type</label>
-                  <Select value={typeFilter} onValueChange={setTypeFilter}>
-                    <SelectTrigger className="bg-white/80 border-slate-200 focus:border-purple-300 focus:ring-purple-200">
-                      <SelectValue placeholder="Tous les types" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Tous les types</SelectItem>
-                      <SelectItem value="APARTMENT">Appartement</SelectItem>
-                      <SelectItem value="HOUSE">Maison</SelectItem>
-                      <SelectItem value="STUDIO">Studio</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <Separator />
                 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Trier par</label>
-                  <Select value={`${sortBy}-${sortOrder}`} onValueChange={(value) => {
-                    const [by, order] = value.split('-')
-                    setSortBy(by as "price" | "publishedAt")
-                    setSortOrder(order as "asc" | "desc")
-                  }}>
-                    <SelectTrigger className="bg-white/80 border-slate-200 focus:border-purple-300 focus:ring-purple-200">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="publishedAt-desc">Plus récentes</SelectItem>
-                      <SelectItem value="publishedAt-asc">Plus anciennes</SelectItem>
-                      <SelectItem value="price-asc">Prix croissant</SelectItem>
-                      <SelectItem value="price-desc">Prix décroissant</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              
-              <div className="mt-6 flex items-center justify-between">
-                <Badge variant="secondary" className="bg-purple-100 text-purple-700 border-purple-200">
-                  {totalCount > 0 ? `${totalCount} annonce${totalCount > 1 ? 's' : ''} trouvée${totalCount > 1 ? 's' : ''}` : filteredListings.length > 0 ? `${filteredListings.length} affichée${filteredListings.length > 1 ? 's' : ''}` : 'Aucune annonce'}
-                </Badge>
-                <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => {
-                      setSearchTerm("")
-                      setPriceFilter("all")
-                      setTypeFilter("all")
-                      setSellerFilter("all")
-                      setCityFilter("all")
-                      setSortBy("publishedAt")
-                      setSortOrder("desc")
-                    }}
-                    className="border-slate-200 hover:border-purple-300 hover:text-purple-600"
-                  >
-                    Réinitialiser
-                  </Button>
+                {/* Tri et actions */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-slate-700">Trier par</label>
+                      <Select value={`${sortBy}-${sortOrder}`} onValueChange={(value) => {
+                        const [by, order] = value.split('-')
+                        setSortBy(by as "price" | "publishedAt")
+                        setSortOrder(order as "asc" | "desc")
+                      }}>
+                        <SelectTrigger className="w-48 bg-white/80 border-slate-200 focus:border-purple-300 focus:ring-purple-200">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="publishedAt-desc">Plus récentes</SelectItem>
+                          <SelectItem value="publishedAt-asc">Plus anciennes</SelectItem>
+                          <SelectItem value="price-asc">Prix croissant</SelectItem>
+                          <SelectItem value="price-desc">Prix décroissant</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <Badge variant="secondary" className="bg-purple-100 text-purple-700 border-purple-200">
+                      {totalCount > 0 ? `${totalCount} annonce${totalCount > 1 ? 's' : ''} trouvée${totalCount > 1 ? 's' : ''}` : filteredListings.length > 0 ? `${filteredListings.length} affichée${filteredListings.length > 1 ? 's' : ''}` : 'Aucune annonce'}
+                    </Badge>
+                  </div>
+                  
                   <Button variant="outline" size="sm" className="border-slate-200 hover:border-purple-300 hover:text-purple-600">
                     <Download className="h-4 w-4 mr-2" />
                     Exporter
@@ -559,10 +513,7 @@ export default function AnnoncesPage() {
                       <Button 
                         onClick={() => {
                           setSearchTerm("")
-                          setPriceFilter("all")
-                          setTypeFilter("all")
-                          setSellerFilter("all")
-                          setCityFilter("all")
+                          setAdvancedFilters(initialFilters)
                           setSortBy("publishedAt")
                           setSortOrder("desc")
                         }}
@@ -576,213 +527,27 @@ export default function AnnoncesPage() {
               ) : (
                 <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-4"}>
                   {filteredListings.map((listing) => (
-                    <motion.div
+                    <ListingCard
                       key={listing.url}
-                      variants={fadeInUp}
-                      whileHover={{ y: -4, scale: 1.02 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <div className={`bg-white/90 backdrop-blur-sm border-slate-200/60 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group rounded-xl ${viewMode === "list" ? "p-4" : "p-6"}`}>
-                        <div className={viewMode === "list" ? "flex items-start gap-4" : ""}>
-                          {/* Image */}
-                          {viewMode === "list" && (
-                            <div className="w-24 h-24 bg-slate-100 rounded-lg overflow-hidden flex-shrink-0">
-                              {listing.photos && listing.photos.length > 0 ? (
-                                <img 
-                                  src={listing.photos[0]} 
-                                  alt={listing.title}
-                                  className="w-full h-full object-cover"
-                                  onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-                                    const target = e.target as HTMLImageElement
-                                    target.src = '/placeholder.svg'
-                                  }}
-                                />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center">
-                                  <ImageIcon className="h-8 w-8 text-slate-400" />
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          <div className="flex-1">
-                            <div className={viewMode === "list" ? "flex justify-between items-start mb-2" : "flex justify-between items-start mb-4"}>
-                              <h3 className={`font-semibold text-slate-900 group-hover:text-purple-700 transition-colors ${viewMode === "list" ? "text-lg" : "text-lg line-clamp-2"}`}>
-                                {listing.title}
-                              </h3>
-                              <div className={`font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent ${viewMode === "list" ? "text-xl" : "text-2xl"}`}>
-                                {listing.price.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
-                              </div>
-                            </div>
-                            
-                            <div className={`space-y-2 ${viewMode === "list" ? "mb-3" : "mb-4"}`}>
-                              <div className="flex items-center gap-2 text-sm text-slate-600">
-                                <MapPin className="h-4 w-4 text-slate-400" />
-                                {listing.city} ({listing.postalCode})
-                              </div>
-                              <div className="flex items-center gap-2 text-sm text-slate-600">
-                                <Home className="h-4 w-4 text-slate-400" />
-                                {listing.surface && `${listing.surface} m²`} {listing.rooms && `• ${listing.rooms} pièces`}
-                              </div>
-                              
-                              <div className="flex flex-wrap gap-2">
-                                <Badge 
-                                  variant={listing.isPrivateSeller ? "default" : "secondary"}
-                                  className={listing.isPrivateSeller 
-                                    ? "bg-purple-100 text-purple-700 border-purple-200" 
-                                    : "bg-slate-100 text-slate-700 border-slate-200"
-                                  }
-                                >
-                                  {listing.isPrivateSeller ? "Particulier" : "Professionnel"}
-                                </Badge>
-                                <Badge variant="outline" className="border-slate-200 text-slate-600">
-                                  {listing.source}
-                                </Badge>
-                                <Badge variant="outline" className="border-slate-200 text-slate-600">
-                                  {listing.type}
-                                </Badge>
-                              </div>
-                            </div>
-                            
-                            <div className="flex justify-between items-center">
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm"
-                                    onClick={() => setSelectedListing(listing)}
-                                    className="flex items-center gap-1 border-slate-200 hover:border-purple-300 hover:text-purple-600"
-                                  >
-                                    <Eye className="h-4 w-4" />
-                                    Voir détails
-                                  </Button>
-                                </DialogTrigger>
-                                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                                  <DialogHeader>
-                                    <DialogTitle className="text-xl font-bold">{listing.title}</DialogTitle>
-                                  </DialogHeader>
-                                  
-                                  <div className="space-y-6">
-                                    {/* Prix et badges */}
-                                    <div className="flex items-center justify-between">
-                                      <div className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-                                        {listing.price.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
-                                      </div>
-                                      <div className="flex gap-2">
-                                        <Badge variant={listing.isPrivateSeller ? "default" : "secondary"}>
-                                          {listing.isPrivateSeller ? "Particulier" : "Professionnel"}
-                                        </Badge>
-                                        <Badge variant="outline">{listing.source}</Badge>
-                                        <Badge variant="outline">{listing.type}</Badge>
-                                      </div>
-                                    </div>
-
-                                    {/* Photos */}
-                                    <div className="space-y-2">
-                                      <h3 className="text-lg font-semibold flex items-center gap-2">
-                                        <ImageIcon className="h-5 w-5" />
-                                        Photos
-                                      </h3>
-                                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                        {listing.photos && listing.photos.length > 0 ? (
-                                          listing.photos.map((photo, photoIndex) => (
-                                            <div key={photoIndex} className="aspect-square bg-slate-100 rounded-lg overflow-hidden">
-                                              <img 
-                                                src={photo} 
-                                                alt={`Photo ${photoIndex + 1}`}
-                                                className="w-full h-full object-cover"
-                                                onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-                                                  const target = e.target as HTMLImageElement
-                                                  target.src = '/placeholder.svg'
-                                                }}
-                                              />
-                                            </div>
-                                          ))
-                                        ) : (
-                                          <div className="col-span-2 md:col-span-3 aspect-video bg-slate-100 rounded-lg flex items-center justify-center">
-                                            <div className="text-center text-slate-500">
-                                              <ImageIcon className="h-12 w-12 mx-auto mb-2" />
-                                              <p>Aucune photo disponible</p>
-                                            </div>
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-
-                                    {/* Informations détaillées */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                      <div className="space-y-4">
-                                        <h3 className="text-lg font-semibold">Informations</h3>
-                                        <div className="space-y-3">
-                                          <div className="flex items-center gap-2">
-                                            <MapPin className="h-4 w-4 text-slate-500" />
-                                            <span className="font-medium">Localisation :</span>
-                                            <span>{listing.city} ({listing.postalCode})</span>
-                                          </div>
-                                          {listing.surface && (
-                                            <div className="flex items-center gap-2">
-                                              <Home className="h-4 w-4 text-slate-500" />
-                                              <span className="font-medium">Surface :</span>
-                                              <span>{listing.surface} m²</span>
-                                            </div>
-                                          )}
-                                          {listing.rooms && (
-                                            <div className="flex items-center gap-2">
-                                              <Home className="h-4 w-4 text-slate-500" />
-                                              <span className="font-medium">Pièces :</span>
-                                              <span>{listing.rooms} pièces</span>
-                                            </div>
-                                          )}
-                                          <div className="flex items-center gap-2">
-                                            <Calendar className="h-4 w-4 text-slate-500" />
-                                            <span className="font-medium">Publié le :</span>
-                                            <span>{new Date(listing.publishedAt).toLocaleDateString('fr-FR')}</span>
-                                          </div>
-                                        </div>
-                                      </div>
-
-                                      <div className="space-y-4">
-                                        <h3 className="text-lg font-semibold">Description</h3>
-                                        <div className="bg-slate-50 p-4 rounded-lg">
-                                          {listing.description ? (
-                                            <p className="text-slate-700 leading-relaxed">{listing.description}</p>
-                                          ) : (
-                                            <p className="text-slate-500 italic">Aucune description disponible</p>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </div>
-
-                                    {/* Actions */}
-                                    <div className="flex gap-3 pt-4 border-t">
-                                      <Button asChild className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white">
-                                        <a 
-                                          href={listing.url} 
-                                          target="_blank" 
-                                          rel="noopener noreferrer"
-                                          className="flex items-center gap-2"
-                                        >
-                                          <ExternalLink className="h-4 w-4" />
-                                          Voir sur {listing.source}
-                                        </a>
-                                      </Button>
-                                      <Button variant="outline" className="flex-1 border-slate-200 hover:border-purple-300 hover:text-purple-600">
-                                        <Download className="h-4 w-4 mr-2" />
-                                        Sauvegarder
-                                      </Button>
-                                    </div>
-                                  </div>
-                                </DialogContent>
-                              </Dialog>
-                              
-                              <span className="text-xs text-slate-500">
-                                {new Date(listing.publishedAt).toLocaleDateString('fr-FR')}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
+                      listing={listing}
+                      viewMode={viewMode}
+                      onSave={(listing) => {
+                        console.log("💾 Sauvegarder:", listing.title)
+                        // TODO: Implémenter la sauvegarde
+                      }}
+                      onAnalyze={(listing) => {
+                        console.log("📊 Analyser:", listing.title)
+                        // TODO: Implémenter l'analyse
+                      }}
+                      onEstimate={(listing) => {
+                        console.log("💰 Estimer:", listing.title)
+                        // TODO: Implémenter l'estimation IA
+                      }}
+                      onLocate={(listing) => {
+                        console.log("📍 Localiser:", listing.title)
+                        // TODO: Ouvrir modal carte
+                      }}
+                    />
                   ))}
                 </div>
               )}

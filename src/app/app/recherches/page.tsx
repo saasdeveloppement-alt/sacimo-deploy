@@ -33,6 +33,9 @@ import {
   Clock
 } from "lucide-react"
 import { motion } from "framer-motion"
+import AdvancedFilters from "@/components/filters/AdvancedFilters"
+import { AdvancedFilters as AdvancedFiltersType, initialFilters } from "@/hooks/useAdvancedFilters"
+import { Separator } from "@/components/ui/separator"
 
 interface SearchConfig {
   id: string
@@ -69,6 +72,7 @@ export default function RecherchesPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [advancedFilters, setAdvancedFilters] = useState<AdvancedFiltersType>(initialFilters)
 
   // Données de démonstration
   useEffect(() => {
@@ -153,7 +157,24 @@ export default function RecherchesPage() {
     const matchesStatus = statusFilter === "all" || 
       (statusFilter === "active" && search.isActive) ||
       (statusFilter === "inactive" && !search.isActive)
-    return matchesSearch && matchesStatus
+    
+    // Filtres avancés
+    const matchesCities = advancedFilters.cities.length === 0 || 
+      search.params.postalCodes.some(code => 
+        advancedFilters.cities.some(city => 
+          code.includes(city.substring(0, 2)) || city.toLowerCase().includes(code)
+        )
+      )
+    
+    const matchesPrice = (!advancedFilters.minPrice || search.params.priceMin === undefined || search.params.priceMin >= parseInt(advancedFilters.minPrice)) &&
+      (!advancedFilters.maxPrice || search.params.priceMax === undefined || search.params.priceMax <= parseInt(advancedFilters.maxPrice))
+    
+    const matchesSurface = (!advancedFilters.minSurface || search.params.surfaceMin === undefined || search.params.surfaceMin >= parseInt(advancedFilters.minSurface)) &&
+      (!advancedFilters.maxSurface || search.params.surfaceMax === undefined || search.params.surfaceMax <= parseInt(advancedFilters.maxSurface))
+    
+    const matchesRooms = !advancedFilters.rooms || search.params.roomsMin === undefined || search.params.roomsMin >= parseInt(advancedFilters.rooms)
+    
+    return matchesSearch && matchesStatus && matchesCities && matchesPrice && matchesSurface && matchesRooms
   })
 
   const activeSearches = searches.filter(s => s.isActive).length
@@ -290,36 +311,53 @@ export default function RecherchesPage() {
               title="Filtres et Recherche"
               icon={<Filter className="h-5 w-5 text-purple-600" />}
             >
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Recherche</label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-                    <Input
-                      placeholder="Rechercher par nom ou description..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 bg-white/80 border-slate-200 focus:border-purple-300 focus:ring-purple-200"
-                    />
+              <div className="space-y-6">
+                {/* Recherche texte */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Recherche</label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <Input
+                        placeholder="Rechercher par nom ou description..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-10 bg-white/80 border-slate-200 focus:border-purple-300 focus:ring-purple-200"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Statut</label>
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger className="bg-white/80 border-slate-200 focus:border-purple-300 focus:ring-purple-200">
+                        <SelectValue placeholder="Tous les statuts" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Tous les statuts</SelectItem>
+                        <SelectItem value="active">Actives</SelectItem>
+                        <SelectItem value="inactive">Inactives</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
                 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Statut</label>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="bg-white/80 border-slate-200 focus:border-purple-300 focus:ring-purple-200">
-                      <SelectValue placeholder="Tous les statuts" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Tous les statuts</SelectItem>
-                      <SelectItem value="active">Actives</SelectItem>
-                      <SelectItem value="inactive">Inactives</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <Separator />
                 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Actions</label>
+                {/* Filtres avancés */}
+                <AdvancedFilters
+                  onFilterChange={setAdvancedFilters}
+                  initialFilters={advancedFilters}
+                  availableCities={['Paris', 'Lyon', 'Marseille', 'Toulouse', 'Nice', 'Nantes', 'Strasbourg', 'Montpellier', 'Bordeaux', 'Lille']}
+                />
+                
+                <Separator />
+                
+                {/* Actions */}
+                <div className="flex items-center justify-between">
+                  <Badge variant="secondary" className="bg-purple-100 text-purple-700 border-purple-200">
+                    {filteredSearches.length} recherche{filteredSearches.length > 1 ? 's' : ''} trouvée{filteredSearches.length > 1 ? 's' : ''}
+                  </Badge>
                   <div className="flex gap-2">
                     <Button 
                       variant="outline" 
@@ -327,6 +365,7 @@ export default function RecherchesPage() {
                       onClick={() => {
                         setSearchTerm("")
                         setStatusFilter("all")
+                        setAdvancedFilters(initialFilters)
                       }}
                       className="border-slate-200 hover:border-purple-300 hover:text-purple-600"
                     >
@@ -342,12 +381,6 @@ export default function RecherchesPage() {
                     </Button>
                   </div>
                 </div>
-              </div>
-              
-              <div className="mt-4 flex items-center justify-between">
-                <Badge variant="secondary" className="bg-purple-100 text-purple-700 border-purple-200">
-                  {filteredSearches.length} recherche{filteredSearches.length > 1 ? 's' : ''} trouvée{filteredSearches.length > 1 ? 's' : ''}
-                </Badge>
               </div>
             </ModernCard>
           </motion.div>

@@ -29,6 +29,9 @@ import {
   Home
 } from "lucide-react"
 import { motion } from "framer-motion"
+import AdvancedFilters from "@/components/filters/AdvancedFilters"
+import { AdvancedFilters as AdvancedFiltersType, initialFilters } from "@/hooks/useAdvancedFilters"
+import { Separator } from "@/components/ui/separator"
 
 interface Listing {
   title: string;
@@ -53,10 +56,9 @@ export default function LocalisationPage() {
   const [listings, setListings] = useState<Listing[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
-  const [priceFilter, setPriceFilter] = useState("all")
-  const [typeFilter, setTypeFilter] = useState("all")
   const [confidenceFilter, setConfidenceFilter] = useState("all")
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null)
+  const [advancedFilters, setAdvancedFilters] = useState<AdvancedFiltersType>(initialFilters)
 
   const loadScrapingData = async () => {
     setIsLoading(true)
@@ -98,19 +100,27 @@ export default function LocalisationPage() {
     const matchesSearch = listing.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          listing.city.toLowerCase().includes(searchTerm.toLowerCase())
     
-    const matchesPrice = priceFilter === "all" || 
-      (priceFilter === "low" && listing.price < 300000) ||
-      (priceFilter === "medium" && listing.price >= 300000 && listing.price < 600000) ||
-      (priceFilter === "high" && listing.price >= 600000)
+    // Filtres avancés
+    const matchesCities = advancedFilters.cities.length === 0 || 
+      advancedFilters.cities.some(city => listing.city.toLowerCase().includes(city.toLowerCase()))
     
-    const matchesType = typeFilter === "all" || listing.type === typeFilter
+    const matchesTypes = advancedFilters.types.length === 0 || 
+      advancedFilters.types.includes(listing.type)
+    
+    const matchesPrice = (!advancedFilters.minPrice || listing.price >= parseInt(advancedFilters.minPrice)) &&
+      (!advancedFilters.maxPrice || listing.price <= parseInt(advancedFilters.maxPrice))
+    
+    const matchesSurface = (!advancedFilters.minSurface || !listing.surface || listing.surface >= parseInt(advancedFilters.minSurface)) &&
+      (!advancedFilters.maxSurface || !listing.surface || listing.surface <= parseInt(advancedFilters.maxSurface))
+    
+    const matchesRooms = !advancedFilters.rooms || !listing.rooms || listing.rooms >= parseInt(advancedFilters.rooms)
     
     const matchesConfidence = confidenceFilter === "all" || 
       (confidenceFilter === "high" && (listing.confidenceScore || 0) >= 80) ||
       (confidenceFilter === "medium" && (listing.confidenceScore || 0) >= 60 && (listing.confidenceScore || 0) < 80) ||
       (confidenceFilter === "low" && (listing.confidenceScore || 0) < 60)
     
-    return matchesSearch && matchesPrice && matchesType && matchesConfidence
+    return matchesSearch && matchesCities && matchesTypes && matchesPrice && matchesSurface && matchesRooms && matchesConfidence
   })
 
   // Données pour les graphiques
@@ -169,88 +179,72 @@ export default function LocalisationPage() {
               title="Filtres et Recherche"
               icon={<Filter className="h-5 w-5 text-purple-600" />}
             >
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Recherche</label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-                    <Input
-                      placeholder="Rechercher par titre ou ville..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 bg-white/80 border-slate-200 focus:border-purple-300 focus:ring-purple-200"
-                    />
+              <div className="space-y-6">
+                {/* Recherche texte et précision */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Recherche</label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <Input
+                        placeholder="Rechercher par titre ou ville..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-10 bg-white/80 border-slate-200 focus:border-purple-300 focus:ring-purple-200"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Précision</label>
+                    <Select value={confidenceFilter} onValueChange={setConfidenceFilter}>
+                      <SelectTrigger className="bg-white/80 border-slate-200 focus:border-purple-300 focus:ring-purple-200">
+                        <SelectValue placeholder="Tous les niveaux" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Tous les niveaux</SelectItem>
+                        <SelectItem value="high">Très précis (≥80%)</SelectItem>
+                        <SelectItem value="medium">Précis (60-79%)</SelectItem>
+                        <SelectItem value="low">Faible (&lt;60%)</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
                 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Prix</label>
-                  <Select value={priceFilter} onValueChange={setPriceFilter}>
-                    <SelectTrigger className="bg-white/80 border-slate-200 focus:border-purple-300 focus:ring-purple-200">
-                      <SelectValue placeholder="Tous les prix" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Tous les prix</SelectItem>
-                      <SelectItem value="low">Moins de 300k€</SelectItem>
-                      <SelectItem value="medium">300k€ - 600k€</SelectItem>
-                      <SelectItem value="high">Plus de 600k€</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <Separator />
                 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Type</label>
-                  <Select value={typeFilter} onValueChange={setTypeFilter}>
-                    <SelectTrigger className="bg-white/80 border-slate-200 focus:border-purple-300 focus:ring-purple-200">
-                      <SelectValue placeholder="Tous les types" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Tous les types</SelectItem>
-                      <SelectItem value="APARTMENT">Appartement</SelectItem>
-                      <SelectItem value="HOUSE">Maison</SelectItem>
-                      <SelectItem value="STUDIO">Studio</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                {/* Filtres avancés */}
+                <AdvancedFilters
+                  onFilterChange={setAdvancedFilters}
+                  initialFilters={advancedFilters}
+                  availableCities={['Paris', 'Lyon', 'Marseille', 'Toulouse', 'Nice', 'Nantes', 'Strasbourg', 'Montpellier', 'Bordeaux', 'Lille']}
+                />
                 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Précision</label>
-                  <Select value={confidenceFilter} onValueChange={setConfidenceFilter}>
-                    <SelectTrigger className="bg-white/80 border-slate-200 focus:border-purple-300 focus:ring-purple-200">
-                      <SelectValue placeholder="Tous les niveaux" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Tous les niveaux</SelectItem>
-                      <SelectItem value="high">Très précis (≥80%)</SelectItem>
-                      <SelectItem value="medium">Précis (60-79%)</SelectItem>
-                      <SelectItem value="low">Faible (&lt;60%)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              
-              <div className="mt-6 flex items-center justify-between">
-                <Badge variant="secondary" className="bg-purple-100 text-purple-700 border-purple-200">
-                  {filteredListings.length} bien{filteredListings.length > 1 ? 's' : ''} localisé{filteredListings.length > 1 ? 's' : ''}
-                </Badge>
-                <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => {
-                      setSearchTerm("")
-                      setPriceFilter("all")
-                      setTypeFilter("all")
-                      setConfidenceFilter("all")
-                    }}
-                    className="border-slate-200 hover:border-purple-300 hover:text-purple-600"
-                  >
-                    Réinitialiser
-                  </Button>
-                  <Button variant="outline" size="sm" className="border-slate-200 hover:border-purple-300 hover:text-purple-600">
-                    <Download className="h-4 w-4 mr-2" />
-                    Exporter
-                  </Button>
+                <Separator />
+                
+                {/* Actions */}
+                <div className="flex items-center justify-between">
+                  <Badge variant="secondary" className="bg-purple-100 text-purple-700 border-purple-200">
+                    {filteredListings.length} bien{filteredListings.length > 1 ? 's' : ''} localisé{filteredListings.length > 1 ? 's' : ''}
+                  </Badge>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        setSearchTerm("")
+                        setConfidenceFilter("all")
+                        setAdvancedFilters(initialFilters)
+                      }}
+                      className="border-slate-200 hover:border-purple-300 hover:text-purple-600"
+                    >
+                      Réinitialiser
+                    </Button>
+                    <Button variant="outline" size="sm" className="border-slate-200 hover:border-purple-300 hover:text-purple-600">
+                      <Download className="h-4 w-4 mr-2" />
+                      Exporter
+                    </Button>
+                  </div>
                 </div>
               </div>
             </ModernCard>

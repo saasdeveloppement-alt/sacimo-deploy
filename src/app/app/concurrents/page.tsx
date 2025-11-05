@@ -25,6 +25,9 @@ import {
   CheckCircle2
 } from "lucide-react"
 import { motion } from "framer-motion"
+import AdvancedFilters from "@/components/filters/AdvancedFilters"
+import { AdvancedFilters as AdvancedFiltersType, initialFilters } from "@/hooks/useAdvancedFilters"
+import { Separator } from "@/components/ui/separator"
 
 interface Competitor {
   id: string
@@ -45,6 +48,7 @@ export default function ConcurrentsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [sortBy, setSortBy] = useState("listings")
+  const [advancedFilters, setAdvancedFilters] = useState<AdvancedFiltersType>(initialFilters)
 
   // Données de démonstration
   useEffect(() => {
@@ -105,7 +109,17 @@ export default function ConcurrentsPage() {
     const matchesSearch = competitor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          competitor.location.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = statusFilter === "all" || competitor.status === statusFilter
-    return matchesSearch && matchesStatus
+    
+    // Filtres avancés
+    const matchesCities = advancedFilters.cities.length === 0 || 
+      advancedFilters.cities.some(city => 
+        competitor.location.toLowerCase().includes(city.toLowerCase())
+      )
+    
+    const matchesPrice = (!advancedFilters.minPrice || competitor.avgPrice >= parseInt(advancedFilters.minPrice)) &&
+      (!advancedFilters.maxPrice || competitor.avgPrice <= parseInt(advancedFilters.maxPrice))
+    
+    return matchesSearch && matchesStatus && matchesCities && matchesPrice
   })
 
   const sortedCompetitors = [...filteredCompetitors].sort((a, b) => {
@@ -189,73 +203,86 @@ export default function ConcurrentsPage() {
               title="Filtres et Recherche"
               icon={<Filter className="h-5 w-5 text-purple-600" />}
             >
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Recherche</label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-                    <Input
-                      placeholder="Rechercher par nom ou localisation..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 bg-white/80 border-slate-200 focus:border-purple-300 focus:ring-purple-200"
-                    />
+              <div className="space-y-6">
+                {/* Recherche texte et statut */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Recherche</label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <Input
+                        placeholder="Rechercher par nom ou localisation..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-10 bg-white/80 border-slate-200 focus:border-purple-300 focus:ring-purple-200"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Statut</label>
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger className="bg-white/80 border-slate-200 focus:border-purple-300 focus:ring-purple-200">
+                        <SelectValue placeholder="Tous les statuts" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Tous les statuts</SelectItem>
+                        <SelectItem value="active">Actif</SelectItem>
+                        <SelectItem value="monitoring">Surveillance</SelectItem>
+                        <SelectItem value="inactive">Inactif</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
                 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Statut</label>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="bg-white/80 border-slate-200 focus:border-purple-300 focus:ring-purple-200">
-                      <SelectValue placeholder="Tous les statuts" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Tous les statuts</SelectItem>
-                      <SelectItem value="active">Actif</SelectItem>
-                      <SelectItem value="monitoring">Surveillance</SelectItem>
-                      <SelectItem value="inactive">Inactif</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <Separator />
                 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Trier par</label>
-                  <Select value={sortBy} onValueChange={setSortBy}>
-                    <SelectTrigger className="bg-white/80 border-slate-200 focus:border-purple-300 focus:ring-purple-200">
-                      <SelectValue placeholder="Trier par" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="listings">Nombre d'annonces</SelectItem>
-                      <SelectItem value="price">Prix moyen</SelectItem>
-                      <SelectItem value="marketShare">Part de marché</SelectItem>
-                      <SelectItem value="name">Nom</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                {/* Filtres avancés */}
+                <AdvancedFilters
+                  onFilterChange={setAdvancedFilters}
+                  initialFilters={advancedFilters}
+                  availableCities={['Paris', 'Lyon', 'Marseille', 'Toulouse', 'Nice', 'Nantes', 'Strasbourg', 'Montpellier', 'Bordeaux', 'Lille']}
+                />
                 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Actions</label>
-                  <div className="flex gap-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => {
-                        setSearchTerm("")
-                        setStatusFilter("all")
-                        setSortBy("listings")
-                      }}
-                      className="border-slate-200 hover:border-purple-300 hover:text-purple-600"
-                    >
-                      Réinitialiser
-                    </Button>
+                <Separator />
+                
+                {/* Tri et actions */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-slate-700">Trier par</label>
+                      <Select value={sortBy} onValueChange={setSortBy}>
+                        <SelectTrigger className="w-48 bg-white/80 border-slate-200 focus:border-purple-300 focus:ring-purple-200">
+                          <SelectValue placeholder="Trier par" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="listings">Nombre d'annonces</SelectItem>
+                          <SelectItem value="price">Prix moyen</SelectItem>
+                          <SelectItem value="marketShare">Part de marché</SelectItem>
+                          <SelectItem value="name">Nom</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <Badge variant="secondary" className="bg-purple-100 text-purple-700 border-purple-200">
+                      {filteredCompetitors.length} concurrent{filteredCompetitors.length > 1 ? 's' : ''} surveillé{filteredCompetitors.length > 1 ? 's' : ''}
+                    </Badge>
                   </div>
+                  
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      setSearchTerm("")
+                      setStatusFilter("all")
+                      setSortBy("listings")
+                      setAdvancedFilters(initialFilters)
+                    }}
+                    className="border-slate-200 hover:border-purple-300 hover:text-purple-600"
+                  >
+                    Réinitialiser
+                  </Button>
                 </div>
-              </div>
-              
-              <div className="mt-4 flex items-center justify-between">
-                <Badge variant="secondary" className="bg-purple-100 text-purple-700 border-purple-200">
-                  {filteredCompetitors.length} concurrent{filteredCompetitors.length > 1 ? 's' : ''} surveillé{filteredCompetitors.length > 1 ? 's' : ''}
-                </Badge>
               </div>
             </ModernCard>
           </motion.div>
