@@ -46,18 +46,28 @@ export async function GET(req: NextRequest) {
 
     const allAnnonces = await prisma.annonceScrape.findMany({ where });
     
+    // Convertir les dates en strings pour éviter les erreurs de sérialisation
+    const serializedData = data.map(annonce => ({
+      ...annonce,
+      publishedAt: annonce.publishedAt.toISOString(),
+      createdAt: annonce.createdAt.toISOString(),
+      updatedAt: annonce.updatedAt.toISOString(),
+      lastScrapedAt: annonce.lastScrapedAt.toISOString()
+    }));
+    
     const stats = {
       total: total,
-      avgPrice: Math.round(
-        allAnnonces.reduce((sum, a) => sum + a.price, 0) / allAnnonces.length || 0
-      ),
+      avgPrice: allAnnonces.length > 0 ? Math.round(
+        allAnnonces.reduce((sum, a) => sum + a.price, 0) / allAnnonces.length
+      ) : 0,
       minPrice: allAnnonces.length > 0 ? Math.min(...allAnnonces.map(a => a.price)) : 0,
       maxPrice: allAnnonces.length > 0 ? Math.max(...allAnnonces.map(a => a.price)) : 0,
       cities: Object.entries(
         allAnnonces.reduce((acc, a) => {
-          acc[a.city] = acc[a.city] || { count: 0, prices: [] };
-          acc[a.city].count++;
-          acc[a.city].prices.push(a.price);
+          const cityName = a.city || 'Inconnu';
+          acc[cityName] = acc[cityName] || { count: 0, prices: [] };
+          acc[cityName].count++;
+          acc[cityName].prices.push(a.price);
           return acc;
         }, {} as Record<string, { count: number; prices: number[] }>)
       ).map(([city, data]) => ({
@@ -75,7 +85,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       status: 'success',
-      data,
+      data: serializedData,
       pagination: {
         total,
         page,

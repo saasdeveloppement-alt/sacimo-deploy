@@ -122,21 +122,25 @@ export default function AnnoncesPage() {
       console.log("📦 Données reçues:", data)
 
       if (data.status === 'success') {
-        // Convertir les données Prisma au format attendu
+        // Convertir les données Prisma au format attendu avec conversions sécurisées
         const convertedListings = data.data.map((annonce: any) => ({
-          title: annonce.title,
-          price: annonce.price,
-          surface: annonce.surface || undefined,
-          rooms: annonce.rooms || undefined,
-          city: annonce.city,
-          postalCode: annonce.postalCode || '',
-          type: inferTypeFromTitle(annonce.title, annonce.url),
+          title: String(annonce?.title || 'Annonce sans titre'),
+          price: Number(annonce?.price || 0),
+          surface: annonce?.surface != null ? Number(annonce.surface) : undefined,
+          rooms: annonce?.rooms != null ? Number(annonce.rooms) : undefined,
+          city: String(annonce?.city || 'Ville non précisée'),
+          postalCode: String(annonce?.postalCode || ''),
+          type: inferTypeFromTitle(annonce?.title, annonce?.url),
           source: 'LeBonCoin',
-          url: annonce.url,
-          publishedAt: annonce.publishedAt?.toISOString() || new Date().toISOString(),
+          url: String(annonce?.url || ''),
+          publishedAt: annonce?.publishedAt 
+            ? (typeof annonce.publishedAt === 'string' 
+                ? annonce.publishedAt 
+                : new Date(annonce.publishedAt).toISOString())
+            : new Date().toISOString(),
           isPrivateSeller: true,
-          description: annonce.description || '',
-          photos: annonce.images || []
+          description: String(annonce?.description || ''),
+          photos: Array.isArray(annonce?.images) ? annonce.images.map((img: any) => String(img || '')) : []
         }))
         
         setListings(convertedListings)
@@ -157,13 +161,16 @@ export default function AnnoncesPage() {
   }
   
   // Helper pour extraire le type depuis le titre/URL
-  const inferTypeFromTitle = (title: string, url: string): string => {
-    const lowerTitle = title.toLowerCase()
-    const lowerUrl = url.toLowerCase()
-    if (lowerTitle.includes('maison') || lowerTitle.includes('villa') || lowerUrl.includes('maison')) return 'HOUSE'
-    if (lowerTitle.includes('studio') || lowerUrl.includes('studio')) return 'STUDIO'
-    if (lowerTitle.includes('loft') || lowerUrl.includes('loft')) return 'LOFT'
-    return 'APARTMENT'
+  const inferTypeFromTitle = (title: string | undefined | null, url: string | undefined | null): string => {
+    if (!title && !url) return 'APARTMENT';
+    
+    const lowerTitle = String(title || '').toLowerCase();
+    const lowerUrl = String(url || '').toLowerCase();
+    
+    if (lowerTitle.includes('maison') || lowerTitle.includes('villa') || lowerUrl.includes('maison')) return 'HOUSE';
+    if (lowerTitle.includes('studio') || lowerUrl.includes('studio')) return 'STUDIO';
+    if (lowerTitle.includes('loft') || lowerUrl.includes('loft')) return 'LOFT';
+    return 'APARTMENT';
   }
 
   useEffect(() => {
