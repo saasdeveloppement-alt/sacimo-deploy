@@ -1,0 +1,1 @@
+-- Baseline migration for existing Neon schema
