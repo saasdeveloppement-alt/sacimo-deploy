@@ -13,15 +13,24 @@ export class SmartScraper {
     }
     
     try {
+      // Mapper les types LeBonCoin vers Melo.io
+      let typeBienMelo: 'appartement' | 'maison' | undefined = undefined
+      if (params.typeBien === 'appartement' || params.typeBien === 'studio' || params.typeBien === 'loft' || params.typeBien === 'penthouse') {
+        typeBienMelo = 'appartement'
+      } else if (params.typeBien === 'maison') {
+        typeBienMelo = 'maison'
+      }
+      
       const annonces = await meloService.searchAnnonces({
         ville: params.ville,
         minPrix: params.minPrix,
         maxPrix: params.maxPrix,
         minSurface: params.minSurface,
         maxSurface: params.maxSurface,
-        typeBien: params.typeBien,
+        typeBien: typeBienMelo,
         pieces: params.pieces,
-        sources: ['leboncoin', 'seloger', 'pap', 'bienici']
+        transactionType: 'vente',
+        itemsPerPage: 50
       })
       
       console.log(`✅ ${annonces.length} annonces récupérées depuis Melo.io`)
