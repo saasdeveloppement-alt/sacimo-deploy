@@ -129,6 +129,34 @@ export default function ListingCard({
   const priceBadge = getPriceBadge()
   const PriceIcon = priceBadge.icon
 
+  // Fonction pour obtenir une image placeholder de qualité basée sur le type de bien
+  const getPlaceholderImage = (type: string): string => {
+    const typeLower = type.toLowerCase()
+    
+    // Images Unsplash optimisées pour l'immobilier
+    if (typeLower.includes('maison') || typeLower.includes('house') || typeLower.includes('villa')) {
+      // Maison moderne
+      return 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=800&h=600&fit=crop&q=80'
+    } else if (typeLower.includes('studio')) {
+      // Studio moderne
+      return 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&h=600&fit=crop&q=80'
+    } else if (typeLower.includes('loft') || typeLower.includes('penthouse')) {
+      // Loft/Penthouse
+      return 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&h=600&fit=crop&q=80'
+    } else {
+      // Appartement par défaut
+      return 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800&h=600&fit=crop&q=80'
+    }
+  }
+
+  // Obtenir l'image à afficher (photo réelle ou placeholder)
+  const getDisplayImage = (): string => {
+    if (listing.photos && listing.photos.length > 0 && listing.photos[0]) {
+      return listing.photos[0]
+    }
+    return getPlaceholderImage(listing.type)
+  }
+
   const handleSave = () => {
     const wasSaved = isSaved
     setIsSaved(!isSaved)
@@ -150,20 +178,20 @@ export default function ListingCard({
       >
         <div className="flex gap-4 p-4 max-w-full overflow-hidden">
           {/* Photo à gauche */}
-          <div className="w-48 h-48 bg-slate-100 rounded-lg overflow-hidden flex-shrink-0">
-            {listing.photos && listing.photos.length > 0 ? (
-              <img 
-                src={listing.photos[0]} 
-                alt={listing.title}
-                className="w-full h-full object-cover"
-                onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-                  const target = e.target as HTMLImageElement
-                  target.src = '/placeholder.svg'
-                }}
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <ImageIcon className="h-12 w-12 text-slate-400" />
+          <div className="w-48 h-48 bg-slate-100 rounded-lg overflow-hidden flex-shrink-0 relative">
+            <img 
+              src={getDisplayImage()} 
+              alt={listing.title}
+              className="w-full h-full object-cover"
+              onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+                const target = e.target as HTMLImageElement
+                // Fallback vers placeholder si l'image Unsplash échoue aussi
+                target.src = `https://placehold.co/400x300/e2e8f0/64748b?text=${encodeURIComponent('Photo non disponible')}`
+              }}
+            />
+            {(!listing.photos || listing.photos.length === 0) && (
+              <div className="absolute bottom-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
+                Photo illustrative
               </div>
             )}
           </div>
@@ -433,19 +461,19 @@ export default function ListingCard({
     >
       {/* Photo principale (plus grande) */}
       <div className="relative h-64 bg-slate-100 overflow-hidden">
-        {listing.photos && listing.photos.length > 0 ? (
-          <img 
-            src={listing.photos[0]} 
-            alt={listing.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-            onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-              const target = e.target as HTMLImageElement
-              target.src = '/placeholder.svg'
-            }}
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <ImageIcon className="h-16 w-16 text-slate-400" />
+        <img 
+          src={getDisplayImage()} 
+          alt={listing.title}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+            const target = e.target as HTMLImageElement
+            // Fallback vers placeholder si l'image Unsplash échoue aussi
+            target.src = `https://placehold.co/800x600/e2e8f0/64748b?text=${encodeURIComponent('Photo non disponible')}`
+          }}
+        />
+        {(!listing.photos || listing.photos.length === 0) && (
+          <div className="absolute bottom-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
+            Photo illustrative
           </div>
         )}
         {/* Badge estimation en overlay */}

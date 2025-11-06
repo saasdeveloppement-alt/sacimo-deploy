@@ -25,7 +25,8 @@ export async function GET(req: NextRequest) {
     const sortBy = searchParams.get('sortBy') || 'publishedAt';
     const sortOrder = searchParams.get('sortOrder') || 'desc';
     const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '50');
+    // Augmenter la limite par défaut pour afficher plus d'annonces
+    const limit = parseInt(searchParams.get('limit') || '100');
 
     const where: any = {};
     const orConditions: any[] = [];

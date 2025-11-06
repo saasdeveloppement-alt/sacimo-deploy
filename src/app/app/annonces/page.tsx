@@ -134,6 +134,8 @@ function AnnoncesContent() {
       
       params.append('sortBy', sortBy)
       params.append('sortOrder', sortOrder)
+      // Augmenter la limite pour récupérer plus d'annonces
+      params.append('limit', '100')
       
       const response = await fetch(`/api/annonces/list?${params.toString()}`)
       const data = await response.json()
