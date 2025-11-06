@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import PageContainer, { fadeInUp, staggerChildren } from "@/components/ui/PageContainer"
 import SectionHeader from "@/components/ui/SectionHeader"
@@ -83,7 +83,7 @@ interface Stats {
   }
 }
 
-export default function AnnoncesPage() {
+function AnnoncesContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const agencyFromUrl = searchParams.get('agency')
@@ -593,5 +593,24 @@ export default function AnnoncesPage() {
         </div>
       </main>
     </PageContainer>
+  )
+}
+
+export default function AnnoncesPage() {
+  return (
+    <Suspense fallback={
+      <PageContainer>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-purple-100 to-blue-100 flex items-center justify-center animate-pulse">
+              <Target className="h-8 w-8 text-purple-600" />
+            </div>
+            <p className="text-slate-600">Chargement...</p>
+          </div>
+        </div>
+      </PageContainer>
+    }>
+      <AnnoncesContent />
+    </Suspense>
   )
 }
