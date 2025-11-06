@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
 import PageContainer, { fadeInUp, staggerChildren } from "@/components/ui/PageContainer"
 import SectionHeader from "@/components/ui/SectionHeader"
 import ModernCard from "@/components/ui/ModernCard"
@@ -46,6 +47,7 @@ import {
   Zap
 } from "lucide-react"
 import { motion } from "framer-motion"
+import { showSuccess, showError, showInfo } from "@/lib/toast"
 
 interface Listing {
   title: string;
@@ -82,6 +84,10 @@ interface Stats {
 }
 
 export default function AnnoncesPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const agencyFromUrl = searchParams.get('agency')
+  
   const [listings, setListings] = useState<Listing[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [totalCount, setTotalCount] = useState(0)
@@ -121,6 +127,11 @@ export default function AnnoncesPage() {
       if (advancedFilters.sellerType !== 'all') params.append('sellerType', advancedFilters.sellerType)
       if (advancedFilters.dateFrom) params.append('dateFrom', advancedFilters.dateFrom)
       
+      // Filtre par agence depuis l'URL
+      if (agencyFromUrl) {
+        params.append('agency', agencyFromUrl)
+      }
+      
       params.append('sortBy', sortBy)
       params.append('sortOrder', sortOrder)
       
@@ -157,11 +168,14 @@ export default function AnnoncesPage() {
         if (data.stats) {
           console.log(`📊 Statistiques: ${data.stats.total} total, prix moyen: ${data.stats.avgPrice}€`)
         }
+        showSuccess(`✅ ${convertedListings.length} annonce${convertedListings.length > 1 ? 's' : ''} chargée${convertedListings.length > 1 ? 's' : ''}`)
       } else {
         console.error("❌ Erreur chargement:", data.message)
+        showError(`❌ Erreur: ${data.message || 'Impossible de charger les annonces'}`)
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("❌ Erreur chargement:", err)
+      showError(`❌ Erreur: ${err.message || 'Erreur lors du chargement'}`)
     } finally {
       setIsLoading(false)
     }
@@ -182,7 +196,7 @@ export default function AnnoncesPage() {
 
   useEffect(() => {
     loadScrapingData()
-  }, [advancedFilters, sortBy, sortOrder, searchTerm])
+  }, [advancedFilters, sortBy, sortOrder, searchTerm, agencyFromUrl])
 
   // Logique de filtrage côté client (pour les types seulement, car pas encore stocké en base)
   const filteredListings = listings.filter(listing => {
@@ -211,15 +225,15 @@ export default function AnnoncesPage() {
   const cityData = stats?.cities 
     ? stats.cities.slice(0, 5).map(c => ({ city: c.city, count: c.count }))
     : (() => {
-        const cityDistribution = filteredListings.reduce((acc, listing) => {
-          const city = listing.city
-          acc[city] = (acc[city] || 0) + 1
-          return acc
-        }, {} as Record<string, number>)
+  const cityDistribution = filteredListings.reduce((acc, listing) => {
+    const city = listing.city
+    acc[city] = (acc[city] || 0) + 1
+    return acc
+  }, {} as Record<string, number>)
         return Object.entries(cityDistribution).map(([city, count]) => ({
-          city,
-          count
-        })).sort((a, b) => b.count - a.count).slice(0, 5)
+    city,
+    count
+  })).sort((a, b) => b.count - a.count).slice(0, 5)
       })()
 
   return (
@@ -262,6 +276,26 @@ export default function AnnoncesPage() {
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
         <div className="max-w-7xl mx-auto space-y-8">
+          {/* Badge filtre agence */}
+          {agencyFromUrl && (
+            <motion.div variants={fadeInUp}>
+              <div className="mb-4">
+                <Badge variant="secondary" className="text-sm p-2 bg-purple-100 text-purple-700 border-purple-200">
+                  🏢 Filtre actif : {agencyFromUrl}
+                  <button 
+                    onClick={() => {
+                      router.push('/app/annonces')
+                      showInfo('Filtre agence retiré')
+                    }} 
+                    className="ml-2 hover:text-red-500 transition-colors"
+                  >
+                    ✕
+                  </button>
+                </Badge>
+              </div>
+            </motion.div>
+          )}
+
           {/* Filtres avancés et recherche */}
           <motion.div variants={fadeInUp}>
             <ModernCard
@@ -297,7 +331,7 @@ export default function AnnoncesPage() {
                 {/* Tri et actions */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="space-y-2">
+                <div className="space-y-2">
                       <label className="text-sm font-medium text-slate-700">Trier par</label>
                       <Select value={`${sortBy}-${sortOrder}`} onValueChange={(value) => {
                         const [by, order] = value.split('-')
@@ -306,21 +340,21 @@ export default function AnnoncesPage() {
                       }}>
                         <SelectTrigger className="w-48 bg-white/80 border-slate-200 focus:border-purple-300 focus:ring-purple-200">
                           <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
+                    </SelectTrigger>
+                    <SelectContent>
                           <SelectItem value="publishedAt-desc">Plus récentes</SelectItem>
                           <SelectItem value="publishedAt-asc">Plus anciennes</SelectItem>
                           <SelectItem value="price-asc">Prix croissant</SelectItem>
                           <SelectItem value="price-desc">Prix décroissant</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
+                    </SelectContent>
+                  </Select>
+                </div>
+                
                     <Badge variant="secondary" className="bg-purple-100 text-purple-700 border-purple-200">
                       {totalCount > 0 ? `${totalCount} annonce${totalCount > 1 ? 's' : ''} trouvée${totalCount > 1 ? 's' : ''}` : filteredListings.length > 0 ? `${filteredListings.length} affichée${filteredListings.length > 1 ? 's' : ''}` : 'Aucune annonce'}
                     </Badge>
-                  </div>
-                  
+              </div>
+              
                   <Button variant="outline" size="sm" className="border-slate-200 hover:border-purple-300 hover:text-purple-600">
                     <Download className="h-4 w-4 mr-2" />
                     Exporter
@@ -348,8 +382,8 @@ export default function AnnoncesPage() {
               value={stats?.avgPrice 
                 ? stats.avgPrice.toLocaleString('fr-FR') + '€'
                 : filteredListings.length > 0 
-                  ? Math.round(filteredListings.reduce((sum, l) => sum + l.price, 0) / filteredListings.length).toLocaleString('fr-FR') + '€'
-                  : '0€'
+                ? Math.round(filteredListings.reduce((sum, l) => sum + l.price, 0) / filteredListings.length).toLocaleString('fr-FR') + '€'
+                : '0€'
               }
               icon={TrendingUp}
               color="from-blue-500 to-blue-600"
@@ -510,17 +544,17 @@ export default function AnnoncesPage() {
                         Aller aux recherches
                       </Button>
                     ) : (
-                      <Button 
+                  <Button 
                         onClick={() => {
                           setSearchTerm("")
                           setAdvancedFilters(initialFilters)
                           setSortBy("publishedAt")
                           setSortOrder("desc")
                         }}
-                        className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
-                      >
+                    className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+                  >
                         Réinitialiser les filtres
-                      </Button>
+                  </Button>
                     )}
                   </div>
                 </div>
@@ -533,18 +567,21 @@ export default function AnnoncesPage() {
                       viewMode={viewMode}
                       onSave={(listing) => {
                         console.log("💾 Sauvegarder:", listing.title)
-                        // TODO: Implémenter la sauvegarde
+                        // TODO: Implémenter la sauvegarde en base
                       }}
                       onAnalyze={(listing) => {
                         console.log("📊 Analyser:", listing.title)
+                        showInfo(`📊 Analyse de "${listing.title.substring(0, 30)}..." en cours`)
                         // TODO: Implémenter l'analyse
                       }}
                       onEstimate={(listing) => {
                         console.log("💰 Estimer:", listing.title)
+                        showInfo(`💰 Estimation de "${listing.title.substring(0, 30)}..." en cours`)
                         // TODO: Implémenter l'estimation IA
                       }}
                       onLocate={(listing) => {
                         console.log("📍 Localiser:", listing.title)
+                        showInfo(`📍 Localisation de "${listing.city}" sur la carte`)
                         // TODO: Ouvrir modal carte
                       }}
                     />

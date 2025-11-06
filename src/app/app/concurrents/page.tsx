@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import PageContainer, { fadeInUp, staggerChildren } from "@/components/ui/PageContainer"
 import SectionHeader from "@/components/ui/SectionHeader"
 import ModernCard from "@/components/ui/ModernCard"
@@ -9,6 +10,8 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
 import { 
   Search, 
   Filter, 
@@ -22,12 +25,27 @@ import {
   Target,
   Zap,
   AlertCircle,
-  CheckCircle2
+  CheckCircle2,
+  RefreshCw,
+  BarChart3
 } from "lucide-react"
 import { motion } from "framer-motion"
 import AdvancedFilters from "@/components/filters/AdvancedFilters"
 import { AdvancedFilters as AdvancedFiltersType, initialFilters } from "@/hooks/useAdvancedFilters"
 import { Separator } from "@/components/ui/separator"
+import { showSuccess, showError, showInfo, showLoading, dismissToast } from "@/lib/toast"
+import { 
+  PieChart, 
+  Pie, 
+  Cell, 
+  Tooltip as RechartsTooltip, 
+  BarChart, 
+  Bar, 
+  CartesianGrid, 
+  XAxis, 
+  YAxis, 
+  ResponsiveContainer 
+} from "recharts"
 
 interface Competitor {
   id: string
@@ -40,66 +58,93 @@ interface Competitor {
   website: string
   specialties: string[]
   marketShare: number
+  zone?: string
+  listings?: number
+  rank?: number
+  isGrowing?: boolean
+  lastSeen?: string
 }
 
 export default function ConcurrentsPage() {
+  const router = useRouter()
   const [competitors, setCompetitors] = useState<Competitor[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [sortBy, setSortBy] = useState("listings")
   const [advancedFilters, setAdvancedFilters] = useState<AdvancedFiltersType>(initialFilters)
+  const [selectedZone, setSelectedZone] = useState("75001")
 
   // Données de démonstration
   useEffect(() => {
     const mockCompetitors: Competitor[] = [
       {
         id: '1',
-        name: 'Agence Immobilière Paris',
+        name: 'Century 21 Paris 1er',
         location: 'Paris 1er, 2e, 3e',
         listingsCount: 45,
-        avgPrice: 650000,
+        avgPrice: 520000,
         lastUpdate: new Date(Date.now() - 2 * 60 * 60 * 1000),
         status: 'active',
-        website: 'https://agence-paris.fr',
+        website: 'https://century21.fr',
         specialties: ['Luxe', 'Centre-ville'],
-        marketShare: 12.5
+        marketShare: 18.2,
+        zone: 'Paris 1er, 2e, 3e',
+        listings: 45,
+        rank: 1,
+        isGrowing: true,
+        lastSeen: 'Il y a 2h'
       },
       {
         id: '2',
-        name: 'Propriétés & Co',
+        name: 'Orpi Centre Paris',
         location: 'Paris 4e, 5e, 6e',
-        listingsCount: 32,
-        avgPrice: 580000,
+        listingsCount: 38,
+        avgPrice: 485000,
         lastUpdate: new Date(Date.now() - 4 * 60 * 60 * 1000),
-        status: 'monitoring',
-        website: 'https://proprietes-co.fr',
+        status: 'active',
+        website: 'https://orpi.fr',
         specialties: ['Familial', 'Rénovation'],
-        marketShare: 8.2
+        marketShare: 15.4,
+        zone: 'Paris 4e, 5e, 6e',
+        listings: 38,
+        rank: 2,
+        isGrowing: true,
+        lastSeen: 'Il y a 4h'
       },
       {
         id: '3',
-        name: 'Lyon Immobilier Pro',
-        location: 'Lyon 1er, 2e, 3e',
-        listingsCount: 28,
-        avgPrice: 420000,
+        name: 'Guy Hoquet',
+        location: 'Paris 7e, 8e, 9e',
+        listingsCount: 32,
+        avgPrice: 510000,
         lastUpdate: new Date(Date.now() - 6 * 60 * 60 * 1000),
         status: 'active',
-        website: 'https://lyon-immobilier.fr',
+        website: 'https://guyhoquet.fr',
         specialties: ['Commercial', 'Bureaux'],
-        marketShare: 6.8
+        marketShare: 13.0,
+        zone: 'Paris 7e, 8e, 9e',
+        listings: 32,
+        rank: 3,
+        isGrowing: false,
+        lastSeen: 'Il y a 6h'
       },
       {
         id: '4',
-        name: 'Marseille Habitat',
-        location: 'Marseille 1er, 2e',
-        listingsCount: 18,
-        avgPrice: 380000,
+        name: 'Foncia',
+        location: 'Paris 10e, 11e',
+        listingsCount: 28,
+        avgPrice: 495000,
         lastUpdate: new Date(Date.now() - 24 * 60 * 60 * 1000),
-        status: 'inactive',
-        website: 'https://marseille-habitat.fr',
+        status: 'active',
+        website: 'https://foncia.fr',
         specialties: ['Appartements', 'Studios'],
-        marketShare: 4.1
+        marketShare: 11.3,
+        zone: 'Paris 10e, 11e',
+        listings: 28,
+        rank: 4,
+        isGrowing: false,
+        lastSeen: 'Il y a 1j'
       }
     ]
     setCompetitors(mockCompetitors)
@@ -170,6 +215,47 @@ export default function ConcurrentsPage() {
     }
   }
 
+  const handleRefresh = () => {
+    console.log("🔄 Actualisation des données pour la zone:", selectedZone)
+    const loadingToast = showLoading("Actualisation des données...")
+    // TODO: Implémenter l'actualisation des données
+    setTimeout(() => {
+      dismissToast(loadingToast)
+      showSuccess(`✅ Données actualisées pour la zone ${selectedZone}`)
+    }, 1000)
+  }
+
+  const handleViewAnnonces = (agencyName: string) => {
+    showInfo(`🏢 Affichage des annonces de ${agencyName}`)
+    router.push(`/app/annonces?agency=${encodeURIComponent(agencyName)}`)
+  }
+
+  // Données mock pour le top 5 agences
+  const topAgencies = [
+    { rank: 1, name: "Century 21 Paris 1er", annonces: 45, prixMoyen: 520000, partMarche: 18.2 },
+    { rank: 2, name: "Orpi Centre Paris", annonces: 38, prixMoyen: 485000, partMarche: 15.4 },
+    { rank: 3, name: "Guy Hoquet", annonces: 32, prixMoyen: 510000, partMarche: 13.0 },
+    { rank: 4, name: "Foncia", annonces: 28, prixMoyen: 495000, partMarche: 11.3 },
+    { rank: 5, name: "Laforêt", annonces: 24, prixMoyen: 505000, partMarche: 9.7 }
+  ]
+
+  // Données mock pour les graphiques
+  const marketShareData = [
+    { name: "Century 21", value: 18.2, color: "#8B5CF6" },
+    { name: "Orpi", value: 15.4, color: "#3B82F6" },
+    { name: "Guy Hoquet", value: 13.0, color: "#06B6D4" },
+    { name: "Foncia", value: 11.3, color: "#10B981" },
+    { name: "Autres", value: 42.1, color: "#94A3B8" }
+  ]
+
+  const annoncesBarData = [
+    { name: "Century 21", annonces: 45 },
+    { name: "Orpi", annonces: 38 },
+    { name: "Guy Hoquet", annonces: 32 },
+    { name: "Foncia", annonces: 28 },
+    { name: "Laforêt", annonces: 24 }
+  ]
+
   return (
     <PageContainer>
       {/* Header */}
@@ -197,6 +283,147 @@ export default function ConcurrentsPage() {
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
         <div className="max-w-7xl mx-auto space-y-8">
+          {/* Sélecteur de zone */}
+          <motion.div variants={fadeInUp}>
+            <div className="flex items-center gap-4 mb-6">
+              <Select value={selectedZone} onValueChange={setSelectedZone}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Sélectionner une zone" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="75001">Paris 1er (75001)</SelectItem>
+                  <SelectItem value="75002">Paris 2e (75002)</SelectItem>
+                  <SelectItem value="75003">Paris 3e (75003)</SelectItem>
+                  <SelectItem value="75004">Paris 4e (75004)</SelectItem>
+                  <SelectItem value="75005">Paris 5e (75005)</SelectItem>
+                  <SelectItem value="75006">Paris 6e (75006)</SelectItem>
+                  <SelectItem value="75007">Paris 7e (75007)</SelectItem>
+                  <SelectItem value="75008">Paris 8e (75008)</SelectItem>
+                  <SelectItem value="75009">Paris 9e (75009)</SelectItem>
+                  <SelectItem value="75010">Paris 10e (75010)</SelectItem>
+                  <SelectItem value="75011">Paris 11e (75011)</SelectItem>
+                  <SelectItem value="75012">Paris 12e (75012)</SelectItem>
+                  <SelectItem value="75013">Paris 13e (75013)</SelectItem>
+                  <SelectItem value="75014">Paris 14e (75014)</SelectItem>
+                  <SelectItem value="75015">Paris 15e (75015)</SelectItem>
+                  <SelectItem value="75016">Paris 16e (75016)</SelectItem>
+                  <SelectItem value="75017">Paris 17e (75017)</SelectItem>
+                  <SelectItem value="75018">Paris 18e (75018)</SelectItem>
+                  <SelectItem value="75019">Paris 19e (75019)</SelectItem>
+                  <SelectItem value="75020">Paris 20e (75020)</SelectItem>
+                </SelectContent>
+              </Select>
+              <Badge variant="outline">Zone: {selectedZone}</Badge>
+              <Button onClick={handleRefresh}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Actualiser
+              </Button>
+            </div>
+          </motion.div>
+
+          {/* TOP 5 AGENCES */}
+          <motion.div variants={fadeInUp}>
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  🏆 Top 5 Agences - {selectedZone}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Rang</TableHead>
+                      <TableHead>Agence</TableHead>
+                      <TableHead>Annonces</TableHead>
+                      <TableHead>Prix moyen</TableHead>
+                      <TableHead>Part de marché</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {topAgencies.map((agency) => (
+                      <TableRow key={agency.rank}>
+                        <TableCell>
+                          {agency.rank === 1 && "🥇"}
+                          {agency.rank === 2 && "🥈"}
+                          {agency.rank === 3 && "🥉"}
+                          {agency.rank > 3 && agency.rank}
+                        </TableCell>
+                        <TableCell className="font-semibold">{agency.name}</TableCell>
+                        <TableCell>{agency.annonces}</TableCell>
+                        <TableCell>{agency.prixMoyen.toLocaleString('fr-FR')}€</TableCell>
+                        <TableCell>{agency.partMarche}%</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {/* Graphiques */}
+          <motion.div variants={fadeInUp}>
+            <div className="grid md:grid-cols-2 gap-6 mb-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Répartition des parts de marché</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={marketShareData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }: any) => `${name} ${((percent as number) * 100).toFixed(1)}%`}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {marketShareData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <RechartsTooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'white', 
+                          border: '1px solid #E2E8F0',
+                          borderRadius: '8px',
+                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Nombre d'annonces par agence</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={annoncesBarData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                      <XAxis dataKey="name" stroke="#64748B" />
+                      <YAxis stroke="#64748B" />
+                      <RechartsTooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'white', 
+                          border: '1px solid #E2E8F0',
+                          borderRadius: '8px',
+                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                        }}
+                      />
+                      <Bar dataKey="annonces" radius={[4, 4, 0, 0]} fill="#8B5CF6" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </div>
+          </motion.div>
+
           {/* Filtres */}
           <motion.div variants={fadeInUp}>
             <ModernCard
@@ -337,102 +564,84 @@ export default function ConcurrentsPage() {
                   </p>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {sortedCompetitors.map((competitor, index) => (
                     <motion.div
                       key={competitor.id}
                       variants={fadeInUp}
-                      whileHover={{ x: 4 }}
+                      whileHover={{ y: -4, scale: 1.02 }}
                       transition={{ duration: 0.2 }}
                     >
-                      <div className="p-6 rounded-xl bg-slate-50/50 hover:bg-slate-100/50 transition-colors border border-slate-200/60">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-4">
-                              <h3 className="text-lg font-semibold text-slate-900">{competitor.name}</h3>
-                              <Badge className={getStatusColor(competitor.status)}>
-                                {getStatusIcon(competitor.status)}
-                                <span className="ml-1">{getStatusText(competitor.status)}</span>
-                              </Badge>
+                      <Card className="hover:shadow-lg transition-shadow h-full">
+                        <CardHeader>
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="flex items-center gap-2">
+                              <Building2 className="h-5 w-5 text-purple-600" />
+                              {competitor.name}
+                            </CardTitle>
+                            <Badge variant={competitor.rank === 1 ? "default" : "outline"} className={competitor.rank === 1 ? "bg-purple-600" : ""}>
+                              {competitor.rank === 1 ? "🏆 Leader" : competitor.isGrowing ? "📈 En croissance" : "Actif"}
+                            </Badge>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          {/* Métriques principales */}
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                              <p className="text-sm text-slate-500">Annonces actives</p>
+                              <p className="text-2xl font-bold text-slate-900">{competitor.listings || competitor.listingsCount}</p>
                             </div>
-                            
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-slate-600 mb-4">
-                              <div className="flex items-center gap-2">
-                                <MapPin className="h-4 w-4 text-slate-400" />
-                                <span className="font-medium">Zone :</span>
-                                <span>{competitor.location}</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Target className="h-4 w-4 text-slate-400" />
-                                <span className="font-medium">Annonces :</span>
-                                <span>{competitor.listingsCount}</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <TrendingUp className="h-4 w-4 text-slate-400" />
-                                <span className="font-medium">Prix moyen :</span>
-                                <span>{competitor.avgPrice.toLocaleString('fr-FR')}€</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Calendar className="h-4 w-4 text-slate-400" />
-                                <span className="font-medium">Dernière MAJ :</span>
-                                <span>{competitor.lastUpdate.toLocaleString('fr-FR', { 
-                                  day: '2-digit', 
-                                  month: '2-digit', 
-                                  hour: '2-digit', 
-                                  minute: '2-digit' 
-                                })}</span>
-                              </div>
-                            </div>
-                            
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-4">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm font-medium text-slate-600">Part de marché :</span>
-                                  <Badge variant="outline" className="border-slate-200 text-slate-600">
-                                    {competitor.marketShare}%
-                                  </Badge>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm font-medium text-slate-600">Spécialités :</span>
-                                  <div className="flex gap-1">
-                                    {competitor.specialties.map((specialty, idx) => (
-                                      <Badge key={idx} variant="secondary" className="text-xs">
-                                        {specialty}
-                                      </Badge>
-                                    ))}
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              <div className="flex gap-2">
-                                <Button 
-                                  variant="outline" 
-                                  size="sm"
-                                  asChild
-                                  className="border-slate-200 hover:border-purple-300 hover:text-purple-600"
-                                >
-                                  <a 
-                                    href={competitor.website} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-1"
-                                  >
-                                    <ExternalLink className="h-4 w-4" />
-                                    Site web
-                                  </a>
-                                </Button>
-                                <Button 
-                                  variant="outline" 
-                                  size="sm"
-                                  className="border-slate-200 hover:border-blue-300 hover:text-blue-600"
-                                >
-                                  <Eye className="h-4 w-4" />
-                                </Button>
-                              </div>
+                            <div className="space-y-1">
+                              <p className="text-sm text-slate-500">Part de marché</p>
+                              <p className="text-2xl font-bold text-purple-600">{competitor.marketShare}%</p>
                             </div>
                           </div>
-                        </div>
-                      </div>
+                          
+                          <Separator />
+                          
+                          {/* Infos détaillées */}
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <MapPin className="h-4 w-4 text-slate-400" />
+                              <span className="text-sm text-slate-600">{competitor.zone || competitor.location}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <TrendingUp className="h-4 w-4 text-slate-400" />
+                              <span className="text-sm text-slate-600">Prix moyen : {competitor.avgPrice.toLocaleString('fr-FR')}€</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Calendar className="h-4 w-4 text-slate-400" />
+                              <span className="text-sm text-slate-600">Dernière MAJ : {competitor.lastSeen || competitor.lastUpdate.toLocaleString('fr-FR', { 
+                                day: '2-digit', 
+                                month: '2-digit', 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                              })}</span>
+                            </div>
+                          </div>
+                          
+                          <Separator />
+                          
+                          {/* Boutons d'action */}
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm" 
+                              className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
+                              onClick={() => handleViewAnnonces(competitor.name)}
+                            >
+                              <Eye className="h-4 w-4 mr-2" />
+                              Voir les {competitor.listings || competitor.listingsCount} annonces
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              className="border-slate-200 hover:border-purple-300 hover:text-purple-600"
+                            >
+                              <BarChart3 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
                     </motion.div>
                   ))}
                 </div>

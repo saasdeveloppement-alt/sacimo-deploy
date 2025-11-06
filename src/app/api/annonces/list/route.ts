@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
     const rooms = searchParams.get('rooms');
     const sellerType = searchParams.get('sellerType'); // 'private' | 'professional'
     const dateFrom = searchParams.get('dateFrom'); // ISO date string
+    const agency = searchParams.get('agency'); // Nom de l'agence
     
     // Paramètres de tri et pagination
     const sortBy = searchParams.get('sortBy') || 'publishedAt';
@@ -27,14 +28,28 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50');
 
     const where: any = {};
+    const orConditions: any[] = [];
     
     // Recherche texte (legacy)
     if (search) {
-      where.OR = [
+      orConditions.push(
         { title: { contains: search, mode: 'insensitive' } },
         { city: { contains: search, mode: 'insensitive' } },
         { description: { contains: search, mode: 'insensitive' } }
-      ];
+      );
+    }
+    
+    // Filtre par agence (recherche dans description et title)
+    if (agency) {
+      orConditions.push(
+        { description: { contains: agency, mode: 'insensitive' } },
+        { title: { contains: agency, mode: 'insensitive' } }
+      );
+    }
+    
+    // Si on a des conditions OR, les ajouter au where
+    if (orConditions.length > 0) {
+      where.OR = orConditions;
     }
     
     // Filtres par villes (array)

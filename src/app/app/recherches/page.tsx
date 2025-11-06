@@ -36,6 +36,7 @@ import { motion } from "framer-motion"
 import AdvancedFilters from "@/components/filters/AdvancedFilters"
 import { AdvancedFilters as AdvancedFiltersType, initialFilters } from "@/hooks/useAdvancedFilters"
 import { Separator } from "@/components/ui/separator"
+import { showSuccess, showError, showInfo, showLoading, dismissToast } from "@/lib/toast"
 
 interface SearchConfig {
   id: string
@@ -183,13 +184,24 @@ export default function RecherchesPage() {
   const totalSearches = searches.length
 
   const toggleSearch = (id: string) => {
-    setSearches(prev => prev.map(search => 
-      search.id === id ? { ...search, isActive: !search.isActive } : search
-    ))
+    setSearches(prev => prev.map(search => {
+      if (search.id === id) {
+        const newActive = !search.isActive
+        if (newActive) {
+          showSuccess(`✅ Recherche "${search.name}" activée`)
+        } else {
+          showInfo(`⏸️ Recherche "${search.name}" mise en pause`)
+        }
+        return { ...search, isActive: newActive }
+      }
+      return search
+    }))
   }
 
   const runScraping = async (search: SearchConfig) => {
     setIsLoading(true)
+    const loadingToast = showLoading(`Scraping en cours pour "${search.name}"...`)
+    
     try {
       console.log("🔍 Lancement du scraping pour:", search.name)
       
@@ -238,6 +250,8 @@ export default function RecherchesPage() {
 
       const data = await response.json()
       
+      dismissToast(loadingToast)
+      
       if (data.status === 'success') {
         // Mettre à jour le nombre de résultats
         setSearches(prev => prev.map(s => 
@@ -246,18 +260,26 @@ export default function RecherchesPage() {
             : s
         ))
         console.log(`✅ Scraping terminé: ${data.count} annonces trouvées`)
+        showSuccess(`✅ Scraping terminé ! ${data.count} annonce${data.count > 1 ? 's' : ''} trouvée${data.count > 1 ? 's' : ''} (${data.saved || 0} nouvelles, ${data.updated || 0} mises à jour)`)
       } else {
         console.error("❌ Erreur scraping:", data.message)
+        showError(`❌ Erreur lors du scraping: ${data.message || 'Erreur inconnue'}`)
       }
-    } catch (err) {
+    } catch (err: any) {
+      dismissToast(loadingToast)
       console.error("❌ Erreur scraping:", err)
+      showError(`❌ Erreur: ${err.message || 'Erreur lors du scraping'}`)
     } finally {
       setIsLoading(false)
     }
   }
 
   const deleteSearch = (id: string) => {
+    const search = searches.find(s => s.id === id)
     setSearches(prev => prev.filter(search => search.id !== id))
+    if (search) {
+      showInfo(`🗑️ Recherche "${search.name}" supprimée`)
+    }
   }
 
   const getFrequencyText = (frequency: string) => {

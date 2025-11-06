@@ -28,6 +28,7 @@ import {
 } from "lucide-react"
 import { motion } from "framer-motion"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { showSuccess, showInfo } from "@/lib/toast"
 
 interface Listing {
   title: string
@@ -96,7 +97,7 @@ export default function ListingCard({
   const handleCopyPhone = () => {
     if (sellerPhone) {
       navigator.clipboard.writeText(sellerPhone.replace(/\s/g, ''))
-      // TODO: Ajouter toast notification
+      showSuccess("📱 Numéro de téléphone copié dans le presse-papiers")
     }
   }
   
@@ -129,8 +130,14 @@ export default function ListingCard({
   const PriceIcon = priceBadge.icon
 
   const handleSave = () => {
+    const wasSaved = isSaved
     setIsSaved(!isSaved)
     onSave?.(listing)
+    if (!wasSaved) {
+      showSuccess(`✅ "${listing.title.substring(0, 30)}..." sauvegardé`)
+    } else {
+      showInfo(`🗑️ Annonce retirée des sauvegardes`)
+    }
   }
 
   if (viewMode === "list") {
