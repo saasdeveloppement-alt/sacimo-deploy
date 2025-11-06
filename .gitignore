@@ -137,3 +137,6 @@ dist
 .yarn/install-state.gz
 .pnp.*
 .vercel
+
+MELO_API_KEY=2$3ab4cc0d640b64bca0bf358d560b
+MELO_ENV=sandbox

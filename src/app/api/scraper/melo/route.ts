@@ -1,22 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
-import { smartScraper } from "@/lib/services/smart-scraper";
+import { meloService } from "@/lib/services/melo";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    console.log("🔍 Scraper LeBonCoin - Paramètres reçus:", body);
+    const body = await req.json()
+    console.log("🔍 Scraper Melo.io - Paramètres:", body)
     
-    const { annonces: data, source } = await smartScraper.scrape(body);
+    const annonces = await meloService.searchAnnonces(body)
     
-    console.log(`✅ Scraper terminé: ${data.length} annonces trouvées (source: ${source})`);
+    console.log(`✅ ${annonces.length} annonces récupérées depuis Melo.io`)
     
-    // Sauvegarder les annonces en base de données
+    // Sauvegarder en base (même logique que leboncoin)
     let savedCount = 0
     let updatedCount = 0
     let skippedCount = 0
     
-    for (const annonce of data) {
+    for (const annonce of annonces) {
       try {
         // Vérifier si l'annonce existe déjà par URL
         const existing = await prisma.annonceScrape.findUnique({
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
               publishedAt: annonce.publishedAt,
               images: annonce.images || [],
               description: annonce.description || null,
-              source: source === 'melo' ? 'MELO' : 'LEBONCOIN',
+              source: 'MELO',
               isNew: true,
               lastScrapedAt: new Date()
             }
@@ -78,28 +78,21 @@ export async function POST(req: NextRequest) {
     
     console.log(`💾 Base de données: ${savedCount} nouvelles, ${updatedCount} mises à jour, ${skippedCount} ignorées`)
     
-    return NextResponse.json({ 
-      status: "success", 
-      count: data.length,
-      source: source,
+    return NextResponse.json({
+      status: 'success',
+      count: annonces.length,
       saved: savedCount,
       updated: updatedCount,
       skipped: skippedCount,
-      annonces: data,
-      timestamp: new Date().toISOString()
-    });
-  } catch (err: any) {
-    console.error("❌ Scraper error:", err);
-    return NextResponse.json({ 
-      status: "error", 
-      message: String(err),
-      timestamp: new Date().toISOString()
-    }, { status: 500 });
+      source: 'melo.io'
+    })
+    
+  } catch (error: any) {
+    console.error('❌ Erreur Melo:', error)
+    return NextResponse.json({
+      status: 'error',
+      message: error.message
+    }, { status: 500 })
   }
 }
-
-
-
-
-
 
