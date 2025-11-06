@@ -138,37 +138,87 @@ function AnnoncesContent() {
       const response = await fetch(`/api/annonces/list?${params.toString()}`)
       const data = await response.json()
       console.log("📦 Données reçues:", data)
+      console.log("📦 Structure des données:", {
+        status: data.status,
+        hasData: !!data.data,
+        dataLength: data.data?.length,
+        dataType: Array.isArray(data.data) ? 'array' : typeof data.data,
+        pagination: data.pagination,
+        stats: data.stats
+      })
 
       if (data.status === 'success') {
+        // Vérifier que data.data existe et est un tableau
+        if (!data.data || !Array.isArray(data.data)) {
+          console.error("❌ data.data n'est pas un tableau:", data.data)
+          setListings([])
+          setTotalCount(0)
+          setStats(null)
+          showError("❌ Format de données invalide: data.data n'est pas un tableau")
+          return
+        }
+
+        console.log(`📋 Conversion de ${data.data.length} annonces...`)
+        
         // Convertir les données Prisma au format attendu avec conversions sécurisées
-        const convertedListings = data.data.map((annonce: any) => ({
-          title: String(annonce?.title || 'Annonce sans titre'),
-          price: Number(annonce?.price || 0),
-          surface: annonce?.surface != null ? Number(annonce.surface) : undefined,
-          rooms: annonce?.rooms != null ? Number(annonce.rooms) : undefined,
-          city: String(annonce?.city || 'Ville non précisée'),
-          postalCode: String(annonce?.postalCode || ''),
-          type: inferTypeFromTitle(annonce?.title, annonce?.url),
-          source: 'LeBonCoin',
-          url: String(annonce?.url || ''),
-          publishedAt: annonce?.publishedAt 
-            ? (typeof annonce.publishedAt === 'string' 
-                ? annonce.publishedAt 
-                : new Date(annonce.publishedAt).toISOString())
-            : new Date().toISOString(),
-          isPrivateSeller: true,
-          description: String(annonce?.description || ''),
-          photos: Array.isArray(annonce?.images) ? annonce.images.map((img: any) => String(img || '')) : []
-        }))
+        const convertedListings = data.data.map((annonce: any, index: number) => {
+          try {
+            const converted = {
+              title: String(annonce?.title || 'Annonce sans titre'),
+              price: Number(annonce?.price || 0),
+              surface: annonce?.surface != null ? Number(annonce.surface) : undefined,
+              rooms: annonce?.rooms != null ? Number(annonce.rooms) : undefined,
+              city: String(annonce?.city || 'Ville non précisée'),
+              postalCode: String(annonce?.postalCode || ''),
+              type: inferTypeFromTitle(annonce?.title, annonce?.url),
+              source: annonce?.source || 'LeBonCoin',
+              url: String(annonce?.url || ''),
+              publishedAt: annonce?.publishedAt 
+                ? (typeof annonce.publishedAt === 'string' 
+                    ? annonce.publishedAt 
+                    : new Date(annonce.publishedAt).toISOString())
+                : new Date().toISOString(),
+              isPrivateSeller: true,
+              description: String(annonce?.description || ''),
+              photos: Array.isArray(annonce?.images) ? annonce.images.map((img: any) => String(img || '')) : []
+            }
+            
+            // Log les 3 premières conversions pour debug
+            if (index < 3) {
+              console.log(`  [${index + 1}] Converti:`, {
+                title: converted.title.substring(0, 50),
+                price: converted.price,
+                city: converted.city,
+                url: converted.url.substring(0, 50)
+              })
+            }
+            
+            return converted
+          } catch (err) {
+            console.error(`❌ Erreur conversion annonce ${index}:`, err, annonce)
+            return null
+          }
+        }).filter((listing: any) => listing !== null) // Filtrer les conversions échouées
+        
+        console.log(`✅ ${convertedListings.length} annonces converties avec succès`)
+        console.log(`📊 Échantillon de listings:`, convertedListings.slice(0, 2))
         
         setListings(convertedListings)
         setTotalCount(data.pagination?.total || convertedListings.length)
         setStats(data.stats || null)
-        console.log(`✅ ${convertedListings.length} annonces chargées depuis la base`)
+        
+        console.log(`✅ ${convertedListings.length} annonces chargées dans le state`)
+        console.log(`📊 totalCount: ${data.pagination?.total || convertedListings.length}`)
+        
         if (data.stats) {
           console.log(`📊 Statistiques: ${data.stats.total} total, prix moyen: ${data.stats.avgPrice}€`)
         }
-        showSuccess(`✅ ${convertedListings.length} annonce${convertedListings.length > 1 ? 's' : ''} chargée${convertedListings.length > 1 ? 's' : ''}`)
+        
+        if (convertedListings.length > 0) {
+          showSuccess(`✅ ${convertedListings.length} annonce${convertedListings.length > 1 ? 's' : ''} chargée${convertedListings.length > 1 ? 's' : ''}`)
+        } else {
+          showInfo("ℹ️ Aucune annonce trouvée avec ces critères")
+        }
       } else {
         console.error("❌ Erreur chargement:", data.message)
         showError(`❌ Erreur: ${data.message || 'Impossible de charger les annonces'}`)
@@ -202,10 +252,24 @@ function AnnoncesContent() {
   const filteredListings = listings.filter(listing => {
     // Filtre par type (côté client car pas encore dans Prisma)
     if (advancedFilters.types.length > 0) {
-      return advancedFilters.types.includes(listing.type)
+      const matches = advancedFilters.types.includes(listing.type)
+      if (!matches) {
+        console.log(`🔍 Filtre type: "${listing.type}" ne correspond pas aux filtres:`, advancedFilters.types)
+      }
+      return matches
     }
     return true
   })
+  
+  // Log pour debug
+  useEffect(() => {
+    console.log("🔍 État des listings:", {
+      totalListings: listings.length,
+      filteredListings: filteredListings.length,
+      totalCount,
+      advancedFiltersTypes: advancedFilters.types
+    })
+  }, [listings, filteredListings, totalCount, advancedFilters.types])
 
   // Données pour les graphiques
   const priceDistribution = [
@@ -559,34 +623,48 @@ function AnnoncesContent() {
                   </div>
                 </div>
               ) : (
-                <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-4"}>
-                  {filteredListings.map((listing) => (
-                    <ListingCard
-                      key={listing.url}
-                      listing={listing}
-                      viewMode={viewMode}
-                      onSave={(listing) => {
-                        console.log("💾 Sauvegarder:", listing.title)
-                        // TODO: Implémenter la sauvegarde en base
-                      }}
-                      onAnalyze={(listing) => {
-                        console.log("📊 Analyser:", listing.title)
-                        showInfo(`📊 Analyse de "${listing.title.substring(0, 30)}..." en cours`)
-                        // TODO: Implémenter l'analyse
-                      }}
-                      onEstimate={(listing) => {
-                        console.log("💰 Estimer:", listing.title)
-                        showInfo(`💰 Estimation de "${listing.title.substring(0, 30)}..." en cours`)
-                        // TODO: Implémenter l'estimation IA
-                      }}
-                      onLocate={(listing) => {
-                        console.log("📍 Localiser:", listing.title)
-                        showInfo(`📍 Localisation de "${listing.city}" sur la carte`)
-                        // TODO: Ouvrir modal carte
-                      }}
-                    />
-                  ))}
-                </div>
+                <>
+                  {console.log("🎨 Rendu des cartes:", {
+                    filteredListingsCount: filteredListings.length,
+                    viewMode,
+                    firstListing: filteredListings[0]
+                  })}
+                  <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-4"}>
+                    {filteredListings.map((listing, index) => {
+                      console.log(`🎨 Rendu carte ${index + 1}/${filteredListings.length}:`, {
+                        title: listing.title.substring(0, 50),
+                        url: listing.url,
+                        hasPhotos: listing.photos?.length > 0
+                      })
+                      return (
+                        <ListingCard
+                          key={listing.url || `listing-${index}`}
+                          listing={listing}
+                          viewMode={viewMode}
+                          onSave={(listing) => {
+                            console.log("💾 Sauvegarder:", listing.title)
+                            // TODO: Implémenter la sauvegarde en base
+                          }}
+                          onAnalyze={(listing) => {
+                            console.log("📊 Analyser:", listing.title)
+                            showInfo(`📊 Analyse de "${listing.title.substring(0, 30)}..." en cours`)
+                            // TODO: Implémenter l'analyse
+                          }}
+                          onEstimate={(listing) => {
+                            console.log("💰 Estimer:", listing.title)
+                            showInfo(`💰 Estimation de "${listing.title.substring(0, 30)}..." en cours`)
+                            // TODO: Implémenter l'estimation IA
+                          }}
+                          onLocate={(listing) => {
+                            console.log("📍 Localiser:", listing.title)
+                            showInfo(`📍 Localisation de "${listing.city}" sur la carte`)
+                            // TODO: Ouvrir modal carte
+                          }}
+                        />
+                      )
+                    })}
+                  </div>
+                </>
               )}
             </ModernCard>
           </motion.div>

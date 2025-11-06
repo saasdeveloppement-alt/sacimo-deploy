@@ -95,9 +95,11 @@ export class MeloService {
       const queryParams = new URLSearchParams()
       
       // Property types (0=Appartement, 1=Maison, 2=Immeuble, 3=Parking, 4=Bureau, 5=Terrain, 6=Commerce)
+      // Déclarer propertyTypes en dehors du if pour les logs
+      const propertyTypes: number[] = []
+      
       // Si aucun type spécifié, ne pas ajouter de filtre (récupère tout)
       if (params.typeBien) {
-        const propertyTypes: number[] = []
         if (params.typeBien === 'appartement') {
           propertyTypes.push(0)
         } else if (params.typeBien === 'maison') {
@@ -113,13 +115,13 @@ export class MeloService {
         } else if (params.typeBien === 'commerce') {
           propertyTypes.push(6)
         }
-        
-        // Ajouter les types seulement s'ils sont définis
-        if (propertyTypes.length > 0) {
-          propertyTypes.forEach(type => {
-            queryParams.append('propertyTypes[]', type.toString())
-          })
-        }
+      }
+      
+      // Ajouter les types seulement s'ils sont définis
+      if (propertyTypes.length > 0) {
+        propertyTypes.forEach(type => {
+          queryParams.append('propertyTypes[]', type.toString())
+        })
       }
       
       // Transaction type (0=Vente, 1=Location)
