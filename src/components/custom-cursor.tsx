@@ -62,12 +62,15 @@ export function CustomCursor({ children }: CustomCursorProps) {
     <>
       {children}
       <motion.div
-        className="fixed top-0 left-0 w-8 h-8 bg-blue-500/20 backdrop-blur-sm rounded-full pointer-events-none z-50 mix-blend-difference"
+        className="fixed top-0 left-0 w-8 h-8 rounded-full pointer-events-none z-50 backdrop-blur-sm"
         style={{
           x: cursorXSpring,
           y: cursorYSpring,
           scale: isHovering ? scale : 1,
           opacity: isVisible ? opacity : 0,
+          background: isHovering 
+            ? 'linear-gradient(135deg, #6366F1 0%, #7C3AED 100%)' 
+            : 'linear-gradient(135deg, #7C3AED 0%, #6366F1 100%)',
         }}
         animate={{
           scale: isHovering ? 1.8 : 1,
@@ -85,7 +88,7 @@ export function CustomCursor({ children }: CustomCursorProps) {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.5 }}
           >
-            {cursorText}
+            {cursorText === 'View' ? 'Voir' : cursorText === 'view' ? 'voir' : cursorText}
           </motion.div>
         )}
       </motion.div>
