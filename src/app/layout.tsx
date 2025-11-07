@@ -4,6 +4,7 @@ import "./globals.css";
 import { Navbar } from "@/components/navbar";
 import { CustomCursor } from "@/components/custom-cursor";
 import { Toaster } from "@/components/ui/sonner";
+import ChatWidget from "@/components/ChatWidget";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -42,6 +43,7 @@ export default function RootLayout({
           <Navbar />
           {children}
         </CustomCursor>
+        <ChatWidget />
         <Toaster position="top-right" richColors />
       </body>
     </html>

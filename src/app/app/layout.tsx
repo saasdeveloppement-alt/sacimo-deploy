@@ -23,21 +23,25 @@ import {
   AlertCircle,
   Eye,
   UserCheck,
-  Brain
+  Brain,
+  CreditCard,
+  MessageCircle
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
 const navigation = [
   { name: "Dashboard", href: "/app/dashboard", icon: Home },
-  { name: "Mes recherches", href: "/app/searches", icon: Search },
+  { name: "Mes recherches", href: "/app/recherches", icon: Search },
   { name: "Piges", href: "/app/annonces", icon: Target },
-  { name: "Suivi concurrents", href: "/app/competitors", icon: Building2 },
+  { name: "Suivi concurrents", href: "/app/concurrents", icon: Building2 },
   { name: "Localisation & estimation", href: "/app/localisation", icon: MapPin },
-  { name: "Rapports", href: "/app/reports", icon: BarChart3 },
+  { name: "Rapports", href: "/app/rapports", icon: BarChart3 },
   { name: "Notifications & alertes", href: "/app/notifications", icon: Bell },
   { name: "Copilote IA", href: "/app/copilote", icon: Brain },
-  { name: "Paramètres", href: "/app/settings", icon: Settings },
+  { name: "Paramètres", href: "/app/parametres", icon: Settings },
+  { name: "Facturation", href: "/app/facturation", icon: CreditCard },
+  { name: "Contact & Support", href: "/app/contact", icon: MessageCircle },
 ]
 
 export default function AppLayout({
@@ -68,19 +72,19 @@ export default function AppLayout({
                     </div>
             <nav className="mt-5 px-2 space-y-1">
               {navigation.map((item) => {
-                const isActive = pathname === item.href
+                const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
                 return (
                   <Link
                     key={item.name}
                     href={item.href}
                     className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors ${
                       isActive
-                        ? 'bg-blue-100 text-blue-700'
+                        ? 'bg-gradient-to-r from-purple-100 to-blue-100 text-purple-700 font-semibold shadow-sm'
                         : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                     }`}
                     onClick={() => setSidebarOpen(false)}
                   >
-                    <item.icon className="mr-3 h-5 w-5" />
+                    <item.icon className={`mr-3 h-5 w-5 ${isActive ? 'text-purple-600' : ''}`} />
                     {item.name}
                   </Link>
                 )
@@ -115,20 +119,20 @@ export default function AppLayout({
                     </div>
             <nav className="mt-5 flex-1 px-2 space-y-1">
               {navigation.map((item) => {
-                const isActive = pathname === item.href
+                const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
                 return (
                           <Link
                             key={item.name}
                             href={item.href}
                             className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
                               isActive
-                                ? 'bg-gradient-to-r from-purple-100 to-blue-100 text-purple-700 shadow-sm'
+                                ? 'bg-gradient-to-r from-purple-100 to-blue-100 text-purple-700 font-semibold shadow-sm'
                                 : 'text-slate-600 hover:bg-slate-50 hover:text-purple-600 hover:shadow-sm'
                             }`}
                             data-magnetic
                             data-cursor="View"
                           >
-                    <item.icon className="mr-3 h-5 w-5" />
+                    <item.icon className={`mr-3 h-5 w-5 ${isActive ? 'text-purple-600' : ''}`} />
                     {item.name}
                   </Link>
                 )
