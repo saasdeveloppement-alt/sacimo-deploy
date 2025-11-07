@@ -308,14 +308,14 @@ function AnnoncesContent() {
       <SectionHeader
         title="Piges"
         subtitle="Suivez les dernières annonces des particuliers et professionnels"
-        icon={<Target className="h-8 w-8 text-purple-600" />}
+        icon={<Target className="h-8 w-8 text-violet-600" />}
         action={
           <div className="flex gap-2">
             <Button 
               variant={viewMode === "grid" ? "default" : "outline"}
               size="sm"
               onClick={() => setViewMode("grid")}
-              className={viewMode === "grid" ? "bg-purple-600 hover:bg-purple-700" : "border-slate-200 hover:border-purple-300"}
+              className={viewMode === "grid" ? "bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white" : "border-slate-200 hover:border-violet-300"}
             >
               <Grid3X3 className="h-4 w-4" />
             </Button>
@@ -323,14 +323,14 @@ function AnnoncesContent() {
               variant={viewMode === "list" ? "default" : "outline"}
               size="sm"
               onClick={() => setViewMode("list")}
-              className={viewMode === "list" ? "bg-purple-600 hover:bg-purple-700" : "border-slate-200 hover:border-purple-300"}
+              className={viewMode === "list" ? "bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white" : "border-slate-200 hover:border-violet-300"}
             >
               <List className="h-4 w-4" />
             </Button>
             <Button 
               onClick={loadScrapingData} 
               disabled={isLoading}
-              className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
+              className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
             >
               {isLoading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
               {isLoading ? 'Actualisation...' : 'Actualiser'}

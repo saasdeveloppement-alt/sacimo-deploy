@@ -57,7 +57,7 @@ export default function DashboardPage() {
           </p>
 
           <div className="flex gap-4">
-            <Button size="lg" className="bg-white text-violet-600 hover:bg-white/90">
+            <Button size="lg" className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white shadow-lg">
               <Search className="h-5 w-5 mr-2" />
               Nouvelle recherche
             </Button>
@@ -96,8 +96,8 @@ export default function DashboardPage() {
           <Card className="hover:shadow-lg transition-shadow">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between mb-4">
-                <div className="p-3 bg-blue-100 rounded-lg">
-                  <Building2 className="h-6 w-6 text-blue-600" />
+                <div className="p-3 bg-violet-100 rounded-lg">
+                  <Building2 className="h-6 w-6 text-violet-600" />
                 </div>
                 <Badge variant="secondary">Nouveau</Badge>
               </div>
@@ -110,8 +110,8 @@ export default function DashboardPage() {
           <Card className="hover:shadow-lg transition-shadow">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between mb-4">
-                <div className="p-3 bg-emerald-100 rounded-lg">
-                  <FileText className="h-6 w-6 text-emerald-600" />
+                <div className="p-3 bg-indigo-100 rounded-lg">
+                  <FileText className="h-6 w-6 text-indigo-600" />
                 </div>
                 <Badge variant="secondary">+2</Badge>
               </div>
@@ -194,7 +194,7 @@ export default function DashboardPage() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
-                  <Building2 className="h-5 w-5 text-blue-600" />
+                  <Building2 className="h-5 w-5 text-violet-600" />
                   Nouvelles Annonces
                 </CardTitle>
                 <Badge>2</Badge>
@@ -251,7 +251,7 @@ export default function DashboardPage() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
-                  <Target className="h-5 w-5 text-emerald-600" />
+                  <Target className="h-5 w-5 text-indigo-600" />
                   Suivi Concurrents
                 </CardTitle>
                 <Badge>12</Badge>

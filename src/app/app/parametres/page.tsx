@@ -136,13 +136,13 @@ export default function ParametresPage() {
       <SectionHeader
         title="Paramètres"
         subtitle="Gérez votre compte, vos préférences et vos paramètres de sécurité"
-        icon={<Settings className="h-8 w-8 text-purple-600" />}
+        icon={<Settings className="h-8 w-8 text-violet-600" />}
         action={
           <div className="flex gap-2">
             <Button 
               variant="outline"
               onClick={handleExport}
-              className="border-slate-200 hover:border-purple-300 hover:text-purple-600"
+              className="border-slate-200 hover:border-violet-300 hover:text-violet-600"
             >
               <Download className="mr-2 h-4 w-4" />
               Exporter
@@ -150,7 +150,7 @@ export default function ParametresPage() {
             <Button 
               variant="outline"
               onClick={handleImport}
-              className="border-slate-200 hover:border-purple-300 hover:text-purple-600"
+              className="border-slate-200 hover:border-violet-300 hover:text-violet-600"
             >
               <Upload className="mr-2 h-4 w-4" />
               Importer
@@ -158,7 +158,7 @@ export default function ParametresPage() {
             <Button 
               onClick={handleSave}
               disabled={isLoading}
-              className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
+              className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
             >
               {isLoading ? <Zap className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
               {isLoading ? 'Sauvegarde...' : 'Sauvegarder'}
@@ -180,25 +180,25 @@ export default function ParametresPage() {
               title="Compte Actif"
               value="Premium"
               icon={User}
-              color="from-purple-500 to-purple-600"
-              bgColor="bg-purple-50"
-              textColor="text-purple-700"
+              color="from-violet-500 to-violet-600"
+              bgColor="bg-violet-50"
+              textColor="text-violet-700"
             />
             <MetricCard
               title="Notifications"
               value={activeNotifications}
               icon={Bell}
-              color="from-blue-500 to-blue-600"
-              bgColor="bg-blue-50"
-              textColor="text-blue-700"
+              color="from-indigo-500 to-indigo-600"
+              bgColor="bg-indigo-50"
+              textColor="text-indigo-700"
             />
             <MetricCard
               title="Sécurité"
               value={securityLevel}
               icon={Shield}
-              color="from-cyan-500 to-cyan-600"
-              bgColor="bg-cyan-50"
-              textColor="text-cyan-700"
+              color="from-violet-500 to-indigo-600"
+              bgColor="bg-violet-50"
+              textColor="text-violet-700"
             />
             <MetricCard
               title="Dernière MAJ"
@@ -217,7 +217,7 @@ export default function ParametresPage() {
             <motion.div variants={fadeInUp}>
               <ModernCard
                 title="Informations Personnelles"
-                icon={<User className="h-5 w-5 text-purple-600" />}
+                icon={<User className="h-5 w-5 text-violet-600" />}
                 className="h-full"
               >
                 <div className="space-y-4">
@@ -226,7 +226,7 @@ export default function ParametresPage() {
                       <p className="text-2xl font-bold text-slate-900">{profile.name}</p>
                       <p className="text-sm text-slate-600">{profile.role}</p>
                     </div>
-                    <Badge variant="secondary" className="bg-purple-100 text-purple-700 border-purple-200">
+                    <Badge variant="secondary" className="bg-violet-100 text-violet-700 border-violet-200">
                       {profile.agency}
                     </Badge>
                   </div>
@@ -245,12 +245,12 @@ export default function ParametresPage() {
                   <div className="flex gap-2">
                     <Button 
                       variant="outline" 
-                      className="flex-1 border-slate-200 hover:border-purple-300 hover:text-purple-600"
+                      className="flex-1 border-slate-200 hover:border-violet-300 hover:text-violet-600"
                     >
                       <Eye className="mr-2 h-4 w-4" />
                       Voir profil
                     </Button>
-                    <Button className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white border-0">
+                    <Button className="flex-1 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white border-0">
                       <User className="mr-2 h-4 w-4" />
                       Modifier
                     </Button>
@@ -263,7 +263,7 @@ export default function ParametresPage() {
             <motion.div variants={fadeInUp}>
               <ModernCard
                 title="Préférences Notifications"
-                icon={<Bell className="h-5 w-5 text-blue-600" />}
+                icon={<Bell className="h-5 w-5 text-indigo-600" />}
                 className="h-full"
               >
                 <div className="space-y-4">
@@ -272,7 +272,7 @@ export default function ParametresPage() {
                       <p className="text-2xl font-bold text-slate-900">{activeNotifications}</p>
                       <p className="text-sm text-slate-600">canaux actifs</p>
                     </div>
-                    <Badge variant="secondary" className="bg-blue-100 text-blue-700 border-blue-200">
+                    <Badge variant="secondary" className="bg-indigo-100 text-indigo-700 border-indigo-200">
                       {notifications.frequency}
                     </Badge>
                   </div>
@@ -314,7 +314,7 @@ export default function ParametresPage() {
                   </div>
                   
                   <Link href="/app/notifications">
-                    <Button className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white border-0">
+                    <Button className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white border-0">
                       <Bell className="mr-2 h-4 w-4" />
                       Configurer
                     </Button>
@@ -395,7 +395,7 @@ export default function ParametresPage() {
                     </div>
                   </div>
                   
-                  <Button className="w-full bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white border-0">
+                  <Button className="w-full bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white border-0">
                     <Shield className="mr-2 h-4 w-4" />
                     Renforcer la sécurité
                   </Button>
@@ -407,7 +407,7 @@ export default function ParametresPage() {
             <motion.div variants={fadeInUp}>
               <ModernCard
                 title="Apparence & Interface"
-                icon={<Palette className="h-5 w-5 text-cyan-600" />}
+                icon={<Palette className="h-5 w-5 text-indigo-600" />}
                 className="h-full"
               >
                 <div className="space-y-4">
@@ -416,7 +416,7 @@ export default function ParametresPage() {
                       <p className="text-2xl font-bold text-slate-900">Clair</p>
                       <p className="text-sm text-slate-600">thème actuel</p>
                     </div>
-                    <Badge variant="secondary" className="bg-cyan-100 text-cyan-700 border-cyan-200">
+                    <Badge variant="secondary" className="bg-indigo-100 text-indigo-700 border-indigo-200">
                       Français
                     </Badge>
                   </div>
@@ -435,12 +435,12 @@ export default function ParametresPage() {
                   <div className="flex gap-2">
                     <Button 
                       variant="outline" 
-                      className="flex-1 border-slate-200 hover:border-cyan-300 hover:text-cyan-600"
+                      className="flex-1 border-slate-200 hover:border-indigo-300 hover:text-indigo-600"
                     >
                       <Palette className="mr-2 h-4 w-4" />
                       Personnaliser
                     </Button>
-                    <Button className="flex-1 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white border-0">
+                    <Button className="flex-1 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white border-0">
                       <Globe className="mr-2 h-4 w-4" />
                       Langues
                     </Button>
@@ -539,7 +539,7 @@ export default function ParametresPage() {
             <motion.div variants={fadeInUp} className="lg:col-span-2 xl:col-span-3">
               <ModernCard
                 title="Configuration Avancée"
-                icon={<Settings className="h-5 w-5 text-purple-600" />}
+                icon={<Settings className="h-5 w-5 text-violet-600" />}
                 className="h-full"
               >
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -590,7 +590,7 @@ export default function ParametresPage() {
                             key={index}
                             variant="outline"
                             size="sm"
-                            className="justify-start text-left border-slate-200 hover:border-purple-300 hover:text-purple-600"
+                            className="justify-start text-left border-slate-200 hover:border-violet-300 hover:text-violet-600"
                           >
                             <Settings className="mr-2 h-3 w-3" />
                             {action}

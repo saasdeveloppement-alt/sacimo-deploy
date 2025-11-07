@@ -118,11 +118,11 @@ export default function ListingCard({
   // Badge pour l'estimation
   const getPriceBadge = () => {
     if (priceDiffPercent < -5) {
-      return { label: "Opportunité", variant: "default" as const, color: "bg-green-100 text-green-700 border-green-200", icon: TrendingDown }
+      return { label: "Opportunité", variant: "default" as const, color: "bg-emerald-100 text-emerald-700 border-emerald-200", icon: TrendingDown }
     } else if (priceDiffPercent > 5) {
       return { label: "Surévalué", variant: "destructive" as const, color: "bg-red-100 text-red-700 border-red-200", icon: TrendingUp }
     } else {
-      return { label: "Bon prix", variant: "secondary" as const, color: "bg-blue-100 text-blue-700 border-blue-200", icon: Minus }
+      return { label: "Bon prix", variant: "secondary" as const, color: "bg-violet-100 text-violet-700 border-violet-200", icon: Minus }
     }
   }
   
@@ -210,7 +210,7 @@ export default function ListingCard({
                 </Badge>
               </div>
               <div className="text-right">
-                <div className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+                <div className="text-2xl font-bold bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">
                   {listing.price.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
                 </div>
                 {pricePerM2 > 0 && (
@@ -260,7 +260,7 @@ export default function ListingCard({
             {/* Section bas : Marché + En ligne + Particulier + Similaires */}
             <div className="flex flex-wrap items-center gap-2 text-xs pt-2 border-t border-slate-200">
               <div className="flex items-center gap-1 text-slate-600">
-                <Target className="h-3 w-3 text-purple-600" />
+                <Target className="h-3 w-3 text-violet-600" />
                 <span className="font-medium">Marché:</span>
                 <span>{estimatedValue.toLocaleString('fr-FR')}€</span>
               </div>
@@ -273,7 +273,7 @@ export default function ListingCard({
               <Badge 
                 variant={listing.isPrivateSeller ? "default" : "secondary"}
                 className={`text-xs h-5 ${listing.isPrivateSeller 
-                  ? "bg-purple-100 text-purple-700 border-purple-200" 
+                  ? "bg-violet-100 text-violet-700 border-violet-200" 
                   : "bg-slate-100 text-slate-700 border-slate-200"
                 }`}
               >
@@ -283,7 +283,7 @@ export default function ListingCard({
               {similarCount > 0 && (
                 <>
                   <span className="text-slate-300">•</span>
-                  <Badge variant="secondary" className="text-xs h-5 bg-cyan-100 text-cyan-700 border-cyan-200">
+                  <Badge variant="secondary" className="text-xs h-5 bg-indigo-100 text-indigo-700 border-indigo-200">
                     {similarCount} sim.
                   </Badge>
                 </>
@@ -299,7 +299,7 @@ export default function ListingCard({
                 variant="outline" 
                 size="sm"
                 onClick={() => onLocate?.(listing)}
-                className="text-xs border-blue-200 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50"
+                className="text-xs border-violet-200 hover:border-violet-300 hover:text-violet-600 hover:bg-violet-50"
               >
                 <MapPin className="h-3 w-3" />
               </Button>
@@ -307,7 +307,7 @@ export default function ListingCard({
                 variant="outline" 
                 size="sm"
                 onClick={() => onEstimate?.(listing)}
-                className="text-xs border-purple-200 hover:border-purple-300 hover:text-purple-600 hover:bg-purple-50"
+                className="text-xs border-violet-200 hover:border-violet-300 hover:text-violet-600 hover:bg-violet-50"
               >
                 <Target className="h-3 w-3" />
               </Button>
@@ -315,7 +315,7 @@ export default function ListingCard({
                 variant="outline" 
                 size="sm"
                 onClick={() => onAnalyze?.(listing)}
-                className="text-xs border-cyan-200 hover:border-cyan-300 hover:text-cyan-600 hover:bg-cyan-50"
+                className="text-xs border-indigo-200 hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50"
               >
                 <BarChart3 className="h-3 w-3" />
               </Button>
@@ -351,7 +351,7 @@ export default function ListingCard({
                     <Badge 
                       variant={listing.isPrivateSeller ? "default" : "secondary"}
                       className={listing.isPrivateSeller 
-                        ? "bg-purple-100 text-purple-700 border-purple-200" 
+                        ? "bg-violet-100 text-violet-700 border-violet-200" 
                         : "bg-slate-100 text-slate-700 border-slate-200"
                       }
                     >
@@ -368,7 +368,7 @@ export default function ListingCard({
                         <div className="flex items-center gap-2">
                           <a 
                             href={`tel:${sellerPhone.replace(/\s/g, '')}`}
-                            className="text-blue-600 hover:text-blue-700 hover:underline font-medium"
+                            className="text-violet-600 hover:text-violet-700 hover:underline font-medium"
                           >
                             {sellerPhone}
                           </a>
@@ -439,9 +439,9 @@ export default function ListingCard({
                 variant="outline" 
                 size="sm"
                 onClick={handleSave}
-                className={`text-xs ${isSaved ? 'bg-green-50 text-green-600 border-green-200' : 'border-slate-200 hover:border-green-300 hover:text-green-600'}`}
+                className={`text-xs ${isSaved ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'border-slate-200 hover:border-emerald-300 hover:text-emerald-600'}`}
               >
-                <Save className={`h-3 w-3 mr-1 ${isSaved ? 'fill-green-600' : ''}`} />
+                <Save className={`h-3 w-3 mr-1 ${isSaved ? 'fill-emerald-600' : ''}`} />
                 Sauvegarder
               </Button>
             </div>
@@ -486,7 +486,7 @@ export default function ListingCard({
         {/* Badge sauvegardé */}
         {isSaved && (
           <div className="absolute top-3 left-3">
-            <Badge className="bg-green-500 text-white">
+            <Badge className="bg-emerald-500 text-white">
               <Save className="h-3 w-3 mr-1 fill-white" />
               Sauvegardé
             </Badge>
@@ -498,7 +498,7 @@ export default function ListingCard({
       <div className="p-3 space-y-2 max-w-full overflow-hidden">
         {/* Section haut : Titre + Badge */}
         <div className="flex items-start justify-between gap-2">
-          <h3 className="font-semibold text-base text-slate-900 group-hover:text-purple-700 transition-colors line-clamp-2 flex-1">
+          <h3 className="font-semibold text-base text-slate-900 group-hover:text-violet-700 transition-colors line-clamp-2 flex-1">
             {listing.title}
           </h3>
           <Badge variant={priceBadge.variant} className={`${priceBadge.color} text-xs shrink-0`}>
@@ -510,7 +510,7 @@ export default function ListingCard({
         {/* Section milieu - Ligne 1 : Prix | Surface | Pièces | Prix/m² */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
           <div className="flex items-center gap-1">
-            <span className="font-bold text-lg text-purple-600">
+            <span className="font-bold text-lg text-violet-600">
               {listing.price.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
             </span>
           </div>
@@ -562,7 +562,7 @@ export default function ListingCard({
           {/* Ligne 1 : Marché + En ligne + Particulier + Similaires */}
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <div className="flex items-center gap-1 text-slate-600">
-              <Target className="h-3 w-3 text-purple-600" />
+              <Target className="h-3 w-3 text-violet-600" />
               <span className="font-medium">Marché:</span>
               <span>{estimatedValue.toLocaleString('fr-FR')}€</span>
             </div>
@@ -585,7 +585,7 @@ export default function ListingCard({
             {similarCount > 0 && (
               <>
                 <span className="text-slate-300">•</span>
-                <Badge variant="secondary" className="text-xs h-5 bg-cyan-100 text-cyan-700 border-cyan-200">
+                <Badge variant="secondary" className="text-xs h-5 bg-indigo-100 text-indigo-700 border-indigo-200">
                   {similarCount} sim.
                 </Badge>
               </>
@@ -674,7 +674,7 @@ export default function ListingCard({
                       <div className="flex items-center gap-2">
                         <a 
                           href={`tel:${sellerPhone.replace(/\s/g, '')}`}
-                          className="text-blue-600 hover:text-blue-700 hover:underline font-medium"
+                          className="text-violet-600 hover:text-violet-700 hover:underline font-medium"
                         >
                           {sellerPhone}
                         </a>

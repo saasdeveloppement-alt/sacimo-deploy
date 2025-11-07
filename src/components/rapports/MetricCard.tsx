@@ -28,7 +28,7 @@ export function MetricCard({
   };
 
   const getTrendColor = () => {
-    if (trendDirection === 'up') return 'text-green-500';
+    if (trendDirection === 'up') return 'text-emerald-500';
     if (trendDirection === 'down') return 'text-red-500';
     return 'text-gray-500';
   };

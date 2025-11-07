@@ -120,7 +120,7 @@ export default function RapportsPage() {
             {/* Dialog Créer Rapport */}
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogTrigger asChild>
-                <Button>➕ Nouveau rapport</Button>
+                <Button className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white">➕ Nouveau rapport</Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
@@ -147,7 +147,7 @@ export default function RapportsPage() {
                       <option>90 derniers jours</option>
                     </select>
                   </div>
-                  <Button onClick={handleCreateReport} className="w-full">
+                  <Button onClick={handleCreateReport} className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white">
                     Générer le rapport
                   </Button>
                 </div>
@@ -179,10 +179,10 @@ export default function RapportsPage() {
                 {report.badges && report.badges.length > 0 && (
                   <div className="flex gap-2">
                     {report.badges.includes('opportunity') && (
-                      <Badge variant="default">🔥 Opportunité</Badge>
+                      <Badge className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white">🔥 Opportunité</Badge>
                     )}
                     {report.badges.includes('trending') && (
-                      <Badge variant="secondary">📈 Tendance</Badge>
+                      <Badge className="bg-violet-100 text-violet-700 border-violet-200">📈 Tendance</Badge>
                     )}
                     {report.badges.includes('hot') && (
                       <Badge variant="destructive">⚡ Hot</Badge>

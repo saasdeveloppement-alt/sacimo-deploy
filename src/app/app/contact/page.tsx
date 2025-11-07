@@ -148,7 +148,7 @@ export default function ContactPage() {
                 {/* Bouton */}
                 <Button 
                   type="submit" 
-                  className="w-full"
+                  className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white"
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? (

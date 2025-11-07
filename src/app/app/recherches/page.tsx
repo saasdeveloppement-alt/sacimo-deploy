@@ -293,9 +293,9 @@ export default function RecherchesPage() {
 
   const getFrequencyColor = (frequency: string) => {
     switch (frequency) {
-      case 'realtime': return 'bg-green-100 text-green-700 border-green-200'
-      case 'daily': return 'bg-blue-100 text-blue-700 border-blue-200'
-      case 'weekly': return 'bg-yellow-100 text-yellow-700 border-yellow-200'
+      case 'realtime': return 'bg-emerald-100 text-emerald-700 border-emerald-200'
+      case 'daily': return 'bg-violet-100 text-violet-700 border-violet-200'
+      case 'weekly': return 'bg-indigo-100 text-indigo-700 border-indigo-200'
       default: return 'bg-slate-100 text-slate-700 border-slate-200'
     }
   }
@@ -306,12 +306,12 @@ export default function RecherchesPage() {
       <SectionHeader
         title="Mes recherches"
         subtitle="Gérez vos recherches automatisées et surveillez le marché"
-        icon={<Search className="h-8 w-8 text-purple-600" />}
+        icon={<Search className="h-8 w-8 text-violet-600" />}
         action={
           <div className="flex gap-2">
             <Button 
               onClick={() => setShowCreateDialog(true)}
-              className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
+              className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
             >
               <Plus className="mr-2 h-4 w-4" />
               Nouvelle recherche
@@ -331,7 +331,7 @@ export default function RecherchesPage() {
           <motion.div variants={fadeInUp}>
             <ModernCard
               title="Filtres et Recherche"
-              icon={<Filter className="h-5 w-5 text-purple-600" />}
+              icon={<Filter className="h-5 w-5 text-violet-600" />}
             >
               <div className="space-y-6">
                 {/* Recherche texte */}
@@ -344,7 +344,7 @@ export default function RecherchesPage() {
                         placeholder="Rechercher par nom ou description..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10 bg-white/80 border-slate-200 focus:border-purple-300 focus:ring-purple-200"
+                        className="pl-10 bg-white/80 border-slate-200 focus:border-violet-300 focus:ring-violet-200"
                       />
                     </div>
                   </div>
@@ -352,7 +352,7 @@ export default function RecherchesPage() {
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-slate-700">Statut</label>
                     <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="bg-white/80 border-slate-200 focus:border-purple-300 focus:ring-purple-200">
+                      <SelectTrigger className="bg-white/80 border-slate-200 focus:border-violet-300 focus:ring-violet-200">
                         <SelectValue placeholder="Tous les statuts" />
                       </SelectTrigger>
                       <SelectContent>
@@ -377,7 +377,7 @@ export default function RecherchesPage() {
                 
                 {/* Actions */}
                 <div className="flex items-center justify-between">
-                  <Badge variant="secondary" className="bg-purple-100 text-purple-700 border-purple-200">
+                  <Badge variant="secondary" className="bg-violet-100 text-violet-700 border-violet-200">
                     {filteredSearches.length} recherche{filteredSearches.length > 1 ? 's' : ''} trouvée{filteredSearches.length > 1 ? 's' : ''}
                   </Badge>
                   <div className="flex gap-2">
@@ -389,14 +389,14 @@ export default function RecherchesPage() {
                         setStatusFilter("all")
                         setAdvancedFilters(initialFilters)
                       }}
-                      className="border-slate-200 hover:border-purple-300 hover:text-purple-600"
+                      className="border-slate-200 hover:border-violet-300 hover:text-violet-600"
                     >
                       Réinitialiser
                     </Button>
                     <Button 
                       variant="outline" 
                       size="sm"
-                      className="border-slate-200 hover:border-purple-300 hover:text-purple-600"
+                      className="border-slate-200 hover:border-violet-300 hover:text-violet-600"
                     >
                       <Download className="h-4 w-4 mr-1" />
                       Exporter
@@ -416,25 +416,25 @@ export default function RecherchesPage() {
               title="Recherches Actives"
               value={activeSearches}
               icon={Search}
-              color="from-purple-500 to-purple-600"
-              bgColor="bg-purple-50"
-              textColor="text-purple-700"
+              color="from-violet-500 to-violet-600"
+              bgColor="bg-violet-50"
+              textColor="text-violet-700"
             />
             <MetricCard
               title="Total Résultats"
               value={totalResults}
               icon={Target}
-              color="from-blue-500 to-blue-600"
-              bgColor="bg-blue-50"
-              textColor="text-blue-700"
+              color="from-indigo-500 to-indigo-600"
+              bgColor="bg-indigo-50"
+              textColor="text-indigo-700"
             />
             <MetricCard
               title="Moyenne par Recherche"
               value={avgResults}
               icon={TrendingUp}
-              color="from-cyan-500 to-cyan-600"
-              bgColor="bg-cyan-50"
-              textColor="text-cyan-700"
+              color="from-violet-500 to-indigo-600"
+              bgColor="bg-violet-50"
+              textColor="text-violet-700"
             />
             <MetricCard
               title="Total Recherches"
@@ -450,12 +450,12 @@ export default function RecherchesPage() {
           <motion.div variants={fadeInUp}>
             <ModernCard
               title="Recherches Configurées"
-              icon={<Search className="h-5 w-5 text-purple-600" />}
+              icon={<Search className="h-5 w-5 text-violet-600" />}
             >
               {filteredSearches.length === 0 ? (
                 <div className="text-center py-12">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-purple-100 to-blue-100 flex items-center justify-center">
-                    <Search className="h-8 w-8 text-purple-600" />
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-violet-100 to-indigo-100 flex items-center justify-center">
+                    <Search className="h-8 w-8 text-violet-600" />
                   </div>
                   <h3 className="text-lg font-semibold text-slate-800 mb-2">
                     Aucune recherche trouvée
@@ -465,7 +465,7 @@ export default function RecherchesPage() {
                   </p>
                   <Button 
                     onClick={() => setShowCreateDialog(true)}
-                    className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
+                    className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     Créer une recherche
@@ -487,7 +487,7 @@ export default function RecherchesPage() {
                               <h3 className="text-lg font-semibold text-slate-900">{search.name}</h3>
                               <Badge 
                                 variant={search.isActive ? "default" : "secondary"}
-                                className={search.isActive ? "bg-green-100 text-green-700 border-green-200" : "bg-slate-100 text-slate-700 border-slate-200"}
+                                className={search.isActive ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-slate-100 text-slate-700 border-slate-200"}
                               >
                                 {search.isActive ? "Active" : "Inactive"}
                               </Badge>
@@ -512,7 +512,7 @@ export default function RecherchesPage() {
                               <div className="flex items-center gap-2">
                                 <Target className="h-4 w-4 text-slate-400" />
                                 <span className="font-medium">Résultats :</span>
-                                <span className="font-semibold text-purple-600">{search.results}</span>
+                                <span className="font-semibold text-violet-600">{search.results}</span>
                               </div>
                               <div className="flex items-center gap-2">
                                 <Calendar className="h-4 w-4 text-slate-400" />
@@ -556,7 +556,7 @@ export default function RecherchesPage() {
                                     runScraping(search)
                                   }}
                                   disabled={isLoading}
-                                  className="border-slate-200 hover:border-green-300 hover:text-green-600"
+                                  className="border-slate-200 hover:border-emerald-300 hover:text-emerald-600"
                                 >
                                   <Zap className="h-4 w-4" />
                                   Scraper
@@ -565,7 +565,7 @@ export default function RecherchesPage() {
                                   variant="outline" 
                                   size="sm"
                                   onClick={() => toggleSearch(search.id)}
-                                  className="border-slate-200 hover:border-purple-300 hover:text-purple-600"
+                                  className="border-slate-200 hover:border-violet-300 hover:text-violet-600"
                                 >
                                   {search.isActive ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                                   {search.isActive ? 'Pause' : 'Activer'}
@@ -573,7 +573,7 @@ export default function RecherchesPage() {
                                 <Button 
                                   variant="outline" 
                                   size="sm"
-                                  className="border-slate-200 hover:border-blue-300 hover:text-blue-600"
+                                  className="border-slate-200 hover:border-indigo-300 hover:text-indigo-600"
                                 >
                                   <Eye className="h-4 w-4" />
                                 </Button>
