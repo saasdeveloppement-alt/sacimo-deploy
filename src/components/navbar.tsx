@@ -1,210 +1,132 @@
-"use client"
+'use client';
 
-import { useState } from "react"
-import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { motion } from "framer-motion"
-import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Menu, X, ChevronDown } from "lucide-react"
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
-export function Navbar() {
-  const [isOpen, setIsOpen] = useState(false)
-  const pathname = usePathname()
-  const hasSidebar = pathname?.startsWith('/app')
+export default function Navbar() {
+  const pathname = usePathname();
 
   return (
-    <motion.nav
-      initial={{ y: -100 }}
-      animate={{ y: 0 }}
-      className={`fixed top-0 h-16 bg-gradient-to-r from-violet-950 via-violet-900 to-indigo-900 border-b border-white/10 ${hasSidebar ? 'left-[260px] right-0 z-40' : 'left-0 right-0 z-50'}`}
-    >
-      <div className={`h-full flex items-center justify-between px-6 ${hasSidebar ? '' : 'container mx-auto'}`}>
-        {/* Logo - UNIQUEMENT si pas de sidebar (pages publiques) */}
-        {!hasSidebar && (
-          <Link href="/" className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-white/10 backdrop-blur-sm rounded-lg flex items-center justify-center border border-white/20">
-              <span className="text-white font-bold text-sm">S</span>
-            </div>
-            <span className="text-xl font-bold text-white">SACIMO</span>
+    <nav style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      height: '80px',
+      backgroundColor: 'white',
+      borderBottom: '1px solid #e5e7eb',
+      zIndex: 9999
+    }}>
+      <div style={{
+        height: '100%',
+        maxWidth: '1280px',
+        margin: '0 auto',
+        padding: '0 24px',
+        display: 'flex',
+        alignItems: 'center',
+        position: 'relative'
+      }}>
+        {/* Logo */}
+        <div style={{ flexShrink: 0 }}>
+          <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
+            <div style={{ 
+              width: '40px', 
+              height: '40px', 
+              background: 'linear-gradient(135deg, #7c3aed, #6366f1)',
+              borderRadius: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 'bold',
+              color: 'white'
+            }}>S</div>
+            <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#7c3aed' }}>SACIMO</span>
           </Link>
-        )}
+        </div>
 
-        {/* Menu central */}
-        <div className="hidden md:flex items-center gap-8 flex-1 justify-center">
-          <Link
-            href="/features"
-            className="text-white/80 hover:text-white transition-colors font-medium"
-            data-magnetic
-            data-cursor="Voir"
+        {/* Menu centré */}
+        <div style={{
+          position: 'absolute',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          display: 'flex',
+          gap: '32px'
+        }}>
+          <Link 
+            href="/fonctionnalites" 
+            style={{ 
+              color: pathname === '/fonctionnalites' ? '#7c3aed' : '#64748b',
+              fontSize: '15px', 
+              textDecoration: 'none',
+              fontWeight: pathname === '/fonctionnalites' ? '600' : '400'
+            }}
           >
             Fonctionnalités
           </Link>
-          
-          <Link
-            href="/pricing"
-            className="text-white/80 hover:text-white transition-colors font-medium"
-            data-magnetic
-            data-cursor="Voir"
+          <Link 
+            href="/tarifs" 
+            style={{ 
+              color: pathname === '/tarifs' ? '#7c3aed' : '#64748b',
+              fontSize: '15px', 
+              textDecoration: 'none',
+              fontWeight: pathname === '/tarifs' ? '600' : '400'
+            }}
           >
             Tarifs
           </Link>
-
-          <Link
-            href="/contact"
-            className="text-white/80 hover:text-white transition-colors font-medium"
-            data-magnetic
-            data-cursor="Voir"
+          <Link 
+            href="/contact" 
+            style={{ 
+              color: pathname === '/contact' ? '#7c3aed' : '#64748b',
+              fontSize: '15px', 
+              textDecoration: 'none',
+              fontWeight: pathname === '/contact' ? '600' : '400'
+            }}
           >
             Contact
           </Link>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="flex items-center space-x-1 text-white/80 hover:text-white transition-colors font-medium">
-                <span>Ressources</span>
-                <ChevronDown className="w-4 h-4" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem asChild>
-                <Link href="/resources/faq">FAQ</Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/resources/docs">Documentation</Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/blog">Blog</Link>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="flex items-center space-x-1 text-white/80 hover:text-white transition-colors font-medium">
-                <span>À propos</span>
-                <ChevronDown className="w-4 h-4" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem asChild>
-                <Link href="/about/mission">Mission</Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/about/team">Équipe</Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/contact">Contact</Link>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-
-        {/* Auth Buttons */}
-        <div className="hidden md:flex items-center gap-3">
-          <Button variant="ghost" className="text-white hover:bg-white/10" asChild>
-            <Link href="/auth/signin">Connexion</Link>
-          </Button>
-          <Button className="bg-white text-violet-900 hover:bg-white/90" asChild data-magnetic data-cursor="Try">
-            <Link href="/auth/signup">Essai gratuit</Link>
-          </Button>
-        </div>
-
-        {/* Mobile menu button */}
-        <div className="md:hidden">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-white hover:bg-white/10"
-            onClick={() => setIsOpen(!isOpen)}
+          <Link 
+            href="/ressources" 
+            style={{ 
+              color: pathname === '/ressources' ? '#7c3aed' : '#64748b',
+              fontSize: '15px', 
+              textDecoration: 'none',
+              fontWeight: pathname === '/ressources' ? '600' : '400'
+            }}
           >
-            {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </Button>
+            Ressources
+          </Link>
+          <Link 
+            href="/about" 
+            style={{ 
+              color: pathname === '/about' ? '#7c3aed' : '#64748b',
+              fontSize: '15px', 
+              textDecoration: 'none',
+              fontWeight: pathname === '/about' ? '600' : '400'
+            }}
+          >
+            À propos
+          </Link>
+        </div>
+
+        {/* Boutons */}
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: '12px' }}>
+          <Link href="/auth/signin" style={{ padding: '10px 20px', color: '#64748b', textDecoration: 'none' }}>
+            Se connecter
+          </Link>
+          <Link href="/auth/signup" style={{ 
+            padding: '12px 24px',
+            background: 'linear-gradient(135deg, #7c3aed, #6366f1)',
+            color: 'white',
+            borderRadius: '12px',
+            fontWeight: '600',
+            textDecoration: 'none',
+            display: 'inline-block'
+          }}>
+            Essai gratuit
+          </Link>
         </div>
       </div>
-
-      {/* Mobile Navigation */}
-      {isOpen && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: "auto" }}
-          exit={{ opacity: 0, height: 0 }}
-          className="md:hidden border-t border-white/10 py-4 px-6"
-        >
-          <div className="flex flex-col space-y-4">
-            <Link
-              href="/features"
-              className="text-white/80 hover:text-white transition-colors"
-              onClick={() => setIsOpen(false)}
-            >
-              Fonctionnalités
-            </Link>
-            <Link
-              href="/pricing"
-              className="text-white/80 hover:text-white transition-colors"
-              onClick={() => setIsOpen(false)}
-            >
-              Tarifs
-            </Link>
-            <Link
-              href="/resources/faq"
-              className="text-white/80 hover:text-white transition-colors"
-              onClick={() => setIsOpen(false)}
-            >
-              FAQ
-            </Link>
-            <Link
-              href="/resources/docs"
-              className="text-white/80 hover:text-white transition-colors"
-              onClick={() => setIsOpen(false)}
-            >
-              Documentation
-            </Link>
-            <Link
-              href="/about/mission"
-              className="text-white/80 hover:text-white transition-colors"
-              onClick={() => setIsOpen(false)}
-            >
-              Mission
-            </Link>
-            <Link
-              href="/contact"
-              className="text-white/80 hover:text-white transition-colors"
-              onClick={() => setIsOpen(false)}
-            >
-              Contact
-            </Link>
-            <div className="flex flex-col space-y-2 pt-4 border-t border-white/10">
-              <Button variant="ghost" className="text-white hover:bg-white/10" asChild>
-                <Link href="/auth/signin" onClick={() => setIsOpen(false)}>
-                  Connexion
-                </Link>
-              </Button>
-              <Button className="bg-white text-violet-900 hover:bg-white/90" asChild>
-                <Link href="/auth/signup" onClick={() => setIsOpen(false)}>
-                  Essai gratuit
-                </Link>
-              </Button>
-            </div>
-          </div>
-        </motion.div>
-      )}
-    </motion.nav>
-  )
+    </nav>
+  );
 }
-
-
-
-
-
-
-
-
-
-
-

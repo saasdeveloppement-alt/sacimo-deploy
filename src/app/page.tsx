@@ -1,584 +1,1132 @@
-"use client"
+'use client';
 
-import { motion } from "framer-motion"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { motion } from 'framer-motion';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { 
-  BarChart3, 
   Search, 
-  Bell, 
-  Users, 
   TrendingUp, 
-  Shield,
-  CheckCircle,
+  MapPin,
+  Bell, 
+  FileText,
+  BarChart3,
+  Users, 
   ArrowRight,
+  Check,
   Star,
-  Building2,
-  Target,
-  Zap
-} from "lucide-react"
-import Link from "next/link"
-import Image from "next/image"
+  ChevronDown
+} from 'lucide-react';
 
-const features = [
-  {
-    icon: Search,
-    title: "Recherches intelligentes",
-    description: "Configurez vos critères de recherche comme sur LeBonCoin et recevez les nouvelles annonces en temps réel."
-  },
-  {
-    icon: BarChart3,
-    title: "Tableau de bord centralisé",
-    description: "Visualisez toutes vos données immobilières en un seul endroit avec des graphiques interactifs."
-  },
-  {
-    icon: Bell,
-    title: "Rapports quotidiens",
-    description: "Recevez chaque matin un rapport détaillé des nouvelles annonces par email et dans l'app."
-  },
-  {
-    icon: Users,
-    title: "Veille concurrentielle",
-    description: "Surveillez l'activité des agences concurrentes dans vos zones d'intervention."
-  },
-  {
-    icon: TrendingUp,
-    title: "Analytics avancés",
-    description: "Analysez les tendances du marché et optimisez votre stratégie commerciale."
-  },
-  {
-    icon: Shield,
-    title: "Sécurité & conformité",
-    description: "Respect des CGU des sites tiers et conformité RGPD pour une utilisation en toute sécurité."
-  }
-]
+export default function HomePage() {
+  const pathname = usePathname();
 
-const stats = [
-  { value: "500+", label: "Agences partenaires" },
-  { value: "98%", label: "Satisfaction client" },
-  { value: "50k+", label: "Annonces suivies" },
-  { value: "24/7", label: "Surveillance continue" }
-]
-
-const steps = [
-  {
-    number: "01",
-    title: "S'inscrire",
-    description: "Créez votre compte en quelques clics et commencez votre essai gratuit de 14 jours."
-  },
-  {
-    number: "02", 
-    title: "Configurer",
-    description: "Définissez vos critères de recherche (zones, prix, types de biens) comme vous le feriez sur LeBonCoin."
-  },
-  {
-    number: "03",
-    title: "Recevoir le reporting",
-    description: "Obtenez chaque matin un rapport détaillé des nouvelles annonces correspondant à vos critères."
-  }
-]
-
-const pricingPlans = [
-  {
-    name: "Starter",
-    price: "29",
-    period: "/mois",
-    description: "Parfait pour les agents individuels",
-    features: [
-      "1 utilisateur",
-      "5 recherches actives",
-      "1 rapport quotidien",
-      "Support email",
-      "Données 30 jours"
-    ],
-    popular: false
-  },
-  {
-    name: "Pro", 
-    price: "79",
-    period: "/mois",
-    description: "Idéal pour les petites équipes",
-    features: [
-      "5 utilisateurs",
-      "20 recherches actives", 
-      "Rapports illimités",
-      "Export CSV/PDF",
-      "Support prioritaire",
-      "Données 90 jours"
-    ],
-    popular: true
-  },
-  {
-    name: "Agence",
-    price: "199",
-    period: "/mois", 
-    description: "Pour les grandes agences",
-    features: [
-      "Utilisateurs illimités",
-      "Recherches illimitées",
-      "SSO & API",
-      "Support dédié",
-      "Formation personnalisée",
-      "Données 1 an"
-    ],
-    popular: false
-  }
-]
-
-export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-white">
-      {/* Hero Section */}
-      <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-        {/* Background gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-white to-purple-50" />
+    <>
+      {/* Navbar inline */}
+      <nav style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: '80px',
+        background: 'linear-gradient(to right, rgb(46, 16, 101), rgb(76, 29, 149), rgb(79, 70, 229))',
+        borderBottom: '1px solid rgba(255,255,255,0.1)',
+        zIndex: 9999
+      }}>
+        <div style={{
+          height: '100%',
+          maxWidth: '1280px',
+          margin: '0 auto',
+          padding: '0 24px',
+          display: 'flex',
+          alignItems: 'center',
+          position: 'relative'
+        }}>
+          <div style={{ flexShrink: 0 }}>
+            <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
+              <div style={{ 
+                width: '40px', 
+                height: '40px', 
+                background: 'white',
+                borderRadius: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 'bold',
+                color: 'rgb(76, 29, 149)'
+              }}>S</div>
+              <span style={{ fontSize: '20px', fontWeight: 'bold', color: 'white' }}>SACIMO</span>
+            </Link>
+          </div>
+          <div style={{
+            position: 'absolute',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            display: 'flex',
+            gap: '32px'
+          }}>
+            <Link href="/fonctionnalites" style={{ color: pathname === '/fonctionnalites' ? 'white' : 'rgba(255,255,255,0.7)', fontSize: '15px', textDecoration: 'none', fontWeight: pathname === '/fonctionnalites' ? '600' : '400' }}>
+              Fonctionnalités
+            </Link>
+            <Link href="/tarifs" style={{ color: pathname === '/tarifs' ? 'white' : 'rgba(255,255,255,0.7)', fontSize: '15px', textDecoration: 'none', fontWeight: pathname === '/tarifs' ? '600' : '400' }}>
+              Tarifs
+            </Link>
+            <Link href="/contact" style={{ color: pathname === '/contact' ? 'white' : 'rgba(255,255,255,0.7)', fontSize: '15px', textDecoration: 'none', fontWeight: pathname === '/contact' ? '600' : '400' }}>
+              Contact
+            </Link>
+            <Link href="/ressources" style={{ color: pathname === '/ressources' ? 'white' : 'rgba(255,255,255,0.7)', fontSize: '15px', textDecoration: 'none', fontWeight: pathname === '/ressources' ? '600' : '400' }}>
+              Ressources
+            </Link>
+            <Link href="/about" style={{ color: pathname === '/about' ? 'white' : 'rgba(255,255,255,0.7)', fontSize: '15px', textDecoration: 'none', fontWeight: pathname === '/about' ? '600' : '400' }}>
+              À propos
+            </Link>
+          </div>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: '12px' }}>
+            <Link href="/auth/signin" style={{ padding: '10px 20px', color: 'rgba(255,255,255,0.8)', textDecoration: 'none' }}>Se connecter</Link>
+            <Link href="/auth/signup" style={{ padding: '12px 24px', background: 'white', color: 'rgb(76, 29, 149)', borderRadius: '12px', fontWeight: '600', textDecoration: 'none', display: 'inline-block' }}>Essai gratuit</Link>
+          </div>
+        </div>
+      </nav>
+
+      <div style={{paddingTop:'80px'}}>
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-violet-50/30 to-indigo-50/40">
+
+      {/* Hero Section avec animations complexes */}
+      <section className="relative pt-40 pb-32 px-6 overflow-hidden">
+        {/* Background avec gradient animé */}
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-violet-50/30 to-indigo-50/40" />
         
-        {/* Animated background elements */}
-        <div className="absolute inset-0">
+        {/* Animated gradient blobs en arrière-plan */}
           <motion.div
-            className="absolute top-20 left-10 w-72 h-72 bg-blue-200/20 rounded-full blur-3xl"
             animate={{
               scale: [1, 1.2, 1],
-              opacity: [0.3, 0.5, 0.3],
+            rotate: [0, 90, 0],
+            x: [0, 100, 0],
+            y: [0, 50, 0],
             }}
             transition={{
-              duration: 8,
+            duration: 20,
               repeat: Infinity,
-              ease: "easeInOut",
+            ease: "easeInOut"
             }}
+          className="absolute top-1/4 -left-48 w-96 h-96 bg-violet-400/20 rounded-full blur-3xl"
           />
           <motion.div
-            className="absolute bottom-20 right-10 w-96 h-96 bg-purple-200/20 rounded-full blur-3xl"
             animate={{
-              scale: [1.2, 1, 1.2],
-              opacity: [0.5, 0.3, 0.5],
+            scale: [1, 1.3, 1],
+            rotate: [0, -90, 0],
+            x: [0, -100, 0],
+            y: [0, -50, 0],
             }}
             transition={{
-              duration: 10,
+            duration: 25,
               repeat: Infinity,
               ease: "easeInOut",
-            }}
-          />
-        </div>
-
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid lg:grid-cols-2 gap-12 items-center">
-          {/* Left content */}
+            delay: 2
+          }}
+          className="absolute top-1/3 -right-48 w-96 h-96 bg-indigo-400/20 rounded-full blur-3xl"
+        />
+        
+        {/* Container centré avec max-width */}
+        <div className="container mx-auto max-w-5xl relative z-10">
+          <div className="text-center relative">
+            
+                     {/* AVATARS ÉLÉGANTS - Version haut de gamme */}
+                     
+                     {/* Icône 1 - Top Left - Violet doux */}
           <motion.div
-            initial={{ opacity: 0, x: -50 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8 }}
-            className="text-center lg:text-left"
-          >
+                       animate={{
+                         y: [0, -15, 0],
+                         rotate: [0, 3, 0],
+                       }}
+                       transition={{
+                         duration: 5,
+                         repeat: Infinity,
+                         ease: "easeInOut"
+                       }}
+                       style={{ position: 'absolute', top: '80px', left: '128px', width: '48px', height: '48px', backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 10px 25px rgba(124, 58, 237, 0.1)', border: '1px solid rgba(124, 58, 237, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)', zIndex: 0 }}
+                     >
+                       <Search style={{ width: '20px', height: '20px', color: 'rgb(124, 58, 237)' }} />
+                     </motion.div>
+
+                     {/* Icône 2 - Top Center - Emerald subtil */}
+                     <motion.div
+                       animate={{
+                         y: [0, 12, 0],
+                       }}
+                       transition={{
+                         duration: 6,
+                         repeat: Infinity,
+                         ease: "easeInOut",
+                         delay: 1
+                       }}
+                       style={{ position: 'absolute', top: '40px', left: '33%', width: '44px', height: '44px', backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 10px 25px rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)', zIndex: 0 }}
+                     >
+                       <TrendingUp style={{ width: '16px', height: '16px', color: 'rgb(16, 185, 129)' }} />
+                     </motion.div>
+
+                     {/* Icône 3 - Top Right - Orange doux */}
+                     <motion.div
+                       animate={{
+                         y: [0, -12, 0],
+                         rotate: [0, -3, 0],
+                       }}
+                       transition={{
+                         duration: 5.5,
+                         repeat: Infinity,
+                         ease: "easeInOut",
+                         delay: 1.5
+                       }}
+                       style={{ position: 'absolute', top: '64px', right: '160px', width: '48px', height: '48px', backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 10px 25px rgba(249, 115, 22, 0.1)', border: '1px solid rgba(249, 115, 22, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)', zIndex: 0 }}
+                     >
+                       <Bell style={{ width: '20px', height: '20px', color: 'rgb(249, 115, 22)' }} />
+                     </motion.div>
+
+                     {/* Icône 4 - Middle Left - Indigo */}
+                     <motion.div
+                       animate={{
+                         y: [0, 15, 0],
+                       }}
+                       transition={{
+                         duration: 6.5,
+                         repeat: Infinity,
+                         ease: "easeInOut",
+                         delay: 2
+                       }}
+                       style={{ position: 'absolute', top: '33%', left: '80px', width: '40px', height: '40px', backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 10px 25px rgba(99, 102, 241, 0.1)', border: '1px solid rgba(99, 102, 241, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)', zIndex: 0 }}
+                     >
+                       <FileText style={{ width: '16px', height: '16px', color: 'rgb(99, 102, 241)' }} />
+                     </motion.div>
+
+                     {/* Icône 5 - Middle Right - Bleu */}
+                     <motion.div
+                       animate={{
+                         y: [0, -18, 0],
+                       }}
+                       transition={{
+                         duration: 5.8,
+                         repeat: Infinity,
+                         ease: "easeInOut",
+                         delay: 2.5
+                       }}
+                       style={{ position: 'absolute', top: '33%', right: '112px', width: '44px', height: '44px', backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 10px 25px rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)', zIndex: 0 }}
+                     >
+                       <BarChart3 style={{ width: '20px', height: '20px', color: 'rgb(59, 130, 246)' }} />
+                     </motion.div>
+
+                     {/* Icône 6 - Bottom Left - Cyan */}
+                     <motion.div
+                       animate={{
+                         y: [0, 10, 0],
+                         rotate: [0, -2, 0],
+                       }}
+                       transition={{
+                         duration: 6.2,
+                         repeat: Infinity,
+                         ease: "easeInOut",
+                         delay: 3
+                       }}
+                       style={{ position: 'absolute', bottom: '128px', left: '160px', width: '40px', height: '40px', backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 10px 25px rgba(6, 182, 212, 0.1)', border: '1px solid rgba(6, 182, 212, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)', zIndex: 0 }}
+                     >
+                       <MapPin style={{ width: '16px', height: '16px', color: 'rgb(6, 182, 212)' }} />
+                     </motion.div>
+
+                     {/* Icône 7 - Bottom Right - Purple */}
+                     <motion.div
+                       animate={{
+                         y: [0, -10, 0],
+                       }}
+                       transition={{
+                         duration: 5.3,
+                         repeat: Infinity,
+                         ease: "easeInOut",
+                         delay: 3.5
+                       }}
+                       style={{ position: 'absolute', bottom: '160px', right: '192px', width: '48px', height: '48px', backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 10px 25px rgba(168, 85, 247, 0.1)', border: '1px solid rgba(168, 85, 247, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)', zIndex: 0 }}
+                     >
+                       <Users style={{ width: '20px', height: '20px', color: 'rgb(168, 85, 247)' }} />
+                     </motion.div>
+
+                     {/* Élément décoratif - Cercle violet subtil */}
+                     <motion.div
+                       animate={{
+                         scale: [1, 1.2, 1],
+                         opacity: [0.4, 0.6, 0.4],
+                       }}
+                       transition={{
+                         duration: 4,
+                         repeat: Infinity,
+                         ease: "easeInOut"
+                       }}
+                       style={{ position: 'absolute', top: '25%', right: '25%', width: '12px', height: '12px', backgroundColor: 'rgba(124, 58, 237, 0.4)', borderRadius: '50%', filter: 'blur(4px)', zIndex: 0 }}
+                     />
+
+                     {/* Élément décoratif - Petit carré */}
+                     <motion.div
+                       animate={{
+                         rotate: [0, 90, 0],
+                         opacity: [0.3, 0.5, 0.3],
+                       }}
+                       transition={{
+                         duration: 8,
+                         repeat: Infinity,
+                         ease: "linear"
+                       }}
+                       style={{ position: 'absolute', bottom: '25%', left: '25%', width: '8px', height: '8px', backgroundColor: 'rgba(99, 102, 241, 0.3)', borderRadius: '2px', zIndex: 0 }}
+                     />
+
+            {/* CONTENU PRINCIPAL (Badge, Titre, etc.) */}
+            
+            {/* Badge animé */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2, duration: 0.8 }}
-              className="mb-6"
+              transition={{ duration: 0.6 }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px', marginBottom: '32px', backgroundColor: 'rgba(255, 255, 255, 0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(76, 29, 149, 0.2)', borderRadius: '999px', boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)', position: 'relative', zIndex: 10 }}
             >
-              <Badge variant="secondary" className="mb-4">
-                <Star className="w-4 h-4 mr-2" />
-                Nouveau : Veille concurrentielle
-              </Badge>
-              <h1 className="text-5xl lg:text-7xl font-bold text-gray-900 leading-tight">
-                Ne ratez plus
-                <span className="block bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                  aucune opportunité
+              <motion.div
+                animate={{ scale: [1, 1.2, 1] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                style={{ width: '8px', height: '8px', backgroundColor: 'rgb(76, 29, 149)', borderRadius: '50%' }}
+              />
+              <span className="text-sm font-medium bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">
+                Déjà +500 agents immobiliers
                 </span>
-                immobilière
-              </h1>
             </motion.div>
 
+            {/* Titre avec animation lettre par lettre */}
+            <motion.h1 
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+              className="text-6xl md:text-7xl mb-6 leading-tight tracking-tight relative z-10"
+            >
+              <span className="block font-light text-slate-900 mb-2">
+                Connectez avec les meilleures
+              </span>
+              <span className="block font-normal text-slate-900">
+                opportunités immobilières{' '}
+                <motion.span 
+                  animate={{ 
+                    backgroundPosition: ['0% 50%', '100% 50%', '0% 50%']
+                  }}
+                  transition={{ duration: 5, repeat: Infinity }}
+                  style={{ background: 'linear-gradient(to right, rgb(76, 29, 149), rgb(79, 70, 229), rgb(88, 28, 135))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', backgroundSize: '200% auto', fontStyle: 'italic', fontWeight: '300' }}
+                >
+                  IA & automatisation
+                </motion.span>
+              </span>
+            </motion.h1>
+
+            {/* Sous-titre animé */}
             <motion.p
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4, duration: 0.8 }}
-              className="text-xl text-gray-600 mb-8 max-w-2xl"
+              transition={{ duration: 0.8, delay: 0.4 }}
+              className="text-lg text-slate-600 mb-12 max-w-2xl mx-auto font-light leading-relaxed relative z-10"
             >
-              SACIMO surveille en continu les nouvelles annonces immobilières selon vos critères 
-              et vous envoie un rapport quotidien personnalisé. Comme LeBonCoin, mais automatisé.
+              Découvrez SACIMO : un suivi humain et des talents triés sur le volet pour 
+              trouver rapidement les profils qui vous correspondent.
             </motion.p>
 
+            {/* CTA avec gradient VIOLET (pas orange) */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.6, duration: 0.8 }}
-              className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start"
+              transition={{ duration: 0.8, delay: 0.6 }}
+              className="flex items-center justify-center mb-16 relative z-10"
             >
-              <Button size="lg" className="text-lg px-8 py-6" data-magnetic data-cursor="Try">
-                Commencer l'essai gratuit
-                <ArrowRight className="ml-2 w-5 h-5" />
-              </Button>
-              <Button variant="outline" size="lg" className="text-lg px-8 py-6" data-magnetic data-cursor="View">
-                Voir les tarifs
+              <motion.div
+                whileHover={{ scale: 1.05, boxShadow: "0 20px 60px rgba(76, 29, 149, 0.4)" }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <Button 
+                  size="lg" 
+                  style={{ position: 'relative', background: 'linear-gradient(to right, rgb(76, 29, 149), rgb(79, 70, 229))', color: 'white', fontWeight: '500', padding: '24px 40px', fontSize: '16px', borderRadius: '12px', boxShadow: '0 25px 50px rgba(76, 29, 149, 0.3)', overflow: 'hidden' }}
+                  asChild
+                >
+                  <Link href="/auth/signup">
+                    <motion.span
+                      className="absolute inset-0 bg-white/10"
+                      initial={{ x: '-100%' }}
+                      whileHover={{ x: '100%' }}
+                      transition={{ duration: 0.5 }}
+                    />
+                    <span className="relative">Commencer gratuitement</span>
+                  </Link>
               </Button>
             </motion.div>
+            </motion.div>
+          </div>
 
-            {/* Trust indicators */}
+          {/* Dashboard Preview avec animations */}
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 60 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.8, duration: 0.8 }}
-              className="mt-12 flex flex-wrap items-center justify-center lg:justify-start gap-8 text-sm text-gray-500"
+            transition={{ duration: 1, delay: 0.8 }}
+            className="mt-20 relative"
+          >
+            {/* Glow animé */}
+            <motion.div
+              animate={{
+                scale: [1, 1.1, 1],
+                opacity: [0.3, 0.6, 0.3],
+              }}
+              transition={{
+                duration: 4,
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+              style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, rgba(76, 29, 149, 0.2), rgba(79, 70, 229, 0.2))', filter: 'blur(64px)' }}
+            />
+            
+            {/* Container principal */}
+            <motion.div
+              whileHover={{ y: -10 }}
+              transition={{ duration: 0.3 }}
+              style={{ position: 'relative', backgroundColor: 'rgba(255, 255, 255, 0.8)', backdropFilter: 'blur(24px)', borderRadius: '24px', boxShadow: '0 25px 50px rgba(0, 0, 0, 0.15)', border: '1px solid rgba(76, 29, 149, 0.1)', overflow: 'hidden' }}
             >
-              <div className="flex items-center">
-                <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
-                Essai gratuit 14 jours
-              </div>
-              <div className="flex items-center">
-                <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
-                Aucune carte requise
-              </div>
-              <div className="flex items-center">
-                <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
-                Support en français
-              </div>
-            </motion.div>
-          </motion.div>
-
-          {/* Right content - Dashboard mockup */}
+              <img 
+                src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1600&q=90" 
+                alt="SACIMO Dashboard"
+                className="w-full"
+              />
+              
+              {/* Card flottante animée 1 */}
           <motion.div
             initial={{ opacity: 0, x: 50 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.4, duration: 0.8 }}
-            className="relative"
-          >
-            <div className="relative bg-white rounded-2xl shadow-2xl p-6 border border-gray-200">
-              {/* Mockup header */}
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-                    <span className="text-white font-bold text-sm">S</span>
+                animate={{ 
+                  opacity: 1, 
+                  x: 0,
+                  y: [0, -10, 0],
+                }}
+                transition={{ 
+                  delay: 1.2, 
+                  duration: 0.6,
+                  y: {
+                    duration: 3,
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                  }
+                }}
+                whileHover={{ scale: 1.05 }}
+                className="absolute top-8 right-8 bg-white/95 backdrop-blur-xl rounded-2xl p-5 shadow-2xl border border-violet-100/50"
+              >
+                <div className="flex items-center gap-4">
+                  <motion.div 
+                    whileHover={{ rotate: 360 }}
+                    transition={{ duration: 0.6 }}
+                    className="w-12 h-12 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg"
+                  >
+                    <TrendingUp className="h-6 w-6 text-white" />
+                  </motion.div>
+                  <div>
+                    <div className="text-xs text-slate-500 mb-1">Nouvelles annonces</div>
+                    <motion.div 
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="text-2xl font-semibold text-slate-900"
+                    >
+                      +23
+                    </motion.div>
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: "100%" }}
+                      transition={{ duration: 1, delay: 1.5 }}
+                      className="text-xs text-emerald-600 mt-1"
+                    >
+                      +15% cette semaine
+                    </motion.div>
                   </div>
-                  <span className="font-semibold text-gray-900">SACIMO Dashboard</span>
                 </div>
-                <Badge variant="secondary">24h</Badge>
-              </div>
+              </motion.div>
 
-              {/* Mockup content */}
-              <div className="space-y-4">
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="bg-blue-50 rounded-lg p-4 text-center">
-                    <div className="text-2xl font-bold text-blue-600">47</div>
-                    <div className="text-sm text-gray-600">Nouvelles annonces</div>
-                  </div>
-                  <div className="bg-green-50 rounded-lg p-4 text-center">
-                    <div className="text-2xl font-bold text-green-600">32</div>
-                    <div className="text-sm text-gray-600">Particuliers</div>
-                  </div>
-                  <div className="bg-purple-50 rounded-lg p-4 text-center">
-                    <div className="text-2xl font-bold text-purple-600">15</div>
-                    <div className="text-sm text-gray-600">Professionnels</div>
-                  </div>
-                </div>
-
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <div className="h-32 bg-gradient-to-r from-blue-100 to-purple-100 rounded flex items-center justify-center">
-                    <BarChart3 className="w-12 h-12 text-gray-400" />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-gray-200 rounded"></div>
+              {/* Card flottante animée 2 */}
+              <motion.div
+                initial={{ opacity: 0, x: -50 }}
+                animate={{ 
+                  opacity: 1, 
+                  x: 0,
+                  y: [0, 10, 0],
+                }}
+                transition={{ 
+                  delay: 1.4, 
+                  duration: 0.6,
+                  y: {
+                    duration: 4,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                    delay: 1
+                  }
+                }}
+                whileHover={{ scale: 1.05 }}
+                className="absolute bottom-8 left-8 bg-white/95 backdrop-blur-xl rounded-2xl p-5 shadow-2xl border border-indigo-100/50"
+              >
+                <div className="flex items-center gap-4">
+                  <motion.div 
+                    whileHover={{ rotate: -360 }}
+                    transition={{ duration: 0.6 }}
+                            style={{ width: '48px', height: '48px', background: 'linear-gradient(to bottom right, rgb(76, 29, 149), rgb(79, 70, 229))', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 10px 25px rgba(76, 29, 149, 0.3)' }}
+                  >
+                    <Bell className="h-6 w-6 text-white" />
+                  </motion.div>
                       <div>
-                        <div className="font-medium text-sm">Appartement 3 pièces</div>
-                        <div className="text-xs text-gray-500">Paris 15e • 450 000€</div>
-                      </div>
-                    </div>
-                    <Badge variant="outline">Particulier</Badge>
+                    <div className="text-xs text-slate-500 mb-1">Alertes actives</div>
+                    <motion.div 
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ delay: 1.6, type: "spring" }}
+                      className="text-2xl font-semibold text-slate-900"
+                    >
+                      12
+                    </motion.div>
                   </div>
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-gray-200 rounded"></div>
-                      <div>
-                        <div className="font-medium text-sm">Maison 4 pièces</div>
-                        <div className="text-xs text-gray-500">Boulogne • 680 000€</div>
-                      </div>
-                    </div>
-                    <Badge variant="outline">Pro</Badge>
                   </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Floating elements */}
-            <motion.div
-              className="absolute -top-4 -right-4 bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium"
-              animate={{ y: [0, -10, 0] }}
-              transition={{ duration: 2, repeat: Infinity }}
-            >
-              +12 nouvelles
             </motion.div>
-            <motion.div
-              className="absolute -bottom-4 -left-4 bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-medium"
-              animate={{ y: [0, 10, 0] }}
-              transition={{ duration: 2.5, repeat: Infinity, delay: 1 }}
-            >
-              Rapport envoyé
             </motion.div>
           </motion.div>
-        </div>
+                  </div>
       </section>
+
+      {/* Stats Section avec animations au scroll */}
+      <motion.section 
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.8 }}
+        style={{ padding: '96px 24px', background: 'linear-gradient(to bottom right, rgba(76, 29, 149, 0.05), rgba(79, 70, 229, 0.05))' }}
+      >
+        <div className="container mx-auto max-w-5xl">
+          <div className="grid md:grid-cols-4 gap-12">
+            {[
+              { number: '500+', label: 'Agents immobiliers' },
+              { number: '10k+', label: 'Annonces analysées' },
+              { number: '2k+', label: 'Rapports générés' },
+              { number: '4.9/5', label: 'Satisfaction client' }
+            ].map((stat, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1, duration: 0.6 }}
+                whileHover={{ scale: 1.05, y: -5 }}
+                className="text-center group"
+              >
+                <motion.div 
+                  initial={{ scale: 0 }}
+                  whileInView={{ scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.1 + 0.3, type: "spring" }}
+                        style={{ fontSize: '48px', fontWeight: '300', background: 'linear-gradient(to right, rgb(76, 29, 149), rgb(79, 70, 229))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', marginBottom: '8px' }}
+                >
+                  {stat.number}
+                </motion.div>
+                <div className="text-sm text-slate-600">{stat.label}</div>
+              </motion.div>
+            ))}
+                  </div>
+                </div>
+      </motion.section>
+
+      {/* How it works */}
+      <motion.section 
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.8 }}
+        className="py-24 px-6 bg-white"
+      >
+        <div className="container mx-auto max-w-5xl">
+            <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-20"
+          >
+            <h2 className="text-4xl font-light text-slate-900 mb-4">
+              Comment ça marche ?
+            </h2>
+            <p className="text-lg text-slate-600 font-light max-w-2xl mx-auto">
+              Commencez à utiliser SACIMO en 3 étapes simples
+            </p>
+            </motion.div>
+
+          <div className="grid md:grid-cols-3 gap-12">
+            {[
+              {
+                step: '01',
+                title: 'Configurez vos critères',
+                description: 'Définissez vos zones de recherche, types de biens et budget',
+                icon: Search,
+                gradient: 'linear-gradient(to bottom right, rgb(76, 29, 149), rgb(79, 70, 229))'
+              },
+              {
+                step: '02',
+                title: 'Analysez les données',
+                description: 'Notre IA analyse le marché et vous alerte des opportunités',
+                icon: BarChart3,
+                gradient: 'linear-gradient(to bottom right, rgb(76, 29, 149), rgb(79, 70, 229))'
+              },
+              {
+                step: '03',
+                title: 'Générez des rapports',
+                description: 'Créez des rapports professionnels en quelques clics',
+                icon: FileText,
+                gradient: 'linear-gradient(to bottom right, rgb(76, 29, 149), rgb(79, 70, 229))'
+              }
+            ].map((item, index) => (
+            <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 40 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.2, duration: 0.6 }}
+                whileHover={{ y: -10, scale: 1.02 }}
+                className="text-center group"
+              >
+                <motion.div 
+                  whileHover={{ rotate: 360, scale: 1.1 }}
+                  transition={{ duration: 0.6 }}
+                  style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '64px', height: '64px', background: item.gradient, borderRadius: '16px', marginBottom: '24px', boxShadow: '0 10px 25px rgba(76, 29, 149, 0.3)' }}
+                >
+                  <item.icon className="h-7 w-7 text-white" />
+            </motion.div>
+                <div style={{ fontSize: '14px', fontWeight: '500', color: 'rgb(76, 29, 149)', marginBottom: '8px' }}>ÉTAPE {item.step}</div>
+                <h3 className="text-lg font-medium text-slate-900 mb-3">{item.title}</h3>
+                <p className="text-slate-600 font-light leading-relaxed text-[15px]">{item.description}</p>
+          </motion.div>
+            ))}
+        </div>
+        </div>
+      </motion.section>
 
       {/* Features Section */}
-      <section className="py-24 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <motion.section 
+        id="fonctionnalites"
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.8 }}
+        style={{ padding: '96px 24px', background: 'linear-gradient(to bottom, white, rgba(76, 29, 149, 0.03))' }}
+      >
+        <div className="container mx-auto max-w-5xl">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
             viewport={{ once: true }}
-            className="text-center mb-16"
+            className="text-center mb-20"
           >
-            <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-6">
-              Tout ce dont vous avez besoin pour
-              <span className="block text-blue-600">dominer le marché</span>
+            <h2 className="text-4xl font-light text-slate-900 mb-4">
+              Tout ce dont vous avez besoin
             </h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Une plateforme complète qui automatise votre veille immobilière et vous donne 
-              un avantage concurrentiel décisif.
+            <p className="text-lg text-slate-600 font-light">
+              Des outils puissants pour analyser et optimiser votre activité
             </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {features.map((feature, index) => (
+          <div className="grid md:grid-cols-3 gap-12">
+            {[
+              {
+                icon: Search,
+                title: 'Recherches intelligentes',
+                description: 'Trouvez les meilleures opportunités grâce à nos algorithmes avancés',
+                gradient: 'linear-gradient(to bottom right, rgb(76, 29, 149), rgb(79, 70, 229))'
+              },
+              {
+                icon: TrendingUp,
+                title: 'Analyse de marché',
+                description: 'Suivez les tendances et anticipez les évolutions du marché',
+                gradient: 'linear-gradient(to bottom right, rgb(76, 29, 149), rgb(79, 70, 229))'
+              },
+              {
+                icon: Users,
+                title: 'Suivi concurrents',
+                description: 'Surveillez l\'activité de vos concurrents en temps réel',
+                gradient: 'linear-gradient(to bottom right, rgb(76, 29, 149), rgb(79, 70, 229))'
+              },
+              {
+                icon: FileText,
+                title: 'Rapports automatisés',
+                description: 'Générez des rapports professionnels en quelques clics',
+                gradient: 'linear-gradient(to bottom right, rgb(76, 29, 149), rgb(79, 70, 229))'
+              },
+              {
+                icon: Bell,
+                title: 'Alertes intelligentes',
+                description: 'Recevez des notifications pour les opportunités importantes',
+                gradient: 'linear-gradient(to bottom right, rgb(76, 29, 149), rgb(79, 70, 229))'
+              },
+              {
+                icon: BarChart3,
+                title: 'Copilote IA',
+                description: 'Assistant intelligent pour optimiser vos décisions',
+                gradient: 'linear-gradient(to bottom right, rgb(76, 29, 149), rgb(79, 70, 229))'
+              }
+            ].map((feature, index) => (
               <motion.div
                 key={index}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: index * 0.1 }}
                 viewport={{ once: true }}
-                whileHover={{ y: -5 }}
-                className="group"
+                transition={{ delay: index * 0.1, duration: 0.5 }}
+                whileHover={{ y: -8, scale: 1.02 }}
+                className="text-center group"
               >
-                <Card className="h-full hover:shadow-lg transition-all duration-300 border-0 shadow-md">
-                  <CardContent className="p-8">
-                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                      <feature.icon className="w-6 h-6 text-white" />
-                    </div>
-                    <h3 className="text-xl font-semibold text-gray-900 mb-4">
-                      {feature.title}
-                    </h3>
-                    <p className="text-gray-600 leading-relaxed">
+                <motion.div 
+                  whileHover={{ rotate: 360, scale: 1.15 }}
+                  transition={{ duration: 0.6 }}
+                  style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '64px', height: '64px', background: feature.gradient, borderRadius: '16px', marginBottom: '24px', boxShadow: '0 10px 25px rgba(76, 29, 149, 0.3)' }}
+                >
+                  <feature.icon className="h-7 w-7 text-white" />
+                </motion.div>
+                <h3 className="text-lg font-medium text-slate-900 mb-3">{feature.title}</h3>
+                <p className="text-slate-600 font-light leading-relaxed text-[15px]">
                       {feature.description}
                     </p>
-                  </CardContent>
-                </Card>
               </motion.div>
             ))}
           </div>
         </div>
-      </section>
+      </motion.section>
 
-      {/* Stats Section */}
-      <section className="py-24 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Pricing Teaser */}
+      <motion.section 
+        id="tarifs"
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.8 }}
+        style={{ padding: '96px 24px', background: 'linear-gradient(to bottom right, rgba(79, 70, 229, 0.05), rgba(76, 29, 149, 0.05))' }}
+      >
+        <div className="container mx-auto max-w-5xl">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
             viewport={{ once: true }}
-            className="text-center mb-16"
+            className="text-center mb-20"
           >
-            <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-6">
-              Des résultats qui parlent
+            <h2 className="text-4xl font-light text-slate-900 mb-4">
+              Une offre pour chaque besoin
             </h2>
-            <p className="text-xl text-gray-600">
-              Rejoignez des centaines d'agences qui font confiance à SACIMO
-            </p>
-          </motion.div>
-
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
-            {stats.map((stat, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, scale: 0.5 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.8, delay: index * 0.1 }}
-                viewport={{ once: true }}
-                className="text-center"
-              >
-                <div className="text-4xl lg:text-5xl font-bold text-blue-600 mb-2">
-                  {stat.value}
-                </div>
-                <div className="text-gray-600 font-medium">
-                  {stat.label}
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* How it works Section */}
-      <section className="py-24 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
-          >
-            <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-6">
-              3 étapes pour démarrer
-            </h2>
-            <p className="text-xl text-gray-600">
-              Commencez à recevoir vos rapports en moins de 5 minutes
+            <p className="text-lg text-slate-600 font-light">
+              Commencez gratuitement, évoluez quand vous voulez
             </p>
           </motion.div>
 
           <div className="grid md:grid-cols-3 gap-8">
-            {steps.map((step, index) => (
+            {[
+              {
+                name: 'Starter',
+                price: '29',
+                features: ['10 recherches/jour', '5 rapports/mois', 'Support email'],
+                popular: false
+              },
+              {
+                name: 'Pro',
+                price: '99',
+                features: ['Recherches illimitées', 'Rapports illimités', 'Support prioritaire', 'API access'],
+                popular: true
+              },
+              {
+                name: 'Enterprise',
+                price: '299',
+                features: ['Tout de Pro', 'White label', 'Account manager', 'Formation'],
+                popular: false
+              }
+            ].map((plan, index) => (
               <motion.div
                 key={index}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 40 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: index * 0.2 }}
                 viewport={{ once: true }}
-                className="text-center relative"
+                transition={{ delay: index * 0.15, duration: 0.6 }}
+                whileHover={{ y: -10, scale: 1.02 }}
               >
-                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-xl mx-auto mb-6">
-                  {step.number}
-                </div>
-                <h3 className="text-2xl font-semibold text-gray-900 mb-4">
-                  {step.title}
-                </h3>
-                <p className="text-gray-600 leading-relaxed">
-                  {step.description}
-                </p>
-                
-                {index < steps.length - 1 && (
-                  <div className="hidden md:block absolute top-8 left-1/2 w-full h-0.5 bg-gradient-to-r from-blue-200 to-purple-200 transform translate-x-1/2" />
-                )}
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Pricing Section */}
-      <section className="py-24 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
-          >
-            <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-6">
-              Tarifs simples et transparents
-            </h2>
-            <p className="text-xl text-gray-600">
-              Choisissez le plan qui correspond à vos besoins
-            </p>
-          </motion.div>
-
-          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            {pricingPlans.map((plan, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: index * 0.1 }}
-                viewport={{ once: true }}
-                whileHover={{ y: -5 }}
-                className="relative"
-              >
-                {plan.popular && (
-                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                    <Badge className="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-4 py-1">
-                      Meilleur choix
-                    </Badge>
-                  </div>
-                )}
-                
-                <Card className={`h-full ${plan.popular ? 'border-blue-500 shadow-lg' : 'border-gray-200'}`}>
+                <Card 
+                  style={{ position: 'relative', border: plan.popular ? '2px solid rgb(76, 29, 149)' : '1px solid #e2e8f0', boxShadow: plan.popular ? '0 25px 50px rgba(76, 29, 149, 0.3)' : 'none' }}
+                >
+                  {plan.popular && (
+                    <motion.div 
+                      initial={{ scale: 0 }}
+                      whileInView={{ scale: 1 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: index * 0.15 + 0.3, type: "spring" }}
+                      className="absolute -top-3 left-1/2 -translate-x-1/2"
+                    >
+                      <Badge style={{ background: 'linear-gradient(to right, rgb(76, 29, 149), rgb(79, 70, 229))', color: 'white', padding: '4px 12px', fontSize: '12px' }}>
+                        Le plus populaire
+                      </Badge>
+                    </motion.div>
+                  )}
                   <CardContent className="p-8">
-                    <div className="text-center mb-8">
-                      <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                        {plan.name}
-                      </h3>
-                      <p className="text-gray-600 mb-4">
-                        {plan.description}
-                      </p>
-                      <div className="flex items-baseline justify-center">
-                        <span className="text-5xl font-bold text-gray-900">
-                          {plan.price}€
-                        </span>
-                        <span className="text-gray-600 ml-1">
-                          {plan.period}
-                        </span>
-                      </div>
-                    </div>
-
-                    <ul className="space-y-4 mb-8">
-                      {plan.features.map((feature, featureIndex) => (
-                        <li key={featureIndex} className="flex items-center">
-                          <CheckCircle className="w-5 h-5 text-green-500 mr-3 flex-shrink-0" />
-                          <span className="text-gray-600">{feature}</span>
-                        </li>
+                    <h3 className="text-xl font-medium mb-2">{plan.name}</h3>
+                    <div className="mb-6">
+                      <motion.span 
+                        initial={{ opacity: 0 }}
+                        whileInView={{ opacity: 1 }}
+                        viewport={{ once: true }}
+                        transition={{ delay: index * 0.15 + 0.2 }}
+                        style={{ fontSize: '36px', fontWeight: '300', background: 'linear-gradient(to right, rgb(76, 29, 149), rgb(79, 70, 229))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}
+                      >
+                        {plan.price}€
+                      </motion.span>
+                      <span className="text-slate-600 text-sm">/mois</span>
+                </div>
+                    <ul className="space-y-3 mb-8">
+                      {plan.features.map((feature, i) => (
+                        <motion.li 
+                          key={i}
+                          initial={{ opacity: 0, x: -20 }}
+                          whileInView={{ opacity: 1, x: 0 }}
+                          viewport={{ once: true }}
+                          transition={{ delay: index * 0.15 + i * 0.1 }}
+                          className="flex items-center gap-3 text-sm"
+                        >
+                          <Check style={{ width: '16px', height: '16px', color: 'rgb(76, 29, 149)' }} />
+                          <span className="text-slate-600">{feature}</span>
+                        </motion.li>
                       ))}
                     </ul>
-
-                    <Button 
-                      className={`w-full ${plan.popular ? 'bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600' : ''}`}
-                      variant={plan.popular ? 'default' : 'outline'}
-                      data-magnetic
-                      data-cursor="Try"
-                    >
-                      Commencer l'essai
-                    </Button>
+                    <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                      <Button 
+                        style={{ width: '100%', background: plan.popular ? 'linear-gradient(to right, rgb(76, 29, 149), rgb(79, 70, 229))' : 'transparent', color: plan.popular ? 'white' : 'rgb(76, 29, 149)', border: plan.popular ? 'none' : '1px solid #e2e8f0', boxShadow: plan.popular ? '0 10px 25px rgba(76, 29, 149, 0.3)' : 'none' }}
+                        variant={plan.popular ? 'default' : 'outline'}
+                      >
+                        Commencer
+                      </Button>
+                    </motion.div>
                   </CardContent>
                 </Card>
               </motion.div>
             ))}
           </div>
         </div>
-      </section>
+      </motion.section>
 
-      {/* CTA Section */}
-      <section className="py-24 bg-gradient-to-r from-blue-600 to-purple-600">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      {/* Testimonials */}
+      <motion.section 
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.8 }}
+        className="py-24 px-6 bg-white"
+      >
+        <div className="container mx-auto max-w-6xl">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
             viewport={{ once: true }}
+            className="text-center mb-20"
           >
-            <h2 className="text-4xl lg:text-5xl font-bold text-white mb-6">
-              Prêt à transformer votre veille immobilière ?
+            <h2 className="text-4xl font-light text-slate-900 mb-4">
+              Ils racontent ce que nous faisons,{' '}
+              <span className="text-slate-400">mieux que nous.</span>
             </h2>
-            <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
-              Rejoignez des centaines d'agences qui utilisent déjà SACIMO pour 
-              ne plus rater aucune opportunité.
+          </motion.div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {[
+              {
+                name: 'Sophie Martin',
+                role: 'Agent immobilier',
+                company: 'Century 21 Paris',
+                avatar: 'SM',
+                rating: 5,
+                text: 'SACIMO a transformé ma façon de travailler. Je gagne un temps précieux sur l\'analyse de marché et mes clients adorent les rapports générés.'
+              },
+              {
+                name: 'Thomas Durand',
+                role: 'Directeur d\'agence',
+                company: 'Orpi Lyon',
+                avatar: 'TD',
+                rating: 5,
+                text: 'Un outil indispensable pour rester compétitif. La veille concurrentielle est un vrai plus pour notre équipe.'
+              },
+              {
+                name: 'Marie Dubois',
+                role: 'Négociatrice',
+                company: 'Laforêt Bordeaux',
+                avatar: 'MD',
+                rating: 5,
+                text: 'L\'interface est intuitive et les alertes en temps réel me permettent de ne jamais rater une opportunité.'
+              }
+            ].map((testimonial, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 40 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.2, duration: 0.6 }}
+                whileHover={{ y: -8, scale: 1.02 }}
+                className="bg-white border border-slate-100 rounded-2xl p-8 hover:shadow-xl transition-shadow"
+              >
+                {/* Stars */}
+                <div className="flex gap-1 mb-6">
+                  {[...Array(testimonial.rating)].map((_, i) => (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, scale: 0 }}
+                      whileInView={{ opacity: 1, scale: 1 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: index * 0.2 + i * 0.1 }}
+                    >
+                      <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                    </motion.div>
+                  ))}
+                </div>
+
+                {/* Text */}
+                <p className="text-slate-600 mb-8 leading-relaxed text-[15px] font-light">
+                  {testimonial.text}
+                </p>
+
+                {/* Author */}
+                <div className="flex items-center gap-4">
+                  <motion.div 
+                    whileHover={{ scale: 1.1, rotate: 360 }}
+                    transition={{ duration: 0.6 }}
+                    style={{ width: '48px', height: '48px', background: 'linear-gradient(to bottom right, rgb(76, 29, 149), rgb(79, 70, 229))', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '500', fontSize: '14px', boxShadow: '0 10px 25px rgba(76, 29, 149, 0.3)' }}
+                  >
+                    {testimonial.avatar}
+                  </motion.div>
+                  <div>
+                    <div className="font-medium text-slate-900 text-sm">{testimonial.name}</div>
+                    <div className="text-xs text-slate-500">{testimonial.role}</div>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </motion.section>
+
+      {/* FAQ */}
+      <motion.section 
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.8 }}
+        style={{ padding: '96px 24px', background: 'linear-gradient(to bottom right, #f8fafc, rgba(76, 29, 149, 0.02))' }}
+      >
+        <div className="container mx-auto max-w-4xl">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-20"
+          >
+            <h2 className="text-4xl font-light text-slate-900 mb-4">
+              Questions fréquentes
+            </h2>
+            <p className="text-lg text-slate-600 font-light">
+              Tout ce que vous devez savoir sur SACIMO
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button 
-                size="lg" 
-                className="text-lg px-8 py-6 bg-white text-blue-600 hover:bg-gray-100"
-                data-magnetic
-                data-cursor="Try"
+          </motion.div>
+
+          <div className="space-y-4">
+            {[
+              {
+                question: 'Puis-je essayer SACIMO gratuitement ?',
+                answer: 'Oui ! SACIMO propose un essai gratuit de 14 jours sans carte bancaire. Vous pouvez tester toutes les fonctionnalités avant de vous engager.'
+              },
+              {
+                question: 'Comment fonctionne la veille concurrentielle ?',
+                answer: 'Notre système analyse automatiquement les annonces de vos concurrents et vous alerte en temps réel des nouvelles publications, modifications de prix, etc.'
+              },
+              {
+                question: 'Les rapports sont-ils personnalisables ?',
+                answer: 'Absolument ! Vous pouvez personnaliser les rapports avec votre logo, vos couleurs et choisir les données à inclure.'
+              },
+              {
+                question: 'Puis-je annuler mon abonnement à tout moment ?',
+                answer: 'Oui, vous pouvez annuler votre abonnement à tout moment depuis votre espace client. Aucun engagement de durée.'
+              },
+              {
+                question: 'SACIMO est-il compatible mobile ?',
+                answer: 'Oui, SACIMO est 100% responsive et fonctionne parfaitement sur mobile, tablette et desktop.'
+              }
+            ].map((faq, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.1 }}
+                whileHover={{ scale: 1.01 }}
               >
-                Commencer l'essai gratuit
-                <ArrowRight className="ml-2 w-5 h-5" />
+                <Card style={{ border: '1px solid #e2e8f0', transition: 'border-color 0.3s' }} onMouseEnter={(e) => e.currentTarget.style.borderColor = 'rgb(76, 29, 149)'} onMouseLeave={(e) => e.currentTarget.style.borderColor = '#e2e8f0'}>
+                  <CardContent className="p-6">
+                    <details className="group">
+                      <summary className="flex items-center justify-between cursor-pointer list-none">
+                        <h3 style={{ fontSize: '18px', fontWeight: '500' }}>
+                          {faq.question}
+                      </h3>
+                        <motion.div 
+                          style={{ color: 'rgb(76, 29, 149)' }}
+                          animate={{ rotate: 0 }}
+                          whileHover={{ rotate: 90 }}
+                        >
+                          <svg className="h-6 w-6 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </motion.div>
+                      </summary>
+                      <motion.p 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="mt-4 text-slate-600 leading-relaxed font-light text-[15px]"
+                      >
+                        {faq.answer}
+                      </motion.p>
+                    </details>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mt-12"
+          >
+            <p className="text-slate-600 mb-4 font-light">Vous avez d'autres questions ?</p>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button variant="outline" style={{ border: '2px solid rgba(76, 29, 149, 0.2)', transition: 'all 0.3s' }} onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgb(76, 29, 149)'; e.currentTarget.style.backgroundColor = 'rgba(76, 29, 149, 0.05)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(76, 29, 149, 0.2)'; e.currentTarget.style.backgroundColor = 'transparent'; }} asChild>
+                <Link href="/contact">
+                  Contactez-nous
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
               </Button>
-              <Button 
-                variant="outline" 
-                size="lg" 
-                className="text-lg px-8 py-6 border-white text-white hover:bg-white hover:text-blue-600"
-                data-magnetic
-                data-cursor="View"
-              >
-                Voir les tarifs
-              </Button>
-            </div>
+            </motion.div>
           </motion.div>
         </div>
-      </section>
+      </motion.section>
+
+      {/* CTA Final */}
+      <motion.section 
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
+        style={{ padding: '96px 24px', background: 'linear-gradient(to bottom right, rgb(46, 16, 101), rgb(76, 29, 149), rgb(79, 70, 229))', position: 'relative', overflow: 'hidden' }}
+      >
+        {/* Animated background */}
+        <motion.div
+          animate={{
+            scale: [1, 1.2, 1],
+            rotate: [0, 180, 360],
+          }}
+          transition={{
+            duration: 20,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+          className="absolute inset-0 bg-white/5"
+        />
+        
+        <div className="container mx-auto max-w-4xl relative z-10">
+          <motion.div 
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center text-white"
+          >
+            <h2 className="text-4xl font-light mb-4">
+              Prêt à transformer votre activité ?
+            </h2>
+            <p className="text-lg mb-8 font-light text-white/90">
+              Rejoignez des centaines d'agents immobiliers qui utilisent déjà SACIMO
+            </p>
+            <motion.div
+              whileHover={{ scale: 1.05, boxShadow: "0 20px 60px rgba(255, 255, 255, 0.3)" }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <Button 
+                size="lg" 
+                style={{ backgroundColor: 'white', color: 'rgb(76, 29, 149)', fontWeight: '500', padding: '24px 32px', borderRadius: '12px', boxShadow: '0 25px 50px rgba(0, 0, 0, 0.15)' }}
+                asChild
+              >
+                <Link href="/auth/signup">
+                  Essayer gratuitement
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Link>
+              </Button>
+            </motion.div>
+          </motion.div>
+            </div>
+      </motion.section>
+
+      {/* Footer */}
+      <motion.footer 
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.8 }}
+        className="py-16 px-6 bg-white border-t border-slate-100"
+      >
+        <div className="container mx-auto max-w-6xl">
+          <div className="grid md:grid-cols-4 gap-12 mb-12">
+            <div>
+              <motion.div 
+                whileHover={{ scale: 1.1 }}
+                className="flex items-center gap-2 mb-4"
+              >
+                <div style={{ width: '32px', height: '32px', background: 'linear-gradient(to bottom right, rgb(76, 29, 149), rgb(79, 70, 229))', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span className="text-sm font-semibold text-white">S</span>
+            </div>
+                <span className="font-semibold text-slate-900">SACIMO</span>
+          </motion.div>
+              <p className="text-sm text-slate-600 font-light">
+                L'immobilier intelligent
+              </p>
+        </div>
+            {[
+              { title: 'Produit', links: [
+                { label: 'Fonctionnalités', href: '#fonctionnalites' },
+                { label: 'Tarifs', href: '#tarifs' },
+                { label: 'Démo', href: '#demo' }
+              ]},
+              { title: 'Entreprise', links: [
+                { label: 'À propos', href: '#' },
+                { label: 'Contact', href: '/contact' },
+                { label: 'Blog', href: '#' }
+              ]},
+              { title: 'Légal', links: [
+                { label: 'CGU', href: '#' },
+                { label: 'Confidentialité', href: '#' },
+                { label: 'Mentions légales', href: '#' }
+              ]}
+            ].map((section, i) => (
+              <div key={i}>
+                <h4 className="font-medium text-slate-900 mb-4 text-sm">{section.title}</h4>
+                <ul className="space-y-2 text-sm text-slate-600">
+                  {section.links.map((link, j) => (
+                    <motion.li 
+                      key={j}
+                      whileHover={{ x: 5 }}
+                    >
+                      <Link href={link.href} style={{ transition: 'color 0.3s' }} onMouseEnter={(e) => e.currentTarget.style.color = 'rgb(76, 29, 149)'} onMouseLeave={(e) => e.currentTarget.style.color = '#64748b'}>
+                        {link.label}
+                      </Link>
+                    </motion.li>
+                  ))}
+                </ul>
     </div>
-  )
+            ))}
+          </div>
+          <div className="pt-8 border-t border-slate-100 text-center text-sm text-slate-500">
+            © 2025 SACIMO. Tous droits réservés.
+          </div>
+        </div>
+      </motion.footer>
+        </div>
+      </div>
+    </>
+  );
 }
