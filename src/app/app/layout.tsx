@@ -194,55 +194,34 @@ export default function AppLayout({
         </div>
       </div>
 
-      {/* Navbar dashboard - style cohérent avec page d'accueil */}
+      {/* Navbar - commence APRÈS la sidebar */}
       <nav className="hidden lg:block fixed top-0 left-[260px] right-0 h-20 bg-gradient-to-r from-violet-950 via-violet-900 to-indigo-900 border-b border-white/10 z-50">
         <div className="h-full flex items-center justify-between px-8">
-          {/* Menu - même style que page d'accueil */}
-          <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-8">
-            <Link 
-              href="/#fonctionnalites" 
-              className="text-[15px] text-white/70 hover:text-white transition-colors font-normal"
-            >
+          {/* Menu */}
+          <div className="flex items-center gap-8">
+            <Link href="/fonctionnalites" className="text-[15px] text-white/70 hover:text-white transition-colors font-normal">
               Fonctionnalités
             </Link>
-            <Link 
-              href="/#tarifs" 
-              className="text-[15px] text-white/70 hover:text-white transition-colors font-normal"
-            >
+            <Link href="/tarifs" className="text-[15px] text-white/70 hover:text-white transition-colors font-normal">
               Tarifs
             </Link>
-            <Link 
-              href="/contact" 
-              className="text-[15px] text-white/70 hover:text-white transition-colors font-normal"
-            >
+            <Link href="/contact" className="text-[15px] text-white/70 hover:text-white transition-colors font-normal">
               Contact
             </Link>
-            <Link 
-              href="/#ressources" 
-              className="text-[15px] text-white/70 hover:text-white transition-colors font-normal"
-            >
+            <Link href="/ressources" className="text-[15px] text-white/70 hover:text-white transition-colors font-normal">
               Ressources
             </Link>
-            <Link 
-              href="/about" 
-              className="text-[15px] text-white/70 hover:text-white transition-colors font-normal"
-            >
+            <Link href="/about" className="text-[15px] text-white/70 hover:text-white transition-colors font-normal">
               À propos
             </Link>
           </div>
 
-          {/* Boutons CTA - même style */}
-          <div className="flex items-center gap-3 ml-auto">
-            <Link 
-              href="/auth/signin"
-              className="text-[15px] text-white/80 hover:text-white transition-colors font-normal px-4 py-2"
-            >
+          {/* Boutons */}
+          <div className="flex items-center gap-3">
+            <Link href="/auth/signin" className="text-[15px] text-white/80 hover:text-white transition-colors font-normal px-4 py-2">
               Connexion
             </Link>
-            <Link 
-              href="/auth/signup"
-              className="bg-white text-violet-900 hover:bg-white/90 px-5 py-2.5 rounded-xl text-[15px] font-medium transition-all"
-            >
+            <Link href="/auth/signup" className="bg-white text-violet-900 hover:bg-white/90 px-5 py-2.5 rounded-xl text-[15px] font-medium transition-all">
               Essai gratuit
             </Link>
           </div>
