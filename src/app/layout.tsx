@@ -4,6 +4,7 @@ import "./globals.css";
 import { CustomCursor } from "@/components/custom-cursor";
 import { Toaster } from "@/components/ui/sonner";
 import ChatWidget from "@/components/ChatWidget";
+import { Providers } from "./Providers";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -34,9 +35,11 @@ export default function RootLayout({
       <body
         className={`${inter.className} antialiased`}
       >
-        <CustomCursor>
-          {children}
-        </CustomCursor>
+        <Providers>
+          <CustomCursor>
+            {children}
+          </CustomCursor>
+        </Providers>
         <ChatWidget />
         <Toaster position="top-right" richColors />
       </body>
