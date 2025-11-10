@@ -43,7 +43,7 @@ export default function SignUpPage() {
       if (result?.error) {
         setError(result.error)
       } else {
-        router.push('/app')
+        router.push('/app/dashboard')
       }
     } catch (err: any) {
       setError(err.message)
