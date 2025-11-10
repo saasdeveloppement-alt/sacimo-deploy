@@ -16,6 +16,15 @@ export const authOptions: NextAuthOptions = {
     error: "/auth/signin",
   },
   callbacks: {
+    async signIn() {
+      return true
+    },
+    async redirect({ url, baseUrl }) {
+      if (url.includes('/auth/')) {
+        return `${baseUrl}/app/dashboard`
+      }
+      return `${baseUrl}/app/dashboard`
+    },
     async session({ session, token }) {
       if (session.user && token.sub) {
         (session.user as { id?: string }).id = token.sub
@@ -27,10 +36,6 @@ export const authOptions: NextAuthOptions = {
         token.sub = user.id
       }
       return token
-    },
-    async signIn({ user, account, profile }) {
-      console.log("SignIn callback:", { user, account, profile })
-      return true
     },
   },
   session: {
