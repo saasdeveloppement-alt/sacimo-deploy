@@ -16,14 +16,14 @@ export default function SignInPage() {
     setError('')
 
     const result = await signIn('credentials', {
-      email,
+        email, 
       password,
       redirect: false,
-    })
-
-    if (result?.ok) {
+      })
+      
+      if (result?.ok) {
       window.location.href = '/app/dashboard'
-    } else {
+      } else {
       setError(result?.error || 'Identifiants incorrects')
       setLoading(false)
     }
@@ -52,14 +52,14 @@ export default function SignInPage() {
               {error}
             </div>
           )}
-
+            
           <form className="space-y-5" onSubmit={handleSubmit}>
-            <div>
+              <div>
               <label className="block text-sm font-medium mb-2">Email</label>
               <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-3 border rounded-lg"
                 placeholder="vous@email.com"
                 required
