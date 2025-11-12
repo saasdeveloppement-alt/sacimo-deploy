@@ -22,11 +22,16 @@ export async function GET(req: NextRequest) {
     const agency = searchParams.get('agency'); // Nom de l'agence
     
     // Paramètres de tri et pagination
-    const sortBy = searchParams.get('sortBy') || 'publishedAt';
+    const sortByParam = searchParams.get('sortBy') || 'publishedAt';
+    // Mapper 'date' vers 'publishedAt' pour compatibilité
+    const sortBy = sortByParam === 'date' ? 'publishedAt' : sortByParam;
     const sortOrder = searchParams.get('sortOrder') || 'desc';
     const page = parseInt(searchParams.get('page') || '1');
-    // Augmenter la limite par défaut pour afficher plus d'annonces
-    const limit = parseInt(searchParams.get('limit') || '100');
+    // ⚠️ LIMITE AUGMENTÉE : Pas de limite par défaut, utiliser celle fournie ou 10000
+    const limit = parseInt(searchParams.get('limit') || '10000');
+    
+    // Si limit est très élevé (>= 10000), charger toutes les annonces sans pagination serveur
+    const loadAll = limit >= 10000;
 
     const where: any = {};
     const orConditions: any[] = [];
@@ -124,8 +129,11 @@ export async function GET(req: NextRequest) {
       prisma.annonceScrape.findMany({
         where,
         orderBy: { [sortBy]: sortOrder },
-        skip: (page - 1) * limit,
-        take: limit
+        // Si loadAll est true, ne pas utiliser skip/take (charger toutes les annonces)
+        ...(loadAll ? {} : {
+          skip: (page - 1) * limit,
+          take: limit
+        })
       }),
       prisma.annonceScrape.count({ where })
     ]);

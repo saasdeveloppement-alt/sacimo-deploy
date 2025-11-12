@@ -30,9 +30,12 @@ export async function POST(req: NextRequest) {
       transformToListing: body.transformToListing || false,
     };
 
-    const result = await meloSyncService.syncAnnonces(options);
+    // Si limit === 1, retourner aussi les logs de débogage
+    const includeDebug = body.limit === 1 && body.debug === true;
 
-    return NextResponse.json({
+    const result = await meloSyncService.syncAnnonces(options, includeDebug);
+
+    const response: any = {
       success: result.success,
       message: result.success 
         ? `Synchronisation réussie: ${result.newAnnonces} nouvelles annonces, ${result.duplicates} doublons`
@@ -44,7 +47,14 @@ export async function POST(req: NextRequest) {
         totalProcessed: result.totalProcessed,
         stats: result.stats,
       },
-    });
+    };
+
+    // Ajouter les logs de débogage si demandé
+    if (includeDebug && (result as any).debugLogs) {
+      response.debug = (result as any).debugLogs;
+    }
+
+    return NextResponse.json(response);
   } catch (error: any) {
     console.error('❌ Erreur synchronisation Melo.io:', error);
     return NextResponse.json({
@@ -76,4 +86,5 @@ export async function GET(req: NextRequest) {
     }, { status: 500 });
   }
 }
+
 
