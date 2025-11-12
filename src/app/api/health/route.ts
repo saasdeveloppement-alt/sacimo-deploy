@@ -7,7 +7,16 @@ export async function GET() {
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV,
     hasDatabaseUrl: !!process.env.DATABASE_URL,
-    hasNextAuthSecret: !!process.env.NEXTAUTH_SECRET
+    hasNextAuthSecret: !!process.env.NEXTAUTH_SECRET,
+    hasMeloApiKey: !!process.env.MELO_API_KEY,
+    meloEnvironment: process.env.MELO_ENV || 'preprod',
+    endpoints: {
+      health: '/api/health',
+      meloTest: '/api/melo/test',
+      annonces: '/api/annonces',
+      annoncesAll: '/api/annonces/all',
+      scraperMelo: '/api/scraper/melo',
+    }
   })
 }
 

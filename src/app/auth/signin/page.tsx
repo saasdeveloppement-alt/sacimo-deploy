@@ -29,8 +29,8 @@ export default function SignInPage() {
     }
   }
 
-  const handleProviderLogin = (provider: 'google' | 'facebook' | 'linkedin') => {
-    void signIn(provider, { callbackUrl: '/app/dashboard' })
+  const handleProviderLogin = () => {
+    void signIn('google', { callbackUrl: '/app/dashboard' })
   }
 
   return (
@@ -99,8 +99,8 @@ export default function SignInPage() {
           <div className="space-y-2">
             <button
               type="button"
-              className="w-full flex items-center justify-center gap-3 px-4 py-2 border border-gray-300 rounded-lg shadow-sm bg-white text-gray-700 hover:bg-gray-50 transition-colors"
-              onClick={() => handleProviderLogin('google')}
+              className="w-full flex items-center justify-center gap-3 px-4 py-2 border border-gray-300 rounded-lg shadow-sm bg-white text-gray-700 transition-colors hover:bg-gray-50"
+              onClick={handleProviderLogin}
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path
@@ -123,33 +123,6 @@ export default function SignInPage() {
               Continuer avec Google
             </button>
 
-            <button
-              type="button"
-              className="w-full flex items-center justify-center gap-3 px-4 py-2 border border-transparent rounded-lg shadow-sm bg-[#1877F2] text-white hover:bg-[#166FE0] transition-colors"
-              onClick={() => handleProviderLogin('facebook')}
-            >
-              <svg className="w-5 h-5" viewBox="0 0 24 24">
-                <path
-                  fill="currentColor"
-                  d="M22 12.07C22 6.49 17.52 2 11.94 2 6.36 2 1.88 6.49 1.88 12.07c0 5 3.66 9.13 8.44 9.94v-7.03H7.9v-2.9h2.42V9.79c0-2.4 1.43-3.73 3.62-3.73 1.05 0 2.15.19 2.15.19v2.36h-1.21c-1.2 0-1.57.74-1.57 1.49v1.79h2.67l-.43 2.9h-2.24v7.03c4.78-.81 8.44-4.94 8.44-9.94Z"
-                />
-              </svg>
-              Continuer avec Facebook
-            </button>
-
-            <button
-              type="button"
-              className="w-full flex items-center justify-center gap-3 px-4 py-2 border border-transparent rounded-lg shadow-sm bg-[#0A66C2] text-white hover:bg-[#0957A5] transition-colors"
-              onClick={() => handleProviderLogin('linkedin')}
-            >
-              <svg className="w-5 h-5" viewBox="0 0 24 24">
-                <path
-                  fill="currentColor"
-                  d="M20.45 20.45h-3.56v-5.57c0-1.33-.02-3.03-1.85-3.03-1.86 0-2.15 1.45-2.15 2.94v5.66H9.33V9h3.42v1.56h.05c.48-.9 1.66-1.85 3.41-1.85 3.64 0 4.31 2.39 4.31 5.5v6.24ZM5.34 7.43a2.07 2.07 0 1 1 0-4.14 2.07 2.07 0 0 1 0 4.14Zm1.78 13.02H3.56V9h3.56v11.45Z"
-                />
-              </svg>
-              Continuer avec LinkedIn
-            </button>
           </div>
 
           <p className="mt-6 text-center text-sm">

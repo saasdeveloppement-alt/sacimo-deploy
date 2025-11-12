@@ -17,6 +17,7 @@ model User {
   password      String?
   role          UserRole  @default(AGENT)
   agencyId      String?
+  phone         String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   agency        Agency?   @relation(fields: [agencyId], references: [id])
@@ -32,6 +33,11 @@ model Agency {
   name        String
   billingTier BillingTier @default(STARTER)
   seats       Int         @default(1)
+  phone       String?     @map("phone_number")
+  companySize String?     @map("company_size")
+  primaryRole String?     @map("primary_role")
+  objectives  String?
+  notes       String?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   reports     Report[]
@@ -210,4 +216,27 @@ model VerificationToken {
 
   @@unique([identifier, token])
   @@map("verification_tokens")
+}
+
+model DemoRequest {
+  id           String             @id @default(cuid())
+  fullName     String             @map("full_name")
+  email        String
+  phone        String?
+  company      String
+  companySize  String?            @map("company_size")
+  role         String?
+  objectives   String?
+  message      String?
+  status       DemoRequestStatus  @default(PENDING)
+  createdAt    DateTime           @default(now()) @map("created_at")
+
+  @@map("demo_requests")
+  @@index([email])
+}
+
+enum DemoRequestStatus {
+  PENDING
+  CONTACTED
+  QUALIFIED
 }

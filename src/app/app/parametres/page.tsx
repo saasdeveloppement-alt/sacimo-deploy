@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import PageContainer, { fadeInUp, staggerChildren } from "@/components/ui/PageContainer"
 import SectionHeader from "@/components/ui/SectionHeader"
 import ModernCard from "@/components/ui/ModernCard"
@@ -13,14 +13,15 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Textarea } from "@/components/ui/textarea"
 import Link from "next/link"
-import { 
-  Settings, 
-  User, 
-  Bell, 
-  Shield, 
-  CreditCard, 
-  Globe, 
+import {
+  Settings,
+  User,
+  Bell,
+  Shield,
+  CreditCard,
+  Globe,
   Palette,
   Save,
   Download,
@@ -51,14 +52,13 @@ import {
 } from "lucide-react"
 import { motion } from "framer-motion"
 
-interface UserProfile {
-  name: string
-  email: string
-  phone?: string
-  role: string
-  agency: string
-  avatar?: string
-}
+const objectiveOptions = [
+  "Automatiser ma veille immobilière",
+  "Identifier les opportunités plus vite",
+  "Centraliser mes piges et rapports",
+  "Suivre la concurrence en temps réel",
+  "Accélérer mes rendez-vous vendeurs",
+]
 
 interface NotificationSettings {
   email: boolean
@@ -79,13 +79,17 @@ interface SecuritySettings {
 }
 
 export default function ParametresPage() {
-  const [profile, setProfile] = useState<UserProfile>({
-    name: "SaaS Développement",
-    email: "saasdeveloppement@gmail.com",
-    phone: "+33 6 12 34 56 78",
-    role: "Propriétaire",
-    agency: "Agence Immobilière Demo"
+  const [profileForm, setProfileForm] = useState({
+    fullName: "",
+    email: "",
+    phone: "",
+    contactRole: "",
+    agency: "",
+    companySize: "",
+    objectives: [] as string[],
+    notes: "",
   })
+  const [isFetching, setIsFetching] = useState(true)
 
   const [notifications, setNotifications] = useState<NotificationSettings>({
     email: true,
@@ -107,12 +111,72 @@ export default function ParametresPage() {
 
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null)
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const res = await fetch("/api/settings/profile")
+        if (!res.ok) {
+          throw new Error("Impossible de charger vos informations.")
+        }
+        const data = await res.json()
+        setProfileForm({
+          fullName: data.fullName ?? "",
+          email: data.email ?? "",
+          phone: data.phone ?? "",
+          contactRole: data.contactRole ?? "",
+          agency: data.agency ?? "",
+          companySize: data.companySize ?? "",
+          objectives: data.objectives ?? [],
+          notes: data.notes ?? "",
+        })
+      } catch (error) {
+        console.error(error)
+        setFeedback({
+          type: "error",
+          message: error instanceof Error ? error.message : "Erreur lors du chargement des données.",
+        })
+      } finally {
+        setIsFetching(false)
+      }
+    }
+
+    fetchProfile()
+  }, [])
 
   const handleSave = async () => {
-    setIsLoading(true)
-    // Simuler la sauvegarde
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    setIsLoading(false)
+    try {
+      setIsLoading(true)
+      setFeedback(null)
+
+      const response = await fetch("/api/settings/profile", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(profileForm),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Impossible d'enregistrer les modifications.")
+      }
+
+      setFeedback({
+        type: "success",
+        message: "Profil mis à jour avec succès.",
+      })
+    } catch (error) {
+      console.error(error)
+      setFeedback({
+        type: "error",
+        message: error instanceof Error ? error.message : "Une erreur est survenue pendant l'enregistrement.",
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleExport = () => {
@@ -124,6 +188,39 @@ export default function ParametresPage() {
     // Simuler l'import
     console.log("Import des paramètres")
   }
+
+  const toggleObjective = (objective: string) => {
+    setProfileForm((prev) => {
+      const selected = prev.objectives.includes(objective)
+      return {
+        ...prev,
+        objectives: selected
+          ? prev.objectives.filter((item) => item !== objective)
+          : [...prev.objectives, objective],
+      }
+    })
+  }
+
+  const objectivesDisplay = useMemo(
+    () => [
+      {
+        title: "Veille automatisée",
+        description: "Gardez un temps d'avance en détectant automatiquement les nouvelles opportunités.",
+        icon: Target,
+      },
+      {
+        title: "Analyse marché",
+        description: "Suivez vos concurrents et les tendances locales en temps réel.",
+        icon: BarChart3,
+      },
+      {
+        title: "Equipe alignée",
+        description: "Centralisez rapports, piges et alertes dans une plateforme unique.",
+        icon: Users,
+      },
+    ],
+    [],
+  )
 
   // Calculs pour les KPIs
   const activeNotifications = (notifications.email ? 1 : 0) + (notifications.push ? 1 : 0) + (notifications.sms ? 1 : 0)
@@ -157,7 +254,7 @@ export default function ParametresPage() {
             </Button>
             <Button 
               onClick={handleSave}
-              disabled={isLoading}
+              disabled={isLoading || isFetching}
               className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
             >
               {isLoading ? <Zap className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
@@ -170,6 +267,20 @@ export default function ParametresPage() {
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
         <div className="max-w-7xl mx-auto space-y-8">
+          {feedback && (
+            <div
+              className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-sm ${
+                feedback.type === "success"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                  : "border-red-200 bg-red-50 text-red-600"
+              }`}
+            >
+              <span>{feedback.message}</span>
+              <Button variant="ghost" size="sm" onClick={() => setFeedback(null)}>
+                OK
+              </Button>
+            </div>
+          )}
           
           {/* KPIs Généraux */}
           <motion.div 
@@ -221,39 +332,159 @@ export default function ParametresPage() {
                 className="h-full"
               >
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
+                  <div className="grid gap-3">
                     <div>
-                      <p className="text-2xl font-bold text-slate-900">{profile.name}</p>
-                      <p className="text-sm text-slate-600">{profile.role}</p>
+                      <Label htmlFor="fullName" className="text-xs uppercase tracking-wide text-slate-500">
+                        Nom & prénom
+                      </Label>
+                      <Input
+                        id="fullName"
+                        value={profileForm.fullName}
+                        onChange={(event) => setProfileForm((prev) => ({ ...prev, fullName: event.target.value }))}
+                        placeholder="Votre nom et prénom"
+                        disabled={isFetching}
+                      />
                     </div>
-                    <Badge variant="secondary" className="bg-violet-100 text-violet-700 border-violet-200">
-                      {profile.agency}
-                    </Badge>
+                    <div>
+                      <Label htmlFor="role" className="text-xs uppercase tracking-wide text-slate-500">
+                        Poste / rôle
+                      </Label>
+                      <Input
+                        id="role"
+                        value={profileForm.contactRole}
+                        onChange={(event) => setProfileForm((prev) => ({ ...prev, contactRole: event.target.value }))}
+                        placeholder="Directeur commercial, agent, etc."
+                        disabled={isFetching}
+                      />
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <Label htmlFor="email" className="text-xs uppercase tracking-wide text-slate-500">
+                          Email professionnel
+                        </Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          value={profileForm.email}
+                          onChange={(event) => setProfileForm((prev) => ({ ...prev, email: event.target.value }))}
+                          placeholder="prenom@agence.fr"
+                          disabled={isFetching}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="phone" className="text-xs uppercase tracking-wide text-slate-500">
+                          Téléphone
+                        </Label>
+                        <Input
+                          id="phone"
+                          value={profileForm.phone}
+                          onChange={(event) => setProfileForm((prev) => ({ ...prev, phone: event.target.value }))}
+                          placeholder="+33 6 12 34 56 78"
+                          disabled={isFetching}
+                        />
+                      </div>
+                    </div>
                   </div>
-                  
+                  <p className="text-xs text-slate-500">
+                    Ces informations personnalisent les rapports, sécurisent votre compte et facilitent le suivi de votre équipe par nos Customer Success.
+                  </p>
+                </div>
+              </ModernCard>
+            </motion.div>
+
+            {/* BLOC 1.5 - Agence & objectifs */}
+            <motion.div variants={fadeInUp}>
+              <ModernCard
+                title="Agence & Objectifs"
+                icon={<Building2 className="h-5 w-5 text-indigo-600" />}
+                className="h-full"
+              >
+                <div className="space-y-4">
+                  <div className="grid gap-3">
+                    <div>
+                      <Label htmlFor="agency" className="text-xs uppercase tracking-wide text-slate-500">
+                        Agence / structure
+                      </Label>
+                      <Input
+                        id="agency"
+                        value={profileForm.agency}
+                        onChange={(event) => setProfileForm((prev) => ({ ...prev, agency: event.target.value }))}
+                        placeholder="Agence Horizon Immobilier"
+                        disabled={isFetching}
+                      />
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <Label htmlFor="companySize" className="text-xs uppercase tracking-wide text-slate-500">
+                          Taille de l’équipe
+                        </Label>
+                        <Select
+                          value={profileForm.companySize}
+                          onValueChange={(value) => setProfileForm((prev) => ({ ...prev, companySize: value }))}
+                          disabled={isFetching}
+                        >
+                          <SelectTrigger id="companySize">
+                            <SelectValue placeholder="Sélectionner" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="1-3">1-3 collaborateurs</SelectItem>
+                            <SelectItem value="4-10">4-10 collaborateurs</SelectItem>
+                            <SelectItem value="11-30">11-30 collaborateurs</SelectItem>
+                            <SelectItem value="31+">31 et +</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="rounded-xl border border-violet-100 bg-violet-50 px-4 py-3 text-sm text-violet-700">
+                        <span className="font-medium">Vos objectifs clés</span>
+                        <p className="text-xs text-violet-600">Choisissez jusqu’à 3 priorités.</p>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
-                    <div className="p-3 bg-slate-50 rounded-lg">
-                      <p className="text-sm font-medium text-slate-900">Email</p>
-                      <p className="text-xs text-slate-600">{profile.email}</p>
-                    </div>
-                    <div className="p-3 bg-slate-50 rounded-lg">
-                      <p className="text-sm font-medium text-slate-900">Téléphone</p>
-                      <p className="text-xs text-slate-600">{profile.phone || 'Non renseigné'}</p>
-                    </div>
+                    {objectiveOptions.map((objective) => {
+                      const selected = profileForm.objectives.includes(objective)
+                      return (
+                        <button
+                          key={objective}
+                          type="button"
+                          onClick={() => toggleObjective(objective)}
+                          disabled={isFetching}
+                          className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm transition ${
+                            selected
+                              ? "border-violet-500 bg-violet-50 text-violet-700"
+                              : "border-slate-200 bg-white text-slate-600 hover:border-violet-200 hover:bg-violet-50 hover:text-violet-600"
+                          }`}
+                        >
+                          <span>{objective}</span>
+                          {selected && <CheckCircle2 className="h-5 w-5 text-violet-500" />}
+                        </button>
+                      )
+                    })}
                   </div>
-                  
-                  <div className="flex gap-2">
-                    <Button 
-                      variant="outline" 
-                      className="flex-1 border-slate-200 hover:border-violet-300 hover:text-violet-600"
-                    >
-                      <Eye className="mr-2 h-4 w-4" />
-                      Voir profil
-                    </Button>
-                    <Button className="flex-1 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white border-0">
-                      <User className="mr-2 h-4 w-4" />
-                      Modifier
-                    </Button>
+
+                  <div>
+                    <Label htmlFor="notes" className="text-xs uppercase tracking-wide text-slate-500">
+                      Précisions supplémentaires
+                    </Label>
+                    <Textarea
+                      id="notes"
+                      value={profileForm.notes}
+                      onChange={(event) => setProfileForm((prev) => ({ ...prev, notes: event.target.value }))}
+                      placeholder="Partagez vos attentes, vos outils actuels ou un besoin spécifique…"
+                      className="min-h-[120px]"
+                      disabled={isFetching}
+                    />
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    {objectivesDisplay.map(({ title, description, icon: Icon }) => (
+                      <div key={title} className="rounded-xl border border-white/10 bg-gradient-to-br from-violet-600/10 to-indigo-600/10 p-3 text-slate-600">
+                        <Icon className="h-5 w-5 text-violet-500" />
+                        <p className="mt-2 text-sm font-semibold text-slate-800">{title}</p>
+                        <p className="text-xs text-slate-500">{description}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </ModernCard>

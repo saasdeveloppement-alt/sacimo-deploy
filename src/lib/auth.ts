@@ -8,47 +8,47 @@ import bcrypt from "bcryptjs"
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
-    CredentialsProvider({
-      name: "credentials",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-      },
-      async authorize(credentials) {
-        console.log("🔐 Authorize called with:", credentials?.email)
+  CredentialsProvider({
+    name: "credentials",
+    credentials: {
+      email: { label: "Email", type: "email" },
+      password: { label: "Password", type: "password" },
+    },
+    async authorize(credentials) {
+      console.log("🔐 Authorize called with:", credentials?.email)
 
-        if (!credentials?.email || !credentials?.password) {
-          console.log("❌ Missing credentials")
-          return null
-        }
+      if (!credentials?.email || !credentials?.password) {
+        console.log("❌ Missing credentials")
+        return null
+      }
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
-        })
+      const user = await prisma.user.findUnique({
+        where: { email: credentials.email },
+      })
 
-        console.log("👤 User found:", user ? "YES" : "NO")
+      console.log("👤 User found:", user ? "YES" : "NO")
 
-        if (!user?.password) {
-          console.log("❌ No user or no password")
-          return null
-        }
+      if (!user?.password) {
+        console.log("❌ No user or no password")
+        return null
+      }
 
-        const isValid = await bcrypt.compare(credentials.password, user.password)
-        console.log("🔑 Password valid:", isValid)
+      const isValid = await bcrypt.compare(credentials.password, user.password)
+      console.log("🔑 Password valid:", isValid)
 
-        if (!isValid) {
-          console.log("❌ Invalid password")
-          return null
-        }
+      if (!isValid) {
+        console.log("❌ Invalid password")
+        return null
+      }
 
-        console.log("✅ Auth successful")
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          image: user.image,
-        }
-      },
+      console.log("✅ Auth successful")
+      return {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        image: user.image,
+      }
+    },
     }),
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,

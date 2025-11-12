@@ -1,4 +1,14 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from "next"
+
+const isProd = process.env.NODE_ENV === "production"
+const defaultPort = process.env.PORT || "3000"
+
+if (
+  !isProd &&
+  (!process.env.NEXTAUTH_URL || process.env.NEXTAUTH_URL.includes(".vercel.app"))
+) {
+  process.env.NEXTAUTH_URL = `http://localhost:${defaultPort}`
+}
 
 const nextConfig: NextConfig = {
   images: {
@@ -30,6 +40,6 @@ const nextConfig: NextConfig = {
     // Désactiver la vérification stricte des domaines pour les images d'annonces
     unoptimized: false,
   },
-};
+}
 
-export default nextConfig;
+export default nextConfig

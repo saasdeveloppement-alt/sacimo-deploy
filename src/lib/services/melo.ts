@@ -205,7 +205,21 @@ export class MeloService {
       if (!response.ok) {
         const errorText = await response.text()
         console.error('❌ Melo.io - Erreur réponse:', errorText)
-        throw new Error(`Melo API error: ${response.status} - ${errorText}`)
+        
+        // Gestion spécifique des codes d'erreur
+        let errorMessage = `Melo API error: ${response.status}`
+        
+        if (response.status === 401) {
+          errorMessage = '❌ Erreur d\'authentification - Vérifiez votre MELO_API_KEY'
+        } else if (response.status === 403) {
+          errorMessage = '❌ Accès refusé - Vérifiez les permissions de votre clé API'
+        } else if (response.status === 429) {
+          errorMessage = '❌ Limite de requêtes atteinte - Attendez quelques minutes'
+        } else if (response.status >= 500) {
+          errorMessage = '❌ Erreur serveur Melo.io - Réessayez plus tard'
+        }
+        
+        throw new Error(`${errorMessage} - ${errorText}`)
       }
       
       const data: MeloResponse = await response.json()
