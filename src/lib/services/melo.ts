@@ -17,17 +17,33 @@ interface MeloProperty {
   '@id': string
   '@type': string
   propertyType?: number
+  price?: number
+  surface?: number
+  room?: number
+  title?: string | null
+  description?: string | null
+  pictures?: string[]
+  createdAt?: string
+  city?: {
+    name: string
+    zipcode: string
+    department?: {
+      code: string
+      name: string
+    }
+  }
   adverts?: Array<{
+    title?: string | null
     price: number
     surface: number
-    rooms: number
-    bedrooms: number
-    city: string
-    zipCode: string
-    description: string
-    images: string[]
+    room: number
+    bedroom?: number | null
+    description?: string | null
+    pictures?: string[]
+    picturesRemote?: string[]
     url: string
     createdAt: string
+    updatedAt?: string
   }>
 }
 
@@ -252,7 +268,7 @@ export class MeloService {
     const annonces: LeBonCoinAnnonce[] = []
     
     meloProperties.forEach((property: MeloProperty, index: number) => {
-      // Prendre le premier advert (ou le dernier si plusieurs)
+      // Prendre le premier advert (le plus récent généralement)
       const advert = property.adverts?.[0]
       
       if (!advert) {
@@ -260,10 +276,24 @@ export class MeloService {
         return
       }
       
-      // Extraire le titre depuis la description (premiers 100 caractères)
-      const title = advert.description 
-        ? advert.description.substring(0, 100).replace(/\n/g, ' ').trim()
-        : 'Annonce immobilière'
+      // Extraire le titre depuis advert.title ou description
+      let title = advert.title || ''
+      if (!title && advert.description) {
+        // Prendre les premiers mots de la description comme titre
+        title = advert.description.substring(0, 100).replace(/\n/g, ' ').trim()
+      }
+      if (!title) {
+        title = 'Annonce immobilière'
+      }
+      
+      // Extraire la ville depuis property.city (structure Melo.io)
+      const cityName = property.city?.name || ''
+      const postalCode = property.city?.zipcode || ''
+      
+      // Extraire les images depuis advert.pictures ou property.pictures
+      const images = advert.pictures && advert.pictures.length > 0 
+        ? advert.pictures 
+        : (property.pictures && property.pictures.length > 0 ? property.pictures : [])
       
       // Déterminer le type depuis propertyType
       let typeLabel = 'Appartement'
@@ -274,17 +304,23 @@ export class MeloService {
       else if (property.propertyType === 5) typeLabel = 'Terrain'
       else if (property.propertyType === 6) typeLabel = 'Commerce'
       
+      // Construire le titre complet avec ville si disponible
+      let fullTitle = title
+      if (cityName && !title.includes(cityName)) {
+        fullTitle = `${title} - ${cityName}`
+      }
+      
       const converted: LeBonCoinAnnonce = {
-        title: title || 'Sans titre',
-        price: advert.price?.toString() || '0',
-        surface: advert.surface ? `${advert.surface} m²` : undefined,
-        rooms: advert.rooms || undefined,
-        postalCode: advert.zipCode || undefined,
-        city: advert.city || '',
+        title: fullTitle || 'Sans titre',
+        price: (advert.price || property.price || 0).toString(),
+        surface: (advert.surface || property.surface) ? `${advert.surface || property.surface} m²` : undefined,
+        rooms: advert.room || property.room || undefined,
+        postalCode: postalCode || undefined,
+        city: cityName || '',
         url: advert.url || '',
-        publishedAt: advert.createdAt ? new Date(advert.createdAt) : new Date(),
-        images: advert.images || [],
-        description: advert.description || ''
+        publishedAt: advert.createdAt ? new Date(advert.createdAt) : (property.createdAt ? new Date(property.createdAt) : new Date()),
+        images: images,
+        description: advert.description || property.description || ''
       }
       
       // Log les premières conversions pour debug
@@ -292,10 +328,12 @@ export class MeloService {
         console.log(`  [${index + 1}] Converti:`, {
           title: converted.title.substring(0, 50),
           city: converted.city,
+          postalCode: converted.postalCode,
           price: converted.price,
           surface: converted.surface,
           rooms: converted.rooms,
-          type: typeLabel
+          type: typeLabel,
+          imagesCount: converted.images?.length || 0
         })
       }
       

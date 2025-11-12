@@ -90,6 +90,7 @@ function AnnoncesContent() {
   
   const [listings, setListings] = useState<Listing[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [loadingMessage, setLoadingMessage] = useState("")
   const [totalCount, setTotalCount] = useState(0)
   const [stats, setStats] = useState<Stats | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
@@ -99,12 +100,99 @@ function AnnoncesContent() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null)
 
-  const loadScrapingData = async () => {
+  const loadScrapingData = async (shouldSync: boolean = true) => {
     setIsLoading(true)
     try {
+      let syncResult = null
+      
+      // 1. Synchronisation Melo.io si demandée
+      if (shouldSync && advancedFilters.cities.length > 0) {
+        setLoadingMessage("🔍 Recherche sur Melo.io...")
+        
+        // Construire le format ville avec code postal si présent
+        const villeFilter = advancedFilters.cities[0]
+        let villeFormatted = villeFilter
+        
+        // Détecter si c'est un code postal (5 chiffres) ou une ville
+        const isPostalCode = /^\d{5}$/.test(villeFilter)
+        
+        // Si c'est un code postal, on l'utilise tel quel
+        // Sinon, on cherche s'il y a un code postal dans les autres villes
+        if (!isPostalCode) {
+          const postalCodeInCities = advancedFilters.cities.find(c => /^\d{5}$/.test(c))
+          if (postalCodeInCities) {
+            villeFormatted = `${villeFilter} (${postalCodeInCities})`
+          }
+        } else {
+          villeFormatted = villeFilter
+        }
+        
+        // Convertir le type (APARTMENT -> appartement, HOUSE -> maison, etc.)
+        const typeMap: Record<string, string> = {
+          'APARTMENT': 'appartement',
+          'HOUSE': 'maison',
+          'STUDIO': 'appartement',
+          'LOFT': 'appartement',
+          'PENTHOUSE': 'appartement',
+          'VILLA': 'maison',
+          'TOWNHOUSE': 'maison',
+        }
+        
+        const syncBody: any = {
+          filters: {
+            ville: villeFormatted,
+          },
+          limit: 100,
+          transformToListing: true,
+        }
+        
+        // Ajouter les autres filtres
+        if (advancedFilters.types.length > 0) {
+          syncBody.filters.typeBien = typeMap[advancedFilters.types[0]] || 'appartement'
+        }
+        if (advancedFilters.minPrice) {
+          syncBody.filters.minPrix = parseInt(advancedFilters.minPrice) || undefined
+        }
+        if (advancedFilters.maxPrice) {
+          syncBody.filters.maxPrix = parseInt(advancedFilters.maxPrice) || undefined
+        }
+        if (advancedFilters.rooms) {
+          syncBody.filters.pieces = parseInt(advancedFilters.rooms) || undefined
+        }
+        
+        // Ajouter le code postal si c'est un code postal seul
+        if (isPostalCode) {
+          syncBody.filters.codePostal = villeFilter
+        } else if (advancedFilters.cities.some(c => /^\d{5}$/.test(c))) {
+          const postalCode = advancedFilters.cities.find(c => /^\d{5}$/.test(c))
+          if (postalCode) {
+            syncBody.filters.codePostal = postalCode
+          }
+        }
+        
+        try {
+          const syncRes = await fetch('/api/melo/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(syncBody),
+          })
+          syncResult = await syncRes.json()
+          
+          if (syncResult.success && syncResult.result?.newAnnonces > 0) {
+            showSuccess(`✅ ${syncResult.result.newAnnonces} nouvelles annonces trouvées sur Melo.io !`)
+          }
+        } catch (syncError: any) {
+          console.error("❌ Erreur synchronisation Melo.io:", syncError)
+          showError(`⚠️ Erreur synchronisation: ${syncError.message || 'Erreur inconnue'}`)
+          // Continuer quand même pour charger depuis la BDD
+        }
+      }
+      
+      setLoadingMessage("📥 Chargement des annonces...")
+      
       console.log("🔍 Chargement des annonces depuis la base de données...")
       
-      // Construire les paramètres de recherche
+      // 2. Construire les paramètres de recherche pour la BDD
       const params = new URLSearchParams()
       
       // Recherche texte (legacy)
@@ -230,6 +318,7 @@ function AnnoncesContent() {
       showError(`❌ Erreur: ${err.message || 'Erreur lors du chargement'}`)
     } finally {
       setIsLoading(false)
+      setLoadingMessage("")
     }
   }
   
@@ -246,9 +335,227 @@ function AnnoncesContent() {
     return 'APARTMENT';
   }
 
+  // Charger les données au montage initial et quand les paramètres changent
   useEffect(() => {
-    loadScrapingData()
-  }, [advancedFilters, sortBy, sortOrder, searchTerm, agencyFromUrl])
+    // Charger depuis la BDD (sans synchronisation automatique)
+    loadScrapingData(false)
+  }, [sortBy, sortOrder, searchTerm, agencyFromUrl]) // eslint-disable-line react-hooks/exhaustive-deps
+  
+  // Fonction pour recharger avec synchronisation (appelée depuis le bouton Appliquer)
+  const handleApplyFilters = () => {
+    loadScrapingData(true)
+  }
+
+  // 🎯 FONCTION CRITIQUE : Synchronisation temps réel Melo.io
+  const handleActualiser = async () => {
+    try {
+      setIsLoading(true)
+      setLoadingMessage("🔍 Recherche en cours sur Melo.io...")
+      
+      console.log("🔄 ===== DÉBUT SYNCHRONISATION MELO.IO =====")
+      console.log("📋 Filtres actuels:", JSON.stringify(advancedFilters, null, 2))
+      
+      // ÉTAPE 1 : Construire les filtres au format Melo.io
+      const meloFilters: any = {}
+      
+      // Ville + Code postal (format critique pour Melo.io)
+      if (advancedFilters.cities && advancedFilters.cities.length > 0) {
+        const city = advancedFilters.cities[0]
+        const isPostalCode = /^\d{5}$/.test(city)
+        
+        // Si c'est un code postal seul (ex: "75016")
+        if (isPostalCode) {
+          // Pour un code postal seul, on peut utiliser "Paris (75016)" ou juste "75016"
+          // On essaie d'abord avec "Paris (75016)" si on détecte que c'est Paris
+          if (city.startsWith('75')) {
+            meloFilters.ville = `Paris (${city})`
+          } else {
+            // Pour les autres villes, on utilise juste le code postal
+            meloFilters.ville = city
+          }
+          meloFilters.codePostal = city
+          console.log(`📍 Code postal détecté: ${city} → ville: "${meloFilters.ville}"`)
+        } else {
+          // C'est un nom de ville
+          meloFilters.ville = city
+          
+          // Chercher un code postal dans les autres villes
+          const postalCodeInCities = advancedFilters.cities.find(c => /^\d{5}$/.test(c))
+          if (postalCodeInCities) {
+            meloFilters.ville = `${city} (${postalCodeInCities})`
+            meloFilters.codePostal = postalCodeInCities
+            console.log(`📍 Ville + Code postal: "${meloFilters.ville}"`)
+          } else {
+            console.log(`📍 Ville seule: "${meloFilters.ville}"`)
+          }
+        }
+      }
+      
+      // Type de bien (conversion APARTMENT -> appartement, etc.)
+      if (advancedFilters.types && advancedFilters.types.length > 0) {
+        const typeMap: Record<string, string> = {
+          'APARTMENT': 'appartement',
+          'HOUSE': 'maison',
+          'STUDIO': 'appartement',
+          'LOFT': 'appartement',
+          'PENTHOUSE': 'appartement',
+          'VILLA': 'maison',
+          'TOWNHOUSE': 'maison',
+        }
+        const uiType = advancedFilters.types[0]
+        meloFilters.typeBien = typeMap[uiType] || uiType.toLowerCase()
+        console.log(`🏠 Type de bien: ${uiType} → ${meloFilters.typeBien}`)
+      }
+      
+      // Prix
+      if (advancedFilters.minPrice) {
+        meloFilters.minPrix = parseInt(advancedFilters.minPrice) || undefined
+        console.log(`💰 Prix min: ${meloFilters.minPrix}€`)
+      }
+      if (advancedFilters.maxPrice) {
+        meloFilters.maxPrix = parseInt(advancedFilters.maxPrice) || undefined
+        console.log(`💰 Prix max: ${meloFilters.maxPrix}€`)
+      }
+      
+      // Surface
+      if (advancedFilters.minSurface) {
+        meloFilters.minSurface = parseInt(advancedFilters.minSurface) || undefined
+        console.log(`📐 Surface min: ${meloFilters.minSurface}m²`)
+      }
+      if (advancedFilters.maxSurface) {
+        meloFilters.maxSurface = parseInt(advancedFilters.maxSurface) || undefined
+        console.log(`📐 Surface max: ${meloFilters.maxSurface}m²`)
+      }
+      
+      // Pièces
+      if (advancedFilters.rooms) {
+        meloFilters.pieces = parseInt(advancedFilters.rooms) || undefined
+        console.log(`🚪 Pièces: ${meloFilters.pieces}`)
+      }
+      
+      console.log("🔄 Filtres Melo.io construits:", JSON.stringify(meloFilters, null, 2))
+      
+      // ÉTAPE 2 : Synchroniser avec Melo.io
+      const syncResponse = await fetch('/api/melo/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filters: meloFilters,
+          limit: 100,
+          transformToListing: true
+        })
+      })
+      
+      const syncResult = await syncResponse.json()
+      console.log("✅ Résultat synchronisation Melo.io:", JSON.stringify(syncResult, null, 2))
+      
+      if (!syncResponse.ok || !syncResult.success) {
+        throw new Error(syncResult.message || 'Erreur lors de la synchronisation Melo.io')
+      }
+      
+      setLoadingMessage("📥 Chargement des annonces depuis la base de données...")
+      
+      // ÉTAPE 3 : Charger depuis la BDD avec les MÊMES filtres
+      const params = new URLSearchParams()
+      
+      // Recherche texte (legacy)
+      if (searchTerm) params.append('search', searchTerm)
+      
+      // Filtres avancés (identique à loadScrapingData)
+      if (advancedFilters.cities.length > 0) {
+        advancedFilters.cities.forEach(city => params.append('cities', city))
+      }
+      
+      if (advancedFilters.types.length > 0) {
+        advancedFilters.types.forEach(type => params.append('types', type))
+      }
+      
+      if (advancedFilters.minPrice) params.append('minPrice', advancedFilters.minPrice)
+      if (advancedFilters.maxPrice) params.append('maxPrice', advancedFilters.maxPrice)
+      if (advancedFilters.minSurface) params.append('minSurface', advancedFilters.minSurface)
+      if (advancedFilters.maxSurface) params.append('maxSurface', advancedFilters.maxSurface)
+      if (advancedFilters.rooms) params.append('rooms', advancedFilters.rooms)
+      if (advancedFilters.sellerType !== 'all') params.append('sellerType', advancedFilters.sellerType)
+      if (advancedFilters.dateFrom) params.append('dateFrom', advancedFilters.dateFrom)
+      
+      // Filtre par agence depuis l'URL
+      if (agencyFromUrl) {
+        params.append('agency', agencyFromUrl)
+      }
+      
+      params.append('sortBy', sortBy)
+      params.append('sortOrder', sortOrder)
+      params.append('limit', '100')
+      
+      console.log("🔍 Chargement depuis BDD avec params:", params.toString())
+      
+      const response = await fetch(`/api/annonces/list?${params.toString()}`)
+      const data = await response.json()
+      
+      console.log("📦 Données BDD reçues:", {
+        status: data.status,
+        total: data.pagination?.total || 0,
+        dataLength: data.data?.length || 0
+      })
+      
+      if (data.status === 'success' && data.data && Array.isArray(data.data)) {
+        // Convertir les données Prisma au format attendu
+        const convertedListings = data.data.map((annonce: any) => {
+          try {
+            return {
+              title: String(annonce?.title || 'Annonce sans titre'),
+              price: Number(annonce?.price || 0),
+              surface: annonce?.surface != null ? Number(annonce.surface) : undefined,
+              rooms: annonce?.rooms != null ? Number(annonce.rooms) : undefined,
+              city: String(annonce?.city || 'Ville non précisée'),
+              postalCode: String(annonce?.postalCode || ''),
+              type: inferTypeFromTitle(annonce?.title, annonce?.url),
+              source: annonce?.source || 'LeBonCoin',
+              url: String(annonce?.url || ''),
+              publishedAt: annonce?.publishedAt 
+                ? (typeof annonce.publishedAt === 'string' 
+                    ? annonce.publishedAt 
+                    : new Date(annonce.publishedAt).toISOString())
+                : new Date().toISOString(),
+              isPrivateSeller: true,
+              description: String(annonce?.description || ''),
+              photos: Array.isArray(annonce?.images) ? annonce.images.map((img: any) => String(img || '')) : []
+            }
+          } catch (err) {
+            console.error('❌ Erreur conversion annonce:', err, annonce)
+            return null
+          }
+        }).filter((listing: any) => listing !== null)
+        
+        setListings(convertedListings)
+        setTotalCount(data.pagination?.total || convertedListings.length)
+        setStats(data.stats || null)
+        
+        console.log(`✅ ${convertedListings.length} annonces chargées dans le state`)
+        
+        // ÉTAPE 4 : Notifier l'utilisateur
+        if (syncResult.result?.newAnnonces > 0) {
+          showSuccess(`✅ ${syncResult.result.newAnnonces} nouvelles annonces trouvées sur Melo.io ! (${syncResult.result.duplicates || 0} doublons ignorés)`)
+        } else if (convertedListings.length > 0) {
+          showInfo(`ℹ️ ${convertedListings.length} annonces affichées (${syncResult.result?.duplicates || 0} doublons ignorés)`)
+        } else {
+          showInfo("ℹ️ Aucune annonce trouvée avec ces critères")
+        }
+      } else {
+        console.error("❌ Erreur chargement BDD:", data.message)
+        showError(`❌ Erreur: ${data.message || 'Impossible de charger les annonces'}`)
+      }
+      
+      console.log("✅ ===== FIN SYNCHRONISATION MELO.IO =====")
+      
+    } catch (error: any) {
+      console.error('❌ Erreur handleActualiser:', error)
+      showError(`❌ Erreur lors de la recherche: ${error.message || 'Erreur inconnue'}`)
+    } finally {
+      setIsLoading(false)
+      setLoadingMessage("")
+    }
+  }
 
   // Logique de filtrage côté client (pour les types seulement, car pas encore stocké en base)
   const filteredListings = listings.filter(listing => {
@@ -328,12 +635,12 @@ function AnnoncesContent() {
               <List className="h-4 w-4" />
             </Button>
             <Button 
-              onClick={loadScrapingData} 
+              onClick={handleActualiser} 
               disabled={isLoading}
               className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
             >
               {isLoading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
-              {isLoading ? 'Actualisation...' : 'Actualiser'}
+              {isLoading ? (loadingMessage || 'Actualisation...') : '🔄 Actualiser'}
             </Button>
           </div>
         }
@@ -387,7 +694,11 @@ function AnnoncesContent() {
                 
                 {/* Filtres avancés */}
                 <AdvancedFilters
-                  onFilterChange={setAdvancedFilters}
+                  onFilterChange={(filters) => {
+                    setAdvancedFilters(filters)
+                    // Ne pas recharger automatiquement, attendre le bouton "Appliquer"
+                  }}
+                  onApply={handleApplyFilters}
                   initialFilters={advancedFilters}
                   availableCities={stats?.cities?.map(c => c.city) || []}
                 />
@@ -582,7 +893,19 @@ function AnnoncesContent() {
               title="Annonces Immobilières"
               icon={<Target className="h-5 w-5 text-emerald-600" />}
             >
-              {filteredListings.length === 0 ? (
+              {isLoading ? (
+                <div className="text-center py-16">
+                  <RefreshCw className="h-16 w-16 animate-spin text-purple-600 mx-auto mb-4" />
+                  <p className="text-lg font-semibold text-slate-700 mb-2">
+                    {loadingMessage || "Chargement des annonces..."}
+                  </p>
+                  {loadingMessage && (
+                    <p className="text-sm text-slate-500">
+                      Veuillez patienter...
+                    </p>
+                  )}
+                </div>
+              ) : filteredListings.length === 0 ? (
                 <div className="text-center py-16">
                   <motion.div 
                     className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-r from-purple-100 to-blue-100 flex items-center justify-center"

@@ -33,6 +33,7 @@ import { AdvancedFilters, initialFilters } from "@/hooks/useAdvancedFilters"
 
 interface AdvancedFiltersProps {
   onFilterChange: (filters: AdvancedFilters) => void
+  onApply?: () => void // Callback optionnel pour le bouton Appliquer
   initialFilters?: AdvancedFilters
   availableCities?: string[]
 }
@@ -54,6 +55,7 @@ const COMMON_CITIES = [
 
 export default function AdvancedFiltersComponent({
   onFilterChange,
+  onApply,
   initialFilters: propsInitialFilters,
   availableCities = COMMON_CITIES,
 }: AdvancedFiltersProps) {
@@ -102,6 +104,10 @@ export default function AdvancedFiltersComponent({
 
   const handleApply = () => {
     onFilterChange(filters)
+    // Appeler le callback onApply si fourni (pour déclencher la synchronisation)
+    if (onApply) {
+      onApply()
+    }
   }
 
   const handleBadgeClick = (section: string) => {

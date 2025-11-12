@@ -53,12 +53,34 @@ export async function GET(req: NextRequest) {
       where.OR = orConditions;
     }
     
-    // Filtres par villes (array)
+    // Filtres par villes (array) - peut contenir des noms de villes ou des codes postaux
     if (cities.length > 0) {
-      where.city = { in: cities };
+      // Vérifier si ce sont des codes postaux (5 chiffres) ou des noms de villes
+      const postalCodes = cities.filter(c => /^\d{5}$/.test(c));
+      const cityNames = cities.filter(c => !/^\d{5}$/.test(c));
+      
+      if (postalCodes.length > 0 && cityNames.length > 0) {
+        // Mix de codes postaux et noms de villes
+        where.OR = [
+          { postalCode: { in: postalCodes } },
+          { city: { in: cityNames } }
+        ];
+      } else if (postalCodes.length > 0) {
+        // Uniquement des codes postaux
+        where.postalCode = { in: postalCodes };
+      } else {
+        // Uniquement des noms de villes
+        where.city = { in: cityNames };
+      }
     } else if (city && city !== 'all') {
       // Legacy: compatibilité avec l'ancien paramètre city
-      where.city = { contains: city, mode: 'insensitive' };
+      if (/^\d{5}$/.test(city)) {
+        // C'est un code postal
+        where.postalCode = city;
+      } else {
+        // C'est un nom de ville
+        where.city = { contains: city, mode: 'insensitive' };
+      }
     }
     
     // Filtres par prix
