@@ -2,49 +2,27 @@ import { LeBonCoinAnnonce } from '../scrapers/leboncoin-zenrows'
 
 interface MeloSearchParams {
   ville?: string
-  minPrix?: number
-  maxPrix?: number
-  minSurface?: number
-  maxSurface?: number
-  typeBien?: 'appartement' | 'maison' | 'immeuble' | 'parking' | 'bureau' | 'terrain' | 'commerce'
-  pieces?: number
-  chambres?: number
-  transactionType?: 'vente' | 'location'
+  cityId?: number
+  department?: string
   itemsPerPage?: number
-  page?: number // Numéro de page pour la pagination
+  page?: number
 }
 
 interface MeloProperty {
   '@id': string
   '@type': string
   propertyType?: number
-  price?: number
-  surface?: number
-  room?: number
-  title?: string | null
-  description?: string | null
-  pictures?: string[]
-  createdAt?: string
-  city?: {
-    name: string
-    zipcode: string
-    department?: {
-      code: string
-      name: string
-    }
-  }
   adverts?: Array<{
-    title?: string | null
     price: number
     surface: number
-    room: number
-    bedroom?: number | null
-    description?: string | null
-    pictures?: string[]
-    picturesRemote?: string[]
+    rooms: number
+    bedrooms: number
+    city: string
+    zipCode: string
+    description: string
+    images: string[]
     url: string
     createdAt: string
-    updatedAt?: string
   }>
 }
 
@@ -108,6 +86,29 @@ export class MeloService {
     }
   }
   
+  /**
+   * Construit les paramètres de requête pour l'API Melo.io
+   */
+  private buildQueryParams(params: MeloSearchParams): URLSearchParams {
+    const queryParams = new URLSearchParams()
+    
+    if (params.cityId) {
+      queryParams.append('includedCities[]', `cities/${params.cityId}`)
+      console.log(`⭐ Filtre ville ID: includedCities[]=cities/${params.cityId}`)
+    } else if (params.department) {
+      queryParams.append('includedDepartments[]', `departments/${params.department}`)
+      console.log(`📍 Département explicite: ${params.department} → includedDepartments[]=departments/${params.department}`)
+    }
+    
+    queryParams.append('itemsPerPage', (params.itemsPerPage || 100).toString())
+    
+    if (params.page && params.page > 1) {
+      queryParams.append('page', params.page.toString())
+    }
+    
+    return queryParams
+  }
+
   async searchAnnonces(params: MeloSearchParams): Promise<LeBonCoinAnnonce[]> {
     if (!this.apiKey) {
       throw new Error('❌ MELO_API_KEY non configurée ! Le scraping ne peut pas fonctionner.')
@@ -115,90 +116,28 @@ export class MeloService {
     
     try {
       // Construire les paramètres de requête
-      const queryParams = new URLSearchParams()
+      const queryParams = this.buildQueryParams(params)
       
-      // Property types (0=Appartement, 1=Maison, 2=Immeuble, 3=Parking, 4=Bureau, 5=Terrain, 6=Commerce)
-      // Déclarer propertyTypes en dehors du if pour les logs
-      const propertyTypes: number[] = []
-      
-      // Si aucun type spécifié, ne pas ajouter de filtre (récupère tout)
-      if (params.typeBien) {
-        if (params.typeBien === 'appartement') {
-          propertyTypes.push(0)
-        } else if (params.typeBien === 'maison') {
-          propertyTypes.push(1)
-        } else if (params.typeBien === 'immeuble') {
-          propertyTypes.push(2)
-        } else if (params.typeBien === 'parking') {
-          propertyTypes.push(3)
-        } else if (params.typeBien === 'bureau') {
-          propertyTypes.push(4)
-        } else if (params.typeBien === 'terrain') {
-          propertyTypes.push(5)
-        } else if (params.typeBien === 'commerce') {
-          propertyTypes.push(6)
-        }
-      }
-      
-      // Ajouter les types seulement s'ils sont définis
-      if (propertyTypes.length > 0) {
-        propertyTypes.forEach(type => {
-          queryParams.append('propertyTypes[]', type.toString())
-        })
-      }
-      
-      // Transaction type (0=Vente, 1=Location)
-      const transactionType = params.transactionType === 'location' ? '1' : '0'
-      queryParams.append('transactionType', transactionType)
-      
-      // Budget
-      if (params.minPrix !== undefined && params.minPrix !== null) {
-        queryParams.append('budgetMin', params.minPrix.toString())
-      }
-      if (params.maxPrix !== undefined && params.maxPrix !== null) {
-        queryParams.append('budgetMax', params.maxPrix.toString())
-      }
-      
-      // Surface
-      if (params.minSurface !== undefined && params.minSurface !== null) {
-        queryParams.append('surfaceMin', params.minSurface.toString())
-      }
-      if (params.maxSurface !== undefined && params.maxSurface !== null) {
-        queryParams.append('surfaceMax', params.maxSurface.toString())
-      }
-      
-      // Chambres
-      if (params.chambres !== undefined && params.chambres !== null) {
-        queryParams.append('bedroomMin', params.chambres.toString())
-      }
-      
-      // Pièces
-      if (params.pieces !== undefined && params.pieces !== null) {
-        queryParams.append('roomMin', params.pieces.toString())
-      }
-      
-      // Département par ville
+      // Log pour debug
       if (params.ville) {
         const villeLower = params.ville.toLowerCase().trim()
         const dept = this.villesToDept[villeLower]
         if (dept) {
-          queryParams.append('includedDepartments[]', `departments/${dept}`)
           console.log(`📍 Ville "${params.ville}" → Département ${dept}`)
         } else {
           console.warn(`⚠️ Ville "${params.ville}" non reconnue dans le mapping. Recherche sans filtre département.`)
         }
       }
       
-      // Prix cohérents (recommandé)
-      queryParams.append('withCoherentPrice', 'true')
-      
-      // Nombre de résultats par page (maximum 100 selon l'API Hydra)
-      const itemsPerPage = Math.min(params.itemsPerPage || 100, 100)
-      queryParams.append('itemsPerPage', itemsPerPage.toString())
-      
-      // Pagination : page (commence à 1)
-      if (params.page) {
-        queryParams.append('page', params.page.toString())
+      // Si params.ville contient un code postal, essayer d'ajouter un paramètre zipCode si l'API le supporte
+      if (params.ville) {
+        const postalCodeMatch = params.ville.match(/\((\d{5})\)/)
+        if (postalCodeMatch) {
+          const postalCode = postalCodeMatch[1]
+          // Essayer d'ajouter le code postal comme paramètre séparé si l'API le supporte
+          // queryParams.append('zipCode', postalCode) // Décommenter si l'API supporte ce paramètre
+          console.log(`📍 Code postal extrait: ${postalCode} depuis "${params.ville}"`)
+        }
       }
       
       const apiUrl = `${this.baseUrl}/documents/properties?${queryParams.toString()}`
@@ -206,19 +145,12 @@ export class MeloService {
       console.log('🔵 Melo.io - Requête API:', {
         environment: this.environment,
         baseUrl: this.baseUrl,
+        url: apiUrl.replace(this.apiKey, 'XXX'),
         params: {
-          propertyTypes,
-          transactionType,
           ville: params.ville,
-          minPrix: params.minPrix,
-          maxPrix: params.maxPrix,
-          minSurface: params.minSurface,
-          maxSurface: params.maxSurface,
-          pieces: params.pieces,
-          chambres: params.chambres,
-          itemsPerPage: params.itemsPerPage || 50
-        },
-        url: apiUrl.replace(this.apiKey, 'XXX')
+          department: params.department,
+          itemsPerPage: params.itemsPerPage || 100,
+        }
       })
       
       const response = await fetch(apiUrl, {
@@ -258,12 +190,12 @@ export class MeloService {
         resultCount: data['hydra:member']?.length || 0,
         hasResults: !!data['hydra:member'],
         hasNextPage: !!data['hydra:view']?.['hydra:next'],
-        currentPage: params.page || 1
+        pagination: data['hydra:view']
       })
       
       // Convertir le format Melo vers notre format
       const annonces = this.convertMeloToAnnonce(data['hydra:member'] || [])
-      console.log(`✅ Melo.io - ${annonces.length} annonces converties (page ${params.page || 1})`)
+      console.log(`✅ Melo.io - ${annonces.length} annonces converties`)
       
       return annonces
       
@@ -274,150 +206,150 @@ export class MeloService {
   }
   
   /**
-   * Récupère TOUTES les annonces en paginant automatiquement
-   * @param params Paramètres de recherche
-   * @param maxPages Nombre maximum de pages à récupérer (sécurité)
-   * @returns Toutes les annonces correspondant aux critères
+   * Recherche avec pagination automatique Hydra
+   * Récupère TOUTES les annonces disponibles en suivant les liens hydra:next
+   * Boucle simple : tant que hydra:next existe, on continue à fetch
    */
-  async searchAnnoncesWithPagination(params: MeloSearchParams = {}, maxPages: number = 20): Promise<LeBonCoinAnnonce[]> {
-    if (!this.apiKey) {
-      throw new Error('❌ MELO_API_KEY non configurée ! Le scraping ne peut pas fonctionner.')
-    }
+  async searchAnnoncesWithPagination(params: MeloSearchParams): Promise<LeBonCoinAnnonce[]> {
+    console.log(`🚀 searchAnnoncesWithPagination APPELÉE`)
+    console.log(`📥 Paramètres reçus:`, JSON.stringify(params, null, 2))
+    
+    let allAnnonces: LeBonCoinAnnonce[] = []
+    let nextUrl: string | null = null
+    let pageCount = 0
+    const maxPagesSafe = 200
     
     try {
-      let allAnnonces: LeBonCoinAnnonce[] = []
-      let currentPage = 1
-      let hasMore = true
-      let totalItems = 0
-      const itemsPerPage = 100 // Maximum par page selon l'API
+      // 1. Construire l'URL de la première page
+      const firstPageParams: MeloSearchParams = {
+        ...params,
+        itemsPerPage: 100, // Maximum par page autorisé par Melo.io
+        page: 1
+      }
       
-      console.log('🔄 Démarrage recherche paginée Melo.io...')
+      const queryParams = this.buildQueryParams(firstPageParams)
+      nextUrl = `${this.baseUrl}/documents/properties?${queryParams.toString()}`
       
-      while (hasMore && currentPage <= maxPages) {
-        console.log(`📄 Récupération page ${currentPage}/${maxPages}...`)
+      console.log(`🔄 Démarrage pagination Hydra Melo.io...`)
+      console.log(`📋 Paramètres de recherche:`, {
+        ville: params.ville,
+        department: params.department,
+        itemsPerPage: firstPageParams.itemsPerPage
+      })
+      console.log(`🌐 URL première page: ${nextUrl.replace(this.apiKey, 'XXX')}`)
+      console.log(`   ⭐ Filtre département: ${params.department ? `includedDepartments[]=departments/${params.department}` : 'NON'}`)
+      
+      // 2. Boucle de pagination Hydra
+      console.log(">>> Melo pagination START:", nextUrl.replace(this.apiKey, 'XXX'))
+      while (nextUrl && pageCount < maxPagesSafe) {
+        const currentPage = pageCount + 1
+        console.log(">>> PAGE FETCH:", currentPage, nextUrl)
+        console.log(`📄 Récupération page ${currentPage}...`)
+        console.log(`   URL: ${nextUrl.replace(this.apiKey, 'XXX')}`)
+        pageCount++
         
-        // Construire les paramètres avec pagination
-        const pageParams: MeloSearchParams = {
-          ...params,
-          page: currentPage,
-          itemsPerPage: itemsPerPage
-        }
-        
-        // Faire la requête pour cette page
-        const queryParams = new URLSearchParams()
-        
-        // Construire les mêmes paramètres que searchAnnonces mais avec la page
-        const propertyTypes: number[] = []
-        if (pageParams.typeBien) {
-          if (pageParams.typeBien === 'appartement') propertyTypes.push(0)
-          else if (pageParams.typeBien === 'maison') propertyTypes.push(1)
-          else if (pageParams.typeBien === 'immeuble') propertyTypes.push(2)
-          else if (pageParams.typeBien === 'parking') propertyTypes.push(3)
-          else if (pageParams.typeBien === 'bureau') propertyTypes.push(4)
-          else if (pageParams.typeBien === 'terrain') propertyTypes.push(5)
-          else if (pageParams.typeBien === 'commerce') propertyTypes.push(6)
-        }
-        
-        if (propertyTypes.length > 0) {
-          propertyTypes.forEach(type => queryParams.append('propertyTypes[]', type.toString()))
-        }
-        
-        const transactionType = pageParams.transactionType === 'location' ? '1' : '0'
-        queryParams.append('transactionType', transactionType)
-        
-        if (pageParams.minPrix !== undefined && pageParams.minPrix !== null) {
-          queryParams.append('budgetMin', pageParams.minPrix.toString())
-        }
-        if (pageParams.maxPrix !== undefined && pageParams.maxPrix !== null) {
-          queryParams.append('budgetMax', pageParams.maxPrix.toString())
-        }
-        if (pageParams.minSurface !== undefined && pageParams.minSurface !== null) {
-          queryParams.append('surfaceMin', pageParams.minSurface.toString())
-        }
-        if (pageParams.maxSurface !== undefined && pageParams.maxSurface !== null) {
-          queryParams.append('surfaceMax', pageParams.maxSurface.toString())
-        }
-        if (pageParams.chambres !== undefined && pageParams.chambres !== null) {
-          queryParams.append('bedroomMin', pageParams.chambres.toString())
-        }
-        if (pageParams.pieces !== undefined && pageParams.pieces !== null) {
-          queryParams.append('roomMin', pageParams.pieces.toString())
-        }
-        
-        if (pageParams.ville) {
-          const villeLower = pageParams.ville.toLowerCase().trim()
-          const dept = this.villesToDept[villeLower]
-          if (dept) {
-            queryParams.append('includedDepartments[]', `departments/${dept}`)
+        try {
+          // Fetch de la page courante
+          const response = await fetch(nextUrl, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-API-KEY': this.apiKey
+            }
+          })
+          
+          if (!response.ok) {
+            const errorText = await response.text()
+            console.error(`❌ Erreur HTTP ${response.status} pour la page ${currentPage}:`, errorText)
+            break
           }
-        }
-        
-        queryParams.append('withCoherentPrice', 'true')
-        queryParams.append('itemsPerPage', itemsPerPage.toString())
-        queryParams.append('page', currentPage.toString())
-        
-        const apiUrl = `${this.baseUrl}/documents/properties?${queryParams.toString()}`
-        
-        const response = await fetch(apiUrl, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-API-KEY': this.apiKey
+          
+          const json: MeloResponse = await response.json()
+          
+          console.log(">>> Melo page received:", nextUrl.replace(this.apiKey, 'XXX'))
+          console.log("hydra:view:", json["hydra:view"])
+          console.log("hydra:next:", json["hydra:view"]?.["hydra:next"])
+          console.log("Annonces page size:", json["hydra:member"]?.length)
+          console.log(">>> MELO SYNC URL:", nextUrl)
+          console.log(">>> MELO PAGE SIZE:", json["hydra:member"]?.length)
+          console.log(">>> MELO NEXT:", json["hydra:view"]?.["hydra:next"])
+          
+          // Extraire les annonces de cette page
+          const pageAnnonces = this.convertMeloToAnnonce(json['hydra:member'] || [])
+          allAnnonces = [...allAnnonces, ...pageAnnonces]
+          
+          // Log des informations
+          const totalItems = json['hydra:totalItems'] || 0
+          const hydraView = json['hydra:view'] || {}
+          const nextPageUrl = hydraView['hydra:next'] || null
+          
+          console.log(`✅ Page ${currentPage}: ${pageAnnonces.length} annonces récupérées`)
+          console.log(`   Total cumulé: ${allAnnonces.length}`)
+          console.log(`   Total disponible (hydra:totalItems): ${totalItems}`)
+          console.log(`   Page suivante (hydra:next): ${nextPageUrl ? 'OUI' : 'NON'}`)
+          
+          // Mettre à jour nextUrl pour la prochaine itération
+          if (nextPageUrl) {
+            if (nextPageUrl.startsWith("/")) {
+              nextUrl = `${this.baseUrl}${nextPageUrl}`
+            } else {
+              nextUrl = nextPageUrl
+            }
+          } else {
+            nextUrl = null
           }
-        })
-        
-        if (!response.ok) {
-          const errorText = await response.text()
-          console.error(`❌ Erreur page ${currentPage}:`, errorText)
-          hasMore = false
+          console.log(">>> NEXT PAGE ABS:", nextUrl ? nextUrl.replace(this.apiKey, 'XXX') : null)
+          console.log(">>> next page:", nextUrl ? nextUrl.replace(this.apiKey, 'XXX') : null)
+          
+          // Si pas de page suivante, arrêter
+          if (!nextUrl) {
+            console.log(`✅ Toutes les pages récupérées (${allAnnonces.length} annonces sur ${totalItems} disponibles)`)
+            break
+          }
+          
+          // Vérifier si on a récupéré toutes les annonces disponibles
+          if (totalItems > 0 && allAnnonces.length >= totalItems) {
+            console.log(`🎉 Toutes les annonces récupérées (${allAnnonces.length}/${totalItems})`)
+            break
+          }
+          
+          // Arrêter si on atteint 10000 annonces (limite maximale)
+          if (allAnnonces.length >= 10000) {
+            console.log(`⚠️ Limite de 10000 annonces atteinte`)
+            break
+          }
+          
+          // Petit délai entre pages pour éviter de surcharger l'API
+          await new Promise(resolve => setTimeout(resolve, 200)) // 200ms entre chaque page
+          
+        } catch (error) {
+          console.error(`❌ Erreur lors de la récupération de la page ${currentPage}:`, error)
           break
         }
-        
-        const data: MeloResponse = await response.json()
-        const annonces = this.convertMeloToAnnonce(data['hydra:member'] || [])
-        
-        // Récupérer le total depuis la première page
-        if (currentPage === 1) {
-          totalItems = data['hydra:totalItems'] || 0
-          console.log(`📊 Total d'annonces disponibles: ${totalItems}`)
-        }
-        
-        allAnnonces = [...allAnnonces, ...annonces]
-        
-        console.log(`✅ Page ${currentPage}: ${annonces.length} annonces (Total: ${allAnnonces.length}/${totalItems || '?'})`)
-        
-        // Vérifier s'il y a une page suivante
-        const hasNextPage = !!data['hydra:view']?.['hydra:next']
-        hasMore = hasNextPage && annonces.length === itemsPerPage
-        
-        // Si on a atteint le total, arrêter
-        if (totalItems > 0 && allAnnonces.length >= totalItems) {
-          console.log(`✅ Toutes les annonces récupérées (${allAnnonces.length}/${totalItems})`)
-          hasMore = false
-        }
-        
-        currentPage++
-        
-        // Petite pause entre les requêtes pour éviter de surcharger l'API
-        if (hasMore && currentPage <= maxPages) {
-          await new Promise(resolve => setTimeout(resolve, 500)) // 500ms de pause
-        }
       }
       
-      if (currentPage > maxPages) {
-        console.warn(`⚠️ Limite de pages atteinte (${maxPages}). ${allAnnonces.length} annonces récupérées.`)
-      }
+      console.log(`🎉 Pagination terminée: ${allAnnonces.length} annonces récupérées en ${pageCount} pages`)
       
-      console.log(`🎉 Recherche terminée : ${allAnnonces.length} annonces au total`)
+      // Log de répartition par ville pour diagnostic
+      if (allAnnonces.length > 0) {
+        const cityDistribution = allAnnonces.reduce((acc: Record<string, number>, annonce) => {
+          const city = annonce.city || 'Ville non définie'
+          acc[city] = (acc[city] || 0) + 1
+          return acc
+        }, {})
+        const cityStats = Object.entries(cityDistribution)
+          .sort((a: [string, number], b: [string, number]) => b[1] - a[1])
+          .slice(0, 15)
+          .map(([city, count]: [string, number]) => `${city}: ${count}`)
+          .join(', ')
+        console.log(`🏙️ Répartition par ville (top 15):`, cityStats)
+      }
       
       return allAnnonces
       
-    } catch (error: any) {
-      console.error('❌ Erreur récupération paginée Melo.io:', error)
+    } catch (error) {
+      console.error('❌ Erreur pagination Melo.io:', error)
       // Retourner ce qu'on a récupéré même en cas d'erreur
-      if (allAnnonces.length > 0) {
-        console.log(`⚠️ Retour de ${allAnnonces.length} annonces récupérées avant l'erreur`)
-      }
       return allAnnonces
     }
   }
@@ -432,7 +364,10 @@ export class MeloService {
     const annonces: LeBonCoinAnnonce[] = []
     
     meloProperties.forEach((property: MeloProperty, index: number) => {
-      // Prendre le premier advert (le plus récent généralement)
+      const raw = property as any
+      const meloCity = raw.city?.name || raw.city?.originalName || ''
+      const meloZip = raw.city?.zipcode || ''
+      // Prendre le premier advert (ou le dernier si plusieurs)
       const advert = property.adverts?.[0]
       
       if (!advert) {
@@ -440,61 +375,10 @@ export class MeloService {
         return
       }
       
-      // Extraire le titre depuis advert.title ou description
-      let title = advert.title || ''
-      if (!title && advert.description) {
-        // Prendre les premiers mots de la description comme titre
-        title = advert.description.substring(0, 100).replace(/\n/g, ' ').trim()
-      }
-      if (!title) {
-        title = 'Annonce immobilière'
-      }
-      
-      // Extraire la ville depuis property.city (structure Melo.io)
-      // DÉBOGUER LA STRUCTURE COMPLÈTE
-      if (index === 0) {
-        console.log('🔍 STRUCTURE COMPLÈTE D\'UNE PROPRIÉTÉ MELO.IO:', JSON.stringify(property, null, 2))
-        console.log('🏙️ Structure city:', {
-          'property.city': property.city,
-          'property.city?.name': property.city?.name,
-          'property.city?.zipcode': property.city?.zipcode,
-          'property.city?.department': property.city?.department,
-          'property.city?.department?.name': property.city?.department?.name,
-          'property.city?.department?.code': property.city?.department?.code,
-        })
-      }
-      
-      // Extraire la ville depuis différentes sources possibles
-      let cityName = ''
-      let postalCode = ''
-      
-      // Source 1 : property.city.name (structure principale)
-      if (property.city?.name) {
-        cityName = property.city.name
-        postalCode = property.city.zipcode || ''
-      }
-      
-      // Source 2 : Si pas de nom, essayer le département
-      if (!cityName && property.city?.department?.name) {
-        cityName = property.city.department.name
-      }
-      
-      // Source 3 : Si toujours pas de ville, essayer depuis le code postal
-      if (!cityName && property.city?.zipcode) {
-        // On garde le code postal mais on ne peut pas deviner la ville
-        postalCode = property.city.zipcode
-        console.warn(`⚠️ Propriété ${index + 1}: Ville manquante, code postal: ${postalCode}`)
-      }
-      
-      // Log pour les premières annonces
-      if (index < 5) {
-        console.log(`📍 Annonce ${index + 1} - Ville extraite: "${cityName}" (CP: ${postalCode})`)
-      }
-      
-      // Extraire les images depuis advert.pictures ou property.pictures
-      const images = advert.pictures && advert.pictures.length > 0 
-        ? advert.pictures 
-        : (property.pictures && property.pictures.length > 0 ? property.pictures : [])
+      // Extraire le titre depuis la description (premiers 100 caractères)
+      const title = advert.description 
+        ? advert.description.substring(0, 100).replace(/\n/g, ' ').trim()
+        : 'Annonce immobilière'
       
       // Déterminer le type depuis propertyType
       let typeLabel = 'Appartement'
@@ -505,23 +389,17 @@ export class MeloService {
       else if (property.propertyType === 5) typeLabel = 'Terrain'
       else if (property.propertyType === 6) typeLabel = 'Commerce'
       
-      // Construire le titre complet avec ville si disponible
-      let fullTitle = title
-      if (cityName && !title.includes(cityName)) {
-        fullTitle = `${title} - ${cityName}`
-      }
-      
       const converted: LeBonCoinAnnonce = {
-        title: fullTitle || 'Sans titre',
-        price: (advert.price || property.price || 0).toString(),
-        surface: (advert.surface || property.surface) ? `${advert.surface || property.surface} m²` : undefined,
-        rooms: advert.room || property.room || undefined,
-        postalCode: postalCode || undefined,
-        city: cityName || '',
+        title: title || 'Sans titre',
+        price: advert.price?.toString() || '0',
+        surface: advert.surface ? `${advert.surface} m²` : undefined,
+        rooms: advert.rooms || undefined,
+        postalCode: meloZip,
+        city: meloCity,
         url: advert.url || '',
-        publishedAt: advert.createdAt ? new Date(advert.createdAt) : (property.createdAt ? new Date(property.createdAt) : new Date()),
-        images: images,
-        description: advert.description || property.description || ''
+        publishedAt: advert.createdAt ? new Date(advert.createdAt) : new Date(),
+        images: advert.images || [],
+        description: advert.description || ''
       }
       
       // Log les premières conversions pour debug
@@ -529,12 +407,10 @@ export class MeloService {
         console.log(`  [${index + 1}] Converti:`, {
           title: converted.title.substring(0, 50),
           city: converted.city,
-          postalCode: converted.postalCode,
           price: converted.price,
           surface: converted.surface,
           rooms: converted.rooms,
-          type: typeLabel,
-          imagesCount: converted.images?.length || 0
+          type: typeLabel
         })
       }
       

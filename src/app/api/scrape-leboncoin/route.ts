@@ -21,6 +21,12 @@ function verifyAuth(request: NextRequest): boolean {
 
 export async function GET(request: NextRequest) {
   try {
+    console.log(">>> ROUTE LEBONCOIN DISABLED (annonceScrape write blocked)");
+    return NextResponse.json({
+      success: false,
+      message: "Route LeBonCoin (GET) désactivée pour garder annonceScrape 100% Melo.io"
+    }, { status: 403 });
+
     // Vérification de l'autorisation
     if (!verifyAuth(request)) {
       return NextResponse.json({ 
@@ -123,6 +129,12 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    console.log(">>> ROUTE LEBONCOIN DISABLED (annonceScrape write blocked)");
+    return NextResponse.json({
+      success: false,
+      message: "Route LeBonCoin (POST) désactivée pour garder annonceScrape 100% Melo.io"
+    }, { status: 403 });
+
     // Vérification de l'autorisation
     if (!verifyAuth(request)) {
       return NextResponse.json({ 

@@ -80,8 +80,8 @@ export default async function DashboardPage() {
               </Link>
             </Button>
             {user?.image && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
                 src={user.image}
                 alt={`Avatar de ${user.name ?? "l'utilisateur"}`}
                 width={56}

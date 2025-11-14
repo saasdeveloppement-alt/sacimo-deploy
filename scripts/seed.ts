@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
+const ENABLE_SEED = process.env.ENABLE_SACIMO_DEMO === 'true'
 
 const mockListings = [
   {
@@ -118,6 +119,11 @@ const mockTags = [
 ]
 
 async function main() {
+  if (!ENABLE_SEED) {
+    console.log('🌱 Seed désactivé → Aucune donnée mock injectée (ENABLE_SACIMO_DEMO != true)')
+    return
+  }
+
   console.log('🌱 Début du seeding...')
 
   // Créer une agence de test

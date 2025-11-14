@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
 
     const options = {
       filters: body.filters,
-      limit: body.limit || 100,
+      limit: body.limit || 2000, // Limite par défaut augmentée à 2000
       transformToListing: body.transformToListing || false,
     };
 

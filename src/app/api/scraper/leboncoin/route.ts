@@ -4,6 +4,13 @@ import { prisma } from "@/lib/prisma";
 
 export async function POST(req: NextRequest) {
   try {
+    console.log(">>> ROUTE LEBONCOIN DISABLED (annonceScrape write blocked)");
+    return NextResponse.json({
+      status: "disabled",
+      message: "Route LeBonCoin désactivée pour préserver annonceScrape 100% Melo.io",
+      timestamp: new Date().toISOString()
+    }, { status: 403 });
+
     const body = await req.json();
     console.log("🔍 Scraper LeBonCoin - Paramètres reçus:", body);
     

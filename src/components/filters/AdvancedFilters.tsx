@@ -64,10 +64,13 @@ export default function AdvancedFiltersComponent({
     propsInitialFilters || initialFilters
   )
   const [cityInput, setCityInput] = useState("")
+  const [excludedCityInput, setExcludedCityInput] = useState("")
 
   const handleFilterChange = (key: keyof AdvancedFilters, value: any) => {
     const newFilters = { ...filters, [key]: value }
     setFilters(newFilters)
+    // Toujours notifier le parent pour synchroniser le state
+    onFilterChange(newFilters)
   }
 
   const handleCityToggle = (city: string) => {
@@ -85,9 +88,20 @@ export default function AdvancedFiltersComponent({
   }
 
   const handleAddCity = () => {
-    if (cityInput.trim() && !filters.cities.includes(cityInput.trim())) {
-      handleFilterChange('cities', [...filters.cities, cityInput.trim()])
+    const cityToAdd = cityInput.trim()
+    if (cityToAdd && !filters.cities.includes(cityToAdd)) {
+      const newCities = [...filters.cities, cityToAdd]
+      // handleFilterChange va mettre à jour le state local ET notifier le parent
+      handleFilterChange('cities', newCities)
       setCityInput("")
+      
+      // Déclencher automatiquement la recherche (comme Melo.io)
+      if (onApply) {
+        // Délai pour s'assurer que le state parent est mis à jour
+        setTimeout(() => {
+          onApply()
+        }, 200)
+      }
     }
   }
 
@@ -320,41 +334,58 @@ export default function AdvancedFiltersComponent({
                           </div>
                         )}
                         
-                        {/* Ajouter une ville */}
-                        <div className="flex gap-2">
-                          <Input
-                            placeholder="Ajouter une ville..."
-                            value={cityInput}
-                            onChange={(e) => setCityInput(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && handleAddCity()}
-                            className="flex-1"
-                          />
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleAddCity}
-                            disabled={!cityInput.trim()}
-                          >
-                            Ajouter
-                          </Button>
+                        {/* Champ de recherche ville/département/code postal (comme Melo.io) */}
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium text-slate-700">
+                            Ville, département, code postal
+                          </Label>
+                          <div className="relative">
+                            <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                            <Input
+                              placeholder="Ville, département, code postal"
+                              value={cityInput}
+                              onChange={(e) => setCityInput(e.target.value)}
+                              onKeyPress={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault()
+                                  handleAddCity()
+                                }
+                              }}
+                              className="pl-10 bg-white border-slate-200 focus:border-purple-300 focus:ring-purple-200"
+                            />
+                            <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                          </div>
+                          {cityInput.trim() && !filters.cities.includes(cityInput.trim()) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={handleAddCity}
+                              className="w-full border-purple-200 hover:border-purple-400 hover:bg-purple-50 text-purple-700"
+                            >
+                              <MapPin className="h-4 w-4 mr-2" />
+                              Ajouter "{cityInput.trim()}"
+                            </Button>
+                          )}
                         </div>
                         
-                        {/* Villes rapides */}
-                        <div className="flex flex-wrap gap-2">
-                          {availableCities
-                            .filter((city) => !filters.cities.includes(city))
-                            .slice(0, 10)
-                            .map((city) => (
-                              <Button
-                                key={city}
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleCityToggle(city)}
-                                className="border-slate-200 hover:border-purple-300 hover:text-purple-600"
-                              >
-                                + {city}
-                              </Button>
-                            ))}
+                        {/* Champ pour exclure des villes/codes postaux (comme Melo.io) */}
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium text-slate-700">
+                            Ville, code postal à exclure
+                          </Label>
+                          <div className="relative">
+                            <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                            <Input
+                              placeholder="Ville, code postal à exclure"
+                              value={excludedCityInput}
+                              onChange={(e) => setExcludedCityInput(e.target.value)}
+                              className="pl-10 bg-white border-slate-200 focus:border-purple-300 focus:ring-purple-200"
+                            />
+                            <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                          </div>
+                          <p className="text-xs text-slate-400 italic">
+                            Fonctionnalité à venir : exclusion de villes/codes postaux
+                          </p>
                         </div>
                       </div>
                     </AccordionContent>

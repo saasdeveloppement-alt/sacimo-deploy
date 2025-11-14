@@ -294,3 +294,7 @@ Pour les données déjà chargées :
 
 **📌 Résumé : Le système de filtres fonctionne correctement, mais les données en base n'ont pas les villes/codes postaux. Il faut resynchroniser !**
 
+
+
+
+

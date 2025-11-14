@@ -1,81 +1,111 @@
-import { NextRequest, NextResponse } from "next/server";
-import { meloService } from "@/lib/services/melo";
+import { NextRequest, NextResponse } from "next/server"
+import { prisma } from "@/lib/prisma"
+import { Prisma } from "@prisma/client"
+import { z } from "zod"
+
+const querySchema = z.object({
+  ville: z.string().trim().min(1).optional(),
+  postalCode: z.string().trim().min(1).optional(),
+  type: z.string().trim().min(1).optional(),
+  roomsMin: z.coerce.number().int().min(0).optional(),
+  roomsMax: z.coerce.number().int().min(0).optional(),
+  prixMin: z.coerce.number().int().min(0).optional(),
+  prixMax: z.coerce.number().int().min(0).optional(),
+  surfaceMin: z.coerce.number().int().min(0).optional(),
+  surfaceMax: z.coerce.number().int().min(0).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(60).default(20),
+})
 
 export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url)
+
   try {
-    const { searchParams } = new URL(request.url);
-    
-    // Récupérer les paramètres de l'interface
-    const ville = searchParams.get('ville') || undefined;
-    const typeLogement = searchParams.get('type') as 'appartement' | 'maison' | undefined;
-    const budget = searchParams.get('budget');
-    const surface = searchParams.get('surface');
-    const chambres = searchParams.get('chambres');
-    const pieces = searchParams.get('pieces');
-    const transactionType = searchParams.get('transactionType') as 'vente' | 'location' | undefined;
-    const itemsPerPage = searchParams.get('itemsPerPage');
-    
-    // Parser les valeurs numériques
-    const minPrix = budget ? parseInt(budget) : undefined;
-    const maxPrix = budget ? parseInt(budget) : undefined; // Si budget seul, utiliser comme max
-    const minSurface = surface ? parseInt(surface) : undefined;
-    const chambresNum = chambres ? parseInt(chambres) : undefined;
-    const piecesNum = pieces ? parseInt(pieces) : undefined;
-    const itemsPerPageNum = itemsPerPage ? parseInt(itemsPerPage) : 50;
-    
-    console.log('🔍 API /annonces - Paramètres reçus:', {
-      ville,
-      typeLogement,
-      budget,
-      surface,
-      chambres,
-      pieces,
-      transactionType,
-      itemsPerPage: itemsPerPageNum
-    });
-    
-    // Appeler le service Melo.io
-    const annonces = await meloService.searchAnnonces({
-      ville,
-      typeBien: typeLogement,
-      minPrix,
-      maxPrix,
-      minSurface,
-      chambres: chambresNum,
-      pieces: piecesNum,
-      transactionType: transactionType || 'vente',
-      itemsPerPage: itemsPerPageNum
-    });
-    
-    console.log(`✅ API /annonces - ${annonces.length} annonces retournées`);
-    
+    const parsed = querySchema.parse({
+      ville: searchParams.get("ville") || undefined,
+      postalCode: searchParams.get("postalCode") || undefined,
+      type: searchParams.get("type") || undefined,
+      roomsMin: searchParams.get("roomsMin") || undefined,
+      roomsMax: searchParams.get("roomsMax") || undefined,
+      prixMin: searchParams.get("prixMin") || undefined,
+      prixMax: searchParams.get("prixMax") || undefined,
+      surfaceMin: searchParams.get("surfaceMin") || undefined,
+      surfaceMax: searchParams.get("surfaceMax") || undefined,
+      page: searchParams.get("page") || undefined,
+      limit: searchParams.get("limit") || undefined,
+    })
+
+    const { page, limit, ...filters } = parsed
+    const skip = (page - 1) * limit
+
+    const where: Prisma.AnnonceScrapeWhereInput = {}
+
+    if (filters.ville) {
+      where.city = { contains: filters.ville, mode: "insensitive" }
+    }
+
+    if (filters.postalCode) {
+      where.postalCode = { startsWith: filters.postalCode }
+    }
+
+    if (filters.type) {
+      where.title = { contains: filters.type, mode: "insensitive" }
+    }
+
+    if (filters.prixMin !== undefined || filters.prixMax !== undefined) {
+      where.price = {}
+      if (filters.prixMin !== undefined) where.price.gte = filters.prixMin
+      if (filters.prixMax !== undefined) where.price.lte = filters.prixMax
+    }
+
+    if (filters.surfaceMin !== undefined || filters.surfaceMax !== undefined) {
+      where.surface = {}
+      if (filters.surfaceMin !== undefined) where.surface.gte = filters.surfaceMin
+      if (filters.surfaceMax !== undefined) where.surface.lte = filters.surfaceMax
+    }
+
+    if (filters.roomsMin !== undefined || filters.roomsMax !== undefined) {
+      where.rooms = {}
+      if (filters.roomsMin !== undefined) where.rooms.gte = filters.roomsMin
+      if (filters.roomsMax !== undefined) where.rooms.lte = filters.roomsMax
+    }
+
+    const [total, annonces] = await prisma.$transaction([
+      prisma.annonceScrape.count({ where }),
+      prisma.annonceScrape.findMany({
+        where,
+        orderBy: { publishedAt: "desc" },
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          title: true,
+          price: true,
+          surface: true,
+          rooms: true,
+          postalCode: true,
+          city: true,
+          url: true,
+          images: true,
+          description: true,
+          publishedAt: true,
+        },
+      }),
+    ])
+
+    const pages = Math.max(1, Math.ceil(total / limit))
+
     return NextResponse.json({
-      success: true,
-      total: annonces.length,
-      annonces: annonces.map(annonce => ({
-        id: annonce.url, // Utiliser l'URL comme ID unique
-        titre: annonce.title,
-        prix: parseInt(annonce.price.replace(/[^\d]/g, '')) || 0,
-        ville: annonce.city,
-        codePostal: annonce.postalCode || '',
-        surface: annonce.surface ? parseInt(annonce.surface.replace(/[^\d]/g, '')) : 0,
-        pieces: annonce.rooms || 0,
-        chambres: annonce.rooms || 0, // Approximation
-        type: annonce.title.toLowerCase().includes('maison') ? 'Maison' : 'Appartement',
-        description: annonce.description || '',
-        images: annonce.images || [],
-        url: annonce.url,
-        datePublication: annonce.publishedAt.toISOString()
-      }))
-    });
-    
-  } catch (error: any) {
-    console.error('❌ Erreur API /annonces:', error);
-    return NextResponse.json({
-      success: false,
-      error: error.message || 'Erreur lors de la récupération des annonces',
-      annonces: []
-    }, { status: 500 });
+      data: annonces,
+      total,
+      page,
+      pages,
+    })
+  } catch (error) {
+    console.error("❌ Erreur API /annonces:", error)
+    return NextResponse.json(
+      { error: "UNABLE_TO_FETCH_ANNONCES" },
+      { status: 500 },
+    )
   }
 }
-

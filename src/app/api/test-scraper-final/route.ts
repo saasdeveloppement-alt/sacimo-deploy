@@ -4,6 +4,12 @@ import { prisma } from '@/lib/prisma';
 
 export async function GET(request: NextRequest) {
   try {
+    console.log(">>> ROUTE LEBONCOIN DISABLED (annonceScrape write blocked)");
+    return NextResponse.json({
+      success: false,
+      message: "Route test-scraper-final désactivée pour garder annonceScrape 100% Melo.io"
+    }, { status: 403 });
+
     const { searchParams } = new URL(request.url);
     const ville = searchParams.get('ville') || 'Paris';
     const minPrix = searchParams.get('minPrix') ? parseInt(searchParams.get('minPrix')!) : undefined;
