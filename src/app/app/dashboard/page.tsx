@@ -3,8 +3,6 @@ import { redirect } from "next/navigation"
 import { getServerSession } from "next-auth"
 
 import { authOptions } from "@/lib/auth"
-
-export const dynamic = 'force-dynamic'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -27,14 +25,13 @@ import {
 } from "lucide-react"
 
 export default async function DashboardPage() {
-  try {
-    const session = await getServerSession(authOptions)
+  const session = await getServerSession(authOptions)
 
-    if (!session?.user) {
-      redirect("/auth/signin")
-    }
+  if (!session?.user) {
+    redirect("/auth/signin")
+  }
 
-    const { user } = session
+  const { user } = session
 
   return (
     <div className="min-h-screen">
@@ -381,8 +378,4 @@ export default async function DashboardPage() {
       </div>
     </div>
   )
-  } catch (error) {
-    console.error("❌ Erreur DashboardPage:", error)
-    redirect("/auth/signin")
-  }
 }
