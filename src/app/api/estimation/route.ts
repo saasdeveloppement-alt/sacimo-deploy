@@ -21,16 +21,22 @@ export async function POST(request: Request) {
     console.log("✅ Validation Zod réussie:", parsed.data)
 
     // Appel du service d'estimation
-    // Priorité : Base locale (vraies données), puis fallback sur API publique
-    console.log("🔄 Tentative estimation via base locale (vraies données)...")
+    // Priorité : Base locale (vraies données avec ajustements), puis fallback sur API publique
+    console.log("🔄 Tentative estimation via base locale (vraies données avec ajustements)...")
     let result
+    let savedAdjustments: string[] | undefined = undefined
+    let savedAdjustmentFactor = 1.0
     
     try {
       result = await estimateFromComparables(parsed.data)
       console.log("✅ Estimation via base locale réussie:", {
         comparables: result.comparables.length,
-        strategy: result.strategy
+        strategy: result.strategy,
+        adjustmentsCount: result.adjustments?.length || 0
       })
+      
+      // Sauvegarder les ajustements calculés localement
+      savedAdjustments = result.adjustments
       
       // Si on a moins de 3 comparables, essayer l'API publique en complément
       if (result.comparables.length < 3) {
@@ -38,7 +44,8 @@ export async function POST(request: Request) {
         try {
           const apiResult = await estimateFromPublicAPI(parsed.data)
           if (apiResult.comparables.length > result.comparables.length) {
-            console.log("✅ API publique fournit plus de comparables, utilisation de ces données")
+            console.log("✅ API publique fournit plus de comparables, fusion des résultats...")
+            // L'API publique calcule déjà les ajustements, on garde son résultat
             result = apiResult
           }
         } catch (apiError) {
@@ -49,12 +56,18 @@ export async function POST(request: Request) {
       console.warn("⚠️ Base locale indisponible, fallback sur API publique:", localError)
       console.log("🔄 Appel estimateFromPublicAPI...")
       result = await estimateFromPublicAPI(parsed.data)
+      // L'API publique calcule maintenant aussi les ajustements
+      console.log("✅ API publique utilisée avec ajustements calculés")
     }
-    console.log("✅ Résultat estimation:", { 
+    console.log("✅ Résultat estimation final:", { 
       priceMedian: result.priceMedian,
       confidence: result.confidence,
       sampleSize: result.sampleSize,
-      strategy: result.strategy
+      strategy: result.strategy,
+      adjustmentsCount: result.adjustments?.length || 0,
+      adjustments: result.adjustments,
+      adjustmentsType: typeof result.adjustments,
+      adjustmentsIsArray: Array.isArray(result.adjustments),
     })
 
     // Génération de l'explication IA (optionnelle, ne bloque pas si échec)

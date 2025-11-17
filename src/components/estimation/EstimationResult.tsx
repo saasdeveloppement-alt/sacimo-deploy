@@ -41,8 +41,10 @@ export type EstimationResult = {
   sampleSize: number
   confidence: number // 0–1
   strategy: string
+  adjustments?: string[] // Ajustements appliqués (état, équipements, etc.)
   explanation?: string | null // Explication IA optionnelle
   comparables: {
+    id: string
     price: number
     surface: number
     pricePerSqm: number
@@ -50,6 +52,7 @@ export type EstimationResult = {
     postalCode: string
     rooms: number | null
     type: string | null
+    url: string | null
   }[]
 }
 
@@ -180,6 +183,7 @@ export function EstimationResult({ result, className, photoUrl }: EstimationResu
     sampleSize,
     confidence,
     strategy,
+    adjustments,
     explanation,
     comparables = [],
   } = result
@@ -334,6 +338,42 @@ export function EstimationResult({ result, className, photoUrl }: EstimationResu
               </p>
             </div>
           </div>
+          
+          {/* Ajustements appliqués */}
+          {adjustments && adjustments.length > 0 && (
+            <div className="mt-6 pt-6 border-t border-gray-200">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-lg">💰</span>
+                <p className="text-sm font-semibold text-gray-700">Ajustements appliqués au prix</p>
+              </div>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {adjustments.map((adj, idx) => {
+                  const isPositive = adj.includes("+")
+                  const isNegative = adj.includes("-")
+                  return (
+                    <Badge
+                      key={idx}
+                      variant="outline"
+                      className={
+                        isPositive
+                          ? "bg-green-50 text-green-700 border-green-300 font-medium"
+                          : isNegative
+                            ? "bg-orange-50 text-orange-700 border-orange-300 font-medium"
+                            : "bg-gray-50 text-gray-700 border-gray-300"
+                      }
+                    >
+                      {adj}
+                    </Badge>
+                  )
+                })}
+              </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-xs text-blue-800 font-medium">
+                  ℹ️ Ces ajustements modifient le prix estimé en fonction de l'état du bien, des équipements et des caractéristiques observées lors de la visite.
+                </p>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -434,6 +474,7 @@ export function EstimationResult({ result, className, photoUrl }: EstimationResu
                   <TableHead>Pièces</TableHead>
                   <TableHead>Localisation</TableHead>
                   <TableHead>Type</TableHead>
+                  <TableHead>Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -460,9 +501,21 @@ export function EstimationResult({ result, className, photoUrl }: EstimationResu
                               }}
                             />
                           </div>
-                          <span className="font-semibold">
-                            {comp.price && comp.price > 0 ? formatPrice(comp.price) : "Prix indisponible"}
-                          </span>
+                          {comp.url ? (
+                            <a
+                              href={comp.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-semibold text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                              title="Voir l'annonce complète"
+                            >
+                              {comp.price && comp.price > 0 ? formatPrice(comp.price) : "Prix indisponible"}
+                            </a>
+                          ) : (
+                            <span className="font-semibold">
+                              {comp.price && comp.price > 0 ? formatPrice(comp.price) : "Prix indisponible"}
+                            </span>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -494,6 +547,22 @@ export function EstimationResult({ result, className, photoUrl }: EstimationResu
                         <Badge variant="outline" className="text-xs">
                           {comp.type || "N/A"}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {comp.url ? (
+                          <a
+                            href={comp.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                            title="Voir l'annonce complète"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                            <span>Voir</span>
+                          </a>
+                        ) : (
+                          <span className="text-sm text-gray-400">N/A</span>
+                        )}
                       </TableCell>
                     </TableRow>
                   )

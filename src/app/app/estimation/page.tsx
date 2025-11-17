@@ -8,7 +8,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
-import { Calculator, MapPin, Home, Ruler, DoorOpen } from "lucide-react"
+import { Calculator, MapPin, Home, Ruler, DoorOpen, Filter, ChevronDown, ChevronUp } from "lucide-react"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { Checkbox } from "@/components/ui/checkbox"
 
 export default function EstimationPage() {
   const [city, setCity] = useState("Bordeaux")
@@ -17,6 +19,27 @@ export default function EstimationPage() {
   const [rooms, setRooms] = useState("")
   const [type, setType] = useState("Appartement")
   const [photoUrl, setPhotoUrl] = useState("")
+  
+  // États pour les filtres avancés
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
+  const [keywords, setKeywords] = useState("")
+  const [condition, setCondition] = useState<string>("")
+  const [floor, setFloor] = useState("")
+  // Équipements
+  const [hasBalcon, setHasBalcon] = useState(false)
+  const [hasTerrasse, setHasTerrasse] = useState(false)
+  const [hasParking, setHasParking] = useState(false)
+  const [hasGarden, setHasGarden] = useState(false)
+  const [hasElevator, setHasElevator] = useState(false)
+  const [hasPool, setHasPool] = useState(false)
+  const [hasFireplace, setHasFireplace] = useState(false)
+  const [hasCellar, setHasCellar] = useState(false)
+  const [hasAttic, setHasAttic] = useState(false)
+  // Caractéristiques
+  const [hasView, setHasView] = useState(false)
+  const [hasDoubleGlazing, setHasDoubleGlazing] = useState(false)
+  const [hasAlarm, setHasAlarm] = useState(false)
+  const [hasIntercom, setHasIntercom] = useState(false)
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -46,21 +69,48 @@ export default function EstimationPage() {
         return
       }
 
+      // Construire le payload avec les filtres optionnels
+      const payload: any = {
+        city,
+        postalCode,
+        surface: surfaceNum,
+        rooms: roomsNum,
+        type,
+      }
+
+      // Ajouter les filtres optionnels s'ils sont renseignés
+      if (keywords.trim()) payload.keywords = keywords.trim()
+      if (condition) payload.condition = condition
+      if (floor) payload.floor = Number(floor)
+      
+      // Équipements - TOUJOURS envoyer, même si false (pour debug)
+      payload.hasBalcon = hasBalcon
+      payload.hasTerrasse = hasTerrasse
+      payload.hasParking = hasParking
+      payload.hasGarden = hasGarden
+      payload.hasElevator = hasElevator
+      payload.hasPool = hasPool
+      payload.hasFireplace = hasFireplace
+      payload.hasCellar = hasCellar
+      payload.hasAttic = hasAttic
+      
+      // Caractéristiques
+      payload.hasView = hasView
+      payload.hasDoubleGlazing = hasDoubleGlazing
+      payload.hasAlarm = hasAlarm
+      payload.hasIntercom = hasIntercom
+
+      console.log("📤 Payload envoyé à l'API:", payload)
+
       const response = await fetch("/api/estimation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          city,
-          postalCode,
-          surface: surfaceNum,
-          rooms: roomsNum,
-          type,
-        }),
+        body: JSON.stringify(payload),
       })
 
       const json = await response.json()
 
-      console.log("📊 Réponse API estimation:", json) // Debug
+      console.log("📊 Réponse API estimation complète:", json) // Debug
 
       if (!json.success) {
         setError(json.error || "Une erreur est survenue")
@@ -70,6 +120,18 @@ export default function EstimationPage() {
 
       // 👇 IMPORTANT : c'est ici que ça bloquait !
       console.log("✅ Données estimation reçues:", json.estimation) // Debug
+      console.log("🔍 Ajustements reçus:", json.estimation?.adjustments) // Debug des ajustements
+      console.log("🔍 Type ajustements:", typeof json.estimation?.adjustments, Array.isArray(json.estimation?.adjustments))
+      console.log("🔍 Nombre d'ajustements:", json.estimation?.adjustments?.length || 0)
+      console.log("💰 Prix médian reçu:", json.estimation?.priceMedian) // Debug du prix
+      
+      // Vérifier que les ajustements sont bien présents
+      if (!json.estimation?.adjustments || (Array.isArray(json.estimation.adjustments) && json.estimation.adjustments.length === 0)) {
+        console.warn("⚠️ ATTENTION: Aucun ajustement reçu ou array vide!")
+      } else {
+        console.log("✅ Ajustements présents:", json.estimation.adjustments)
+      }
+      
       setResult(json.estimation)
 
     } catch (err) {
@@ -201,6 +263,224 @@ export default function EstimationPage() {
                     Ajoutez une URL d'image pour illustrer votre bien
                   </p>
                 </div>
+
+                {/* Filtres avancés */}
+                <Collapsible open={showAdvancedFilters} onOpenChange={setShowAdvancedFilters}>
+                  <CollapsibleTrigger className="w-full flex items-center justify-between p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                      <Filter className="h-4 w-4" />
+                      Filtres avancés
+                    </div>
+                    {showAdvancedFilters ? (
+                      <ChevronUp className="h-4 w-4 text-gray-500" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-gray-500" />
+                    )}
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="space-y-4 pt-4">
+                    {/* État du bien */}
+                    <div className="space-y-3 p-3 bg-gray-50 rounded-lg">
+                      <Label className="text-sm font-semibold text-gray-700">État du bien</Label>
+                      <Select value={condition} onValueChange={setCondition}>
+                        <SelectTrigger className="h-9 text-sm">
+                          <SelectValue placeholder="Sélectionner l'état du bien" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="neuf">Neuf</SelectItem>
+                          <SelectItem value="rénové">Rénové</SelectItem>
+                          <SelectItem value="bon_état">Bon état</SelectItem>
+                          <SelectItem value="à_rafraîchir">À rafraîchir</SelectItem>
+                          <SelectItem value="à_rénover">À rénover</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-gray-500">
+                        État observé lors de la visite
+                      </p>
+                    </div>
+
+                    {/* Étage (pour appartement) */}
+                    {type === "Appartement" && (
+                      <div className="space-y-2">
+                        <Label htmlFor="floor" className="text-sm font-semibold text-gray-700">
+                          Étage
+                        </Label>
+                        <Input
+                          id="floor"
+                          type="number"
+                          placeholder="Ex: 3"
+                          min="0"
+                          value={floor}
+                          onChange={(e) => setFloor(e.target.value)}
+                          className="h-9 text-sm"
+                        />
+                        <p className="text-xs text-gray-500">
+                          Étage du bien (0 = rez-de-chaussée)
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Filtres par équipements */}
+                    <div className="space-y-3 p-3 bg-gray-50 rounded-lg">
+                      <Label className="text-sm font-semibold text-gray-700">Équipements</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="hasBalcon"
+                            checked={hasBalcon}
+                            onCheckedChange={(checked) => setHasBalcon(checked === true)}
+                          />
+                          <Label htmlFor="hasBalcon" className="text-xs cursor-pointer">
+                            Balcon
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="hasTerrasse"
+                            checked={hasTerrasse}
+                            onCheckedChange={(checked) => setHasTerrasse(checked === true)}
+                          />
+                          <Label htmlFor="hasTerrasse" className="text-xs cursor-pointer">
+                            Terrasse
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="hasParking"
+                            checked={hasParking}
+                            onCheckedChange={(checked) => setHasParking(checked === true)}
+                          />
+                          <Label htmlFor="hasParking" className="text-xs cursor-pointer">
+                            Parking / Garage
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="hasGarden"
+                            checked={hasGarden}
+                            onCheckedChange={(checked) => setHasGarden(checked === true)}
+                          />
+                          <Label htmlFor="hasGarden" className="text-xs cursor-pointer">
+                            Jardin
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="hasElevator"
+                            checked={hasElevator}
+                            onCheckedChange={(checked) => setHasElevator(checked === true)}
+                          />
+                          <Label htmlFor="hasElevator" className="text-xs cursor-pointer">
+                            Ascenseur
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="hasPool"
+                            checked={hasPool}
+                            onCheckedChange={(checked) => setHasPool(checked === true)}
+                          />
+                          <Label htmlFor="hasPool" className="text-xs cursor-pointer">
+                            Piscine
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="hasFireplace"
+                            checked={hasFireplace}
+                            onCheckedChange={(checked) => setHasFireplace(checked === true)}
+                          />
+                          <Label htmlFor="hasFireplace" className="text-xs cursor-pointer">
+                            Cheminée
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="hasCellar"
+                            checked={hasCellar}
+                            onCheckedChange={(checked) => setHasCellar(checked === true)}
+                          />
+                          <Label htmlFor="hasCellar" className="text-xs cursor-pointer">
+                            Cave / Cellier
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="hasAttic"
+                            checked={hasAttic}
+                            onCheckedChange={(checked) => setHasAttic(checked === true)}
+                          />
+                          <Label htmlFor="hasAttic" className="text-xs cursor-pointer">
+                            Grenier / Combles
+                          </Label>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Caractéristiques */}
+                    <div className="space-y-3 p-3 bg-gray-50 rounded-lg">
+                      <Label className="text-sm font-semibold text-gray-700">Caractéristiques</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="hasView"
+                            checked={hasView}
+                            onCheckedChange={(checked) => setHasView(checked === true)}
+                          />
+                          <Label htmlFor="hasView" className="text-xs cursor-pointer">
+                            Vue
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="hasDoubleGlazing"
+                            checked={hasDoubleGlazing}
+                            onCheckedChange={(checked) => setHasDoubleGlazing(checked === true)}
+                          />
+                          <Label htmlFor="hasDoubleGlazing" className="text-xs cursor-pointer">
+                            Double vitrage
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="hasAlarm"
+                            checked={hasAlarm}
+                            onCheckedChange={(checked) => setHasAlarm(checked === true)}
+                          />
+                          <Label htmlFor="hasAlarm" className="text-xs cursor-pointer">
+                            Alarme
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="hasIntercom"
+                            checked={hasIntercom}
+                            onCheckedChange={(checked) => setHasIntercom(checked === true)}
+                          />
+                          <Label htmlFor="hasIntercom" className="text-xs cursor-pointer">
+                            Digicode / Interphone
+                          </Label>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Mots-clés */}
+                    <div className="space-y-2">
+                      <Label htmlFor="keywords" className="text-sm font-semibold text-gray-700">
+                        Mots-clés (description)
+                      </Label>
+                      <Input
+                        id="keywords"
+                        placeholder="Ex: rénové, neuf, vue mer..."
+                        value={keywords}
+                        onChange={(e) => setKeywords(e.target.value)}
+                        className="h-9 text-sm"
+                      />
+                      <p className="text-xs text-gray-500">
+                        Recherche dans la description et le titre
+                      </p>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
 
                 <Button
                   type="submit"

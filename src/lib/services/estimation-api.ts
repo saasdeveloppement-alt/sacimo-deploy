@@ -7,7 +7,7 @@
  * - Données complémentaires via APIs publiques
  */
 
-import { EstimationInput, EstimationResult } from "./estimation"
+import { EstimationInput, EstimationResult, calculatePriceAdjustments } from "./estimation"
 
 interface DVFResponse {
   fields: Array<{
@@ -378,20 +378,55 @@ export async function estimateFromPublicAPI(
       const q3 = sorted[Math.floor(n * 0.75)]
       const average = sorted.reduce((sum, v) => sum + v, 0) / n
 
-      const priceMedian = Math.round(median * surface)
-      const priceLow = Math.round(q1 * surface)
-      const priceHigh = Math.round(q3 * surface)
+      const basePriceMedian = Math.round(median * surface)
+      const basePriceLow = Math.round(q1 * surface)
+      const basePriceHigh = Math.round(q3 * surface)
+
+      // Calculer les ajustements basés sur les filtres utilisateur
+      console.log("🔧 [API Publique] Calcul des ajustements pour:", {
+        city,
+        postalCode,
+        surface,
+        rooms,
+        type,
+        condition: input.condition,
+        hasPool: input.hasPool,
+        hasParking: input.hasParking,
+      })
+      
+      const { factor: adjustmentFactor, adjustments } = calculatePriceAdjustments(
+        input,
+        marketData.map(d => ({ 
+          surface: d.surface, 
+          rooms: d.rooms, 
+          title: d.type ? `${d.type} ${d.city}` : null 
+        })),
+        basePriceMedian
+      )
+
+      console.log("🔧 [API Publique] Ajustements calculés:", {
+        factor: adjustmentFactor,
+        count: adjustments.length,
+        adjustments: adjustments,
+      })
+
+      // Appliquer les ajustements
+      const priceMedian = Math.round(basePriceMedian * adjustmentFactor)
+      const priceLow = Math.round(basePriceLow * adjustmentFactor)
+      const priceHigh = Math.round(basePriceHigh * adjustmentFactor)
 
       return {
         priceMedian,
         priceLow,
         priceHigh,
-        pricePerSqmMedian: Math.round(median),
-        pricePerSqmAverage: Math.round(average),
+        pricePerSqmMedian: Math.round(priceMedian / surface),
+        pricePerSqmAverage: Math.round(average * adjustmentFactor),
         sampleSize: marketData.length,
         confidence: Math.min(0.9, marketData.length / 50), // Confiance basée sur le nombre d'échantillons
         strategy: "public_api",
-        comparables: marketData.map(d => ({
+        adjustments: adjustments.length > 0 ? adjustments : [], // Toujours retourner un array, même vide
+        comparables: marketData.map((d, index) => ({
+          id: `api-${index}-${Date.now()}`,
           price: d.prix,
           surface: d.surface,
           pricePerSqm: d.prixPerSqm,
@@ -399,6 +434,7 @@ export async function estimateFromPublicAPI(
           postalCode: d.postalCode,
           rooms: d.rooms,
           type: d.type,
+          url: null, // Les données API publiques n'ont pas d'URL d'annonce directe
         })),
       }
     }
@@ -433,19 +469,20 @@ export async function estimateFromPublicAPI(
     if (rooms <= 2) adjustment *= 0.95 // Peu de pièces
     if (rooms >= 5) adjustment *= 1.05 // Beaucoup de pièces
 
-    const adjustedPricePerSqm = basePricePerSqm * adjustment
-    const priceMedian = Math.round(adjustedPricePerSqm * surface)
-    const priceLow = Math.round(priceMedian * 0.85)
-    const priceHigh = Math.round(priceMedian * 1.15)
+    const adjustedBasePricePerSqm = basePricePerSqm * adjustment
+    const basePriceMedian = Math.round(adjustedBasePricePerSqm * surface)
+    const basePriceLow = Math.round(basePriceMedian * 0.85)
+    const basePriceHigh = Math.round(basePriceMedian * 1.15)
 
     // Générer quelques comparables simulés pour l'affichage basés sur les données départementales
     const fallbackComparables = Array.from({ length: 15 }, (_, i) => {
       const variation = (i - 7) * 0.05 // -0.35 à +0.35
       const adjustedSurface = surface * (1 + variation * 0.1)
-      const adjustedPricePerSqm = adjustedPricePerSqm * (1 + variation)
+      const adjustedPricePerSqm = adjustedBasePricePerSqm * (1 + variation)
       const price = Math.round(adjustedPricePerSqm * adjustedSurface)
       
       return {
+        id: `fallback-${i}-${Date.now()}`,
         price,
         surface: Math.round(adjustedSurface),
         pricePerSqm: Math.round(adjustedPricePerSqm),
@@ -453,18 +490,53 @@ export async function estimateFromPublicAPI(
         postalCode: postalCode,
         rooms: rooms,
         type: type,
+        url: null, // Les comparables simulés n'ont pas d'URL
       }
     })
+
+    // Calculer les ajustements basés sur les filtres utilisateur
+    console.log("🔧 [Fallback Départemental] Calcul des ajustements pour:", {
+      city,
+      postalCode,
+      surface,
+      rooms,
+      type,
+      condition: input.condition,
+      hasPool: input.hasPool,
+      hasParking: input.hasParking,
+    })
+    
+    const { factor: adjustmentFactor, adjustments } = calculatePriceAdjustments(
+      input,
+      fallbackComparables.map(c => ({ 
+        surface: c.surface, 
+        rooms: c.rooms, 
+        title: c.type ? `${c.type} ${c.city}` : null 
+      })),
+      basePriceMedian
+    )
+
+    console.log("🔧 [Fallback Départemental] Ajustements calculés:", {
+      factor: adjustmentFactor,
+      count: adjustments.length,
+      adjustments: adjustments,
+    })
+
+    // Appliquer les ajustements
+    const priceMedian = Math.round(basePriceMedian * adjustmentFactor)
+    const priceLow = Math.round(basePriceLow * adjustmentFactor)
+    const priceHigh = Math.round(basePriceHigh * adjustmentFactor)
 
     return {
       priceMedian,
       priceLow,
       priceHigh,
-      pricePerSqmMedian: Math.round(adjustedPricePerSqm),
-      pricePerSqmAverage: Math.round(adjustedPricePerSqm),
+      pricePerSqmMedian: Math.round(priceMedian / surface),
+      pricePerSqmAverage: Math.round(adjustedBasePricePerSqm * adjustmentFactor),
       sampleSize: fallbackComparables.length,
       confidence: 0.3, // Faible confiance car données approximatives
       strategy: "departmental_fallback",
+      adjustments: adjustments.length > 0 ? adjustments : [], // Toujours retourner un array, même vide
       comparables: fallbackComparables,
     }
   } catch (error) {
