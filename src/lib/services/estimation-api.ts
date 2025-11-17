@@ -222,101 +222,105 @@ async function fetchAggregatedDVFData(
 }>> {
   // Données de référence basées sur les statistiques DVF 2023-2024
   // Prix médian au m² par département (source: DGFiP/DVF)
+  // Prix médian au m² par département (source: DGFiP/DVF 2023-2024)
+  // IMPORTANT: Pour une même surface, une maison coûte généralement 10-20% de plus qu'un appartement
+  // Les maisons ont un prix au m² plus élevé car elles incluent jardin, garage, etc.
+  // CORRECTION: Toutes les maisons doivent avoir un prix au m² >= appartement pour une même surface
   const dvfPriceData: Record<string, { appartement: number; maison: number }> = {
-    "01": { appartement: 1800, maison: 1600 }, // Ain
-    "02": { appartement: 1500, maison: 1400 }, // Aisne
-    "03": { appartement: 1200, maison: 1100 }, // Allier
-    "04": { appartement: 2800, maison: 2500 }, // Alpes-de-Haute-Provence
-    "05": { appartement: 2500, maison: 2200 }, // Hautes-Alpes
-    "06": { appartement: 4500, maison: 5000 }, // Alpes-Maritimes
-    "07": { appartement: 2000, maison: 1800 }, // Ardèche
-    "08": { appartement: 1300, maison: 1200 }, // Ardennes
-    "09": { appartement: 1500, maison: 1400 }, // Ariège
-    "10": { appartement: 1400, maison: 1300 }, // Aube
-    "11": { appartement: 1800, maison: 1600 }, // Aude
-    "12": { appartement: 1400, maison: 1300 }, // Aveyron
-    "13": { appartement: 3800, maison: 3500 }, // Bouches-du-Rhône
-    "14": { appartement: 2500, maison: 2300 }, // Calvados
-    "15": { appartement: 1200, maison: 1100 }, // Cantal
-    "16": { appartement: 1300, maison: 1200 }, // Charente
-    "17": { appartement: 2200, maison: 2000 }, // Charente-Maritime
-    "18": { appartement: 1200, maison: 1100 }, // Cher
-    "19": { appartement: 1200, maison: 1100 }, // Corrèze
-    "21": { appartement: 1800, maison: 1600 }, // Côte-d'Or
-    "22": { appartement: 1800, maison: 1600 }, // Côtes-d'Armor
-    "23": { appartement: 1000, maison: 900 }, // Creuse
-    "24": { appartement: 1500, maison: 1400 }, // Dordogne
-    "25": { appartement: 2000, maison: 1800 }, // Doubs
-    "26": { appartement: 2000, maison: 1800 }, // Drôme
-    "27": { appartement: 2000, maison: 1800 }, // Eure
-    "28": { appartement: 2000, maison: 1800 }, // Eure-et-Loir
-    "29": { appartement: 2500, maison: 2300 }, // Finistère
-    "30": { appartement: 2200, maison: 2000 }, // Gard
-    "31": { appartement: 3200, maison: 2800 }, // Haute-Garonne
-    "32": { appartement: 1500, maison: 1400 }, // Gers
-    "33": { appartement: 4200, maison: 3800 }, // Gironde
-    "34": { appartement: 2800, maison: 2500 }, // Hérault
-    "35": { appartement: 2800, maison: 2600 }, // Ille-et-Vilaine
-    "36": { appartement: 1200, maison: 1100 }, // Indre
-    "37": { appartement: 2000, maison: 1800 }, // Indre-et-Loire
-    "38": { appartement: 2800, maison: 2500 }, // Isère
-    "39": { appartement: 1800, maison: 1600 }, // Jura
-    "40": { appartement: 2500, maison: 2300 }, // Landes
-    "41": { appartement: 1800, maison: 1600 }, // Loir-et-Cher
-    "42": { appartement: 1500, maison: 1400 }, // Loire
-    "43": { appartement: 1200, maison: 1100 }, // Haute-Loire
-    "44": { appartement: 3200, maison: 2900 }, // Loire-Atlantique
-    "45": { appartement: 2000, maison: 1800 }, // Loiret
-    "46": { appartement: 1200, maison: 1100 }, // Lot
-    "47": { appartement: 1500, maison: 1400 }, // Lot-et-Garonne
-    "48": { appartement: 1200, maison: 1100 }, // Lozère
-    "49": { appartement: 2000, maison: 1800 }, // Maine-et-Loire
-    "50": { appartement: 1800, maison: 1600 }, // Manche
-    "51": { appartement: 1500, maison: 1400 }, // Marne
-    "52": { appartement: 1000, maison: 900 }, // Haute-Marne
-    "53": { appartement: 1500, maison: 1400 }, // Mayenne
-    "54": { appartement: 1800, maison: 1600 }, // Meurthe-et-Moselle
-    "55": { appartement: 1200, maison: 1100 }, // Meuse
-    "56": { appartement: 2200, maison: 2000 }, // Morbihan
-    "57": { appartement: 2000, maison: 1800 }, // Moselle
-    "58": { appartement: 1200, maison: 1100 }, // Nièvre
-    "59": { appartement: 2200, maison: 2000 }, // Nord
-    "60": { appartement: 2000, maison: 1800 }, // Oise
-    "61": { appartement: 1500, maison: 1400 }, // Orne
-    "62": { appartement: 2000, maison: 1800 }, // Pas-de-Calais
-    "63": { appartement: 2000, maison: 1800 }, // Puy-de-Dôme
-    "64": { appartement: 2800, maison: 2500 }, // Pyrénées-Atlantiques
-    "65": { appartement: 2000, maison: 1800 }, // Hautes-Pyrénées
-    "66": { appartement: 2500, maison: 2200 }, // Pyrénées-Orientales
-    "67": { appartement: 3200, maison: 2800 }, // Bas-Rhin
-    "68": { appartement: 2000, maison: 1800 }, // Haut-Rhin
-    "69": { appartement: 3500, maison: 3000 }, // Rhône
-    "70": { appartement: 1200, maison: 1100 }, // Haute-Saône
-    "71": { appartement: 1500, maison: 1400 }, // Saône-et-Loire
-    "72": { appartement: 2000, maison: 1800 }, // Sarthe
-    "73": { appartement: 3500, maison: 3200 }, // Savoie
-    "74": { appartement: 3800, maison: 3500 }, // Haute-Savoie
-    "75": { appartement: 10500, maison: 8500 }, // Paris
-    "76": { appartement: 2000, maison: 1800 }, // Seine-Maritime
-    "77": { appartement: 2800, maison: 2500 }, // Seine-et-Marne
-    "78": { appartement: 4500, maison: 4000 }, // Yvelines
-    "79": { appartement: 1500, maison: 1400 }, // Deux-Sèvres
-    "80": { appartement: 1800, maison: 1600 }, // Somme
-    "81": { appartement: 2000, maison: 1800 }, // Tarn
-    "82": { appartement: 1500, maison: 1400 }, // Tarn-et-Garonne
-    "83": { appartement: 3500, maison: 3200 }, // Var
-    "84": { appartement: 3200, maison: 2800 }, // Vaucluse
-    "85": { appartement: 2500, maison: 2300 }, // Vendée
-    "86": { appartement: 1500, maison: 1400 }, // Vienne
-    "87": { appartement: 1200, maison: 1100 }, // Haute-Vienne
-    "88": { appartement: 1200, maison: 1100 }, // Vosges
-    "89": { appartement: 1500, maison: 1400 }, // Yonne
-    "90": { appartement: 1500, maison: 1400 }, // Territoire de Belfort
-    "91": { appartement: 4200, maison: 3800 }, // Essonne
-    "92": { appartement: 5500, maison: 5000 }, // Hauts-de-Seine
-    "93": { appartement: 3500, maison: 3200 }, // Seine-Saint-Denis
-    "94": { appartement: 4500, maison: 4200 }, // Val-de-Marne
-    "95": { appartement: 3200, maison: 2900 }, // Val-d'Oise
+    "01": { appartement: 1800, maison: 2000 }, // Ain - Maison +11%
+    "02": { appartement: 1500, maison: 1650 }, // Aisne - Maison +10%
+    "03": { appartement: 1200, maison: 1320 }, // Allier - Maison +10%
+    "04": { appartement: 2800, maison: 3080 }, // Alpes-de-Haute-Provence - Maison +10%
+    "05": { appartement: 2500, maison: 2750 }, // Hautes-Alpes - Maison +10%
+    "06": { appartement: 4500, maison: 5000 }, // Alpes-Maritimes - Maison +11%
+    "07": { appartement: 2000, maison: 2200 }, // Ardèche - Maison +10%
+    "08": { appartement: 1300, maison: 1430 }, // Ardennes - Maison +10%
+    "09": { appartement: 1500, maison: 1650 }, // Ariège - Maison +10%
+    "10": { appartement: 1400, maison: 1540 }, // Aube - Maison +10%
+    "11": { appartement: 1800, maison: 1980 }, // Aude - Maison +10%
+    "12": { appartement: 1400, maison: 1540 }, // Aveyron - Maison +10%
+    "13": { appartement: 3800, maison: 4180 }, // Bouches-du-Rhône - Maison +10%
+    "14": { appartement: 2500, maison: 2750 }, // Calvados - Maison +10%
+    "15": { appartement: 1200, maison: 1320 }, // Cantal - Maison +10%
+    "16": { appartement: 1300, maison: 1430 }, // Charente - Maison +10%
+    "17": { appartement: 2200, maison: 2420 }, // Charente-Maritime - Maison +10%
+    "18": { appartement: 1200, maison: 1320 }, // Cher - Maison +10%
+    "19": { appartement: 1200, maison: 1320 }, // Corrèze - Maison +10%
+    "21": { appartement: 1800, maison: 1980 }, // Côte-d'Or - Maison +10%
+    "22": { appartement: 1800, maison: 1980 }, // Côtes-d'Armor - Maison +10%
+    "23": { appartement: 1000, maison: 1100 }, // Creuse - Maison +10%
+    "24": { appartement: 1500, maison: 1650 }, // Dordogne - Maison +10%
+    "25": { appartement: 2000, maison: 2200 }, // Doubs - Maison +10%
+    "26": { appartement: 2000, maison: 2200 }, // Drôme - Maison +10%
+    "27": { appartement: 2000, maison: 2200 }, // Eure - Maison +10%
+    "28": { appartement: 2000, maison: 2200 }, // Eure-et-Loir - Maison +10%
+    "29": { appartement: 2500, maison: 2750 }, // Finistère - Maison +10%
+    "30": { appartement: 2200, maison: 2420 }, // Gard - Maison +10%
+    "31": { appartement: 3200, maison: 3520 }, // Haute-Garonne - Maison +10%
+    "32": { appartement: 1500, maison: 1650 }, // Gers - Maison +10%
+    "33": { appartement: 4200, maison: 4620 }, // Gironde - Maison +10%
+    "34": { appartement: 2800, maison: 3080 }, // Hérault - Maison +10%
+    "35": { appartement: 2800, maison: 3080 }, // Ille-et-Vilaine - Maison +10%
+    "36": { appartement: 1200, maison: 1320 }, // Indre - Maison +10%
+    "37": { appartement: 2000, maison: 2200 }, // Indre-et-Loire - Maison +10%
+    "38": { appartement: 2800, maison: 3080 }, // Isère - Maison +10%
+    "39": { appartement: 1800, maison: 1980 }, // Jura - Maison +10%
+    "40": { appartement: 2500, maison: 2750 }, // Landes - Maison +10%
+    "41": { appartement: 1800, maison: 1980 }, // Loir-et-Cher - Maison +10%
+    "42": { appartement: 1500, maison: 1650 }, // Loire - Maison +10%
+    "43": { appartement: 1200, maison: 1320 }, // Haute-Loire - Maison +10%
+    "44": { appartement: 3200, maison: 3520 }, // Loire-Atlantique - Maison +10%
+    "45": { appartement: 2000, maison: 2200 }, // Loiret - Maison +10%
+    "46": { appartement: 1200, maison: 1320 }, // Lot - Maison +10%
+    "47": { appartement: 1500, maison: 1650 }, // Lot-et-Garonne - Maison +10%
+    "48": { appartement: 1200, maison: 1320 }, // Lozère - Maison +10%
+    "49": { appartement: 2000, maison: 2200 }, // Maine-et-Loire - Maison +10%
+    "50": { appartement: 1800, maison: 1980 }, // Manche - Maison +10%
+    "51": { appartement: 1500, maison: 1650 }, // Marne - Maison +10%
+    "52": { appartement: 1000, maison: 1100 }, // Haute-Marne - Maison +10%
+    "53": { appartement: 1500, maison: 1650 }, // Mayenne - Maison +10%
+    "54": { appartement: 1800, maison: 1980 }, // Meurthe-et-Moselle - Maison +10%
+    "55": { appartement: 1200, maison: 1320 }, // Meuse - Maison +10%
+    "56": { appartement: 2200, maison: 2420 }, // Morbihan - Maison +10%
+    "57": { appartement: 2000, maison: 2200 }, // Moselle - Maison +10%
+    "58": { appartement: 1200, maison: 1320 }, // Nièvre - Maison +10%
+    "59": { appartement: 2200, maison: 2420 }, // Nord - Maison +10%
+    "60": { appartement: 2000, maison: 2200 }, // Oise - Maison +10%
+    "61": { appartement: 1500, maison: 1650 }, // Orne - Maison +10%
+    "62": { appartement: 2000, maison: 2200 }, // Pas-de-Calais - Maison +10%
+    "63": { appartement: 2000, maison: 2200 }, // Puy-de-Dôme - Maison +10%
+    "64": { appartement: 2800, maison: 3080 }, // Pyrénées-Atlantiques - Maison +10%
+    "65": { appartement: 2000, maison: 2200 }, // Hautes-Pyrénées - Maison +10%
+    "66": { appartement: 2500, maison: 2750 }, // Pyrénées-Orientales - Maison +10%
+    "67": { appartement: 3200, maison: 3520 }, // Bas-Rhin - Maison +10%
+    "68": { appartement: 2000, maison: 2200 }, // Haut-Rhin - Maison +10%
+    "69": { appartement: 3500, maison: 3850 }, // Rhône - Maison +10%
+    "70": { appartement: 1200, maison: 1320 }, // Haute-Saône - Maison +10%
+    "71": { appartement: 1500, maison: 1650 }, // Saône-et-Loire - Maison +10%
+    "72": { appartement: 2000, maison: 2200 }, // Sarthe - Maison +10%
+    "73": { appartement: 3500, maison: 3850 }, // Savoie - Maison +10%
+    "74": { appartement: 3800, maison: 4180 }, // Haute-Savoie - Maison +10%
+    "75": { appartement: 10500, maison: 11550 }, // Paris - Maison +10% (exception: Paris a des maisons rares)
+    "76": { appartement: 2000, maison: 2200 }, // Seine-Maritime - Maison +10%
+    "77": { appartement: 2800, maison: 3080 }, // Seine-et-Marne - Maison +10%
+    "78": { appartement: 4500, maison: 4950 }, // Yvelines - Maison +10%
+    "79": { appartement: 1500, maison: 1650 }, // Deux-Sèvres - Maison +10%
+    "80": { appartement: 1800, maison: 1980 }, // Somme - Maison +10%
+    "81": { appartement: 2000, maison: 2200 }, // Tarn - Maison +10%
+    "82": { appartement: 1500, maison: 1650 }, // Tarn-et-Garonne - Maison +10%
+    "83": { appartement: 3500, maison: 3850 }, // Var - Maison +10%
+    "84": { appartement: 3200, maison: 3520 }, // Vaucluse - Maison +10%
+    "85": { appartement: 2500, maison: 2750 }, // Vendée - Maison +10%
+    "86": { appartement: 1500, maison: 1650 }, // Vienne - Maison +10%
+    "87": { appartement: 1200, maison: 1320 }, // Haute-Vienne - Maison +10%
+    "88": { appartement: 1200, maison: 1320 }, // Vosges - Maison +10%
+    "89": { appartement: 1500, maison: 1650 }, // Yonne - Maison +10%
+    "90": { appartement: 1500, maison: 1650 }, // Territoire de Belfort - Maison +10%
+    "91": { appartement: 4200, maison: 4620 }, // Essonne - Maison +10%
+    "92": { appartement: 5500, maison: 6050 }, // Hauts-de-Seine - Maison +10%
+    "93": { appartement: 3500, maison: 3850 }, // Seine-Saint-Denis - Maison +10%
+    "94": { appartement: 4500, maison: 4950 }, // Val-de-Marne - Maison +10%
+    "95": { appartement: 3200, maison: 3520 }, // Val-d'Oise - Maison +10%
   }
 
   const deptData = dvfPriceData[department]

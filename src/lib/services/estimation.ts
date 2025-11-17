@@ -289,38 +289,64 @@ export function calculatePriceAdjustments(
   })
 
   // Ajustement selon le type de bien (appartement vs maison)
-  if (type === "Maison" && comparables.length > 0) {
-    const maisonCount = comparables.filter(c => 
-      c.title?.toLowerCase().includes("maison") || 
-      c.title?.toLowerCase().includes("villa")
-    ).length
-    const appartCount = comparables.filter(c => 
-      c.title?.toLowerCase().includes("appartement") || 
-      c.title?.toLowerCase().includes("appt") ||
-      c.title?.toLowerCase().includes("apt")
-    ).length
-    
-    if (appartCount > maisonCount && appartCount > comparables.length * 0.6) {
-      adjustmentFactor *= 1.05
-      adjustments.push("Type Maison vs Appartements (+5%)")
-      console.log("✅ Ajustement type: +5%")
+  // IMPORTANT: Les maisons coûtent généralement 10-20% de plus au m² que les appartements
+  if (type === "Maison") {
+    // Si on compare une maison avec des comparables qui sont majoritairement des appartements
+    if (comparables.length > 0) {
+      const maisonCount = comparables.filter(c => 
+        c.title?.toLowerCase().includes("maison") || 
+        c.title?.toLowerCase().includes("villa")
+      ).length
+      const appartCount = comparables.filter(c => 
+        c.title?.toLowerCase().includes("appartement") || 
+        c.title?.toLowerCase().includes("appt") ||
+        c.title?.toLowerCase().includes("apt")
+      ).length
+      
+      if (appartCount > maisonCount && appartCount > comparables.length * 0.6) {
+        // Si majoritairement des appartements, ajuster +15% pour une maison
+        adjustmentFactor *= 1.15
+        adjustments.push("Type Maison vs Appartements (+15%)")
+        console.log("✅ Ajustement type Maison: +15%")
+      } else if (maisonCount > 0) {
+        // Si on a des maisons comparables, ajustement plus faible
+        adjustmentFactor *= 1.05
+        adjustments.push("Type Maison (+5%)")
+        console.log("✅ Ajustement type Maison: +5%")
+      } else {
+        // Pas de comparables maisons, ajustement fort
+        adjustmentFactor *= 1.15
+        adjustments.push("Type Maison (ajustement standard +15%)")
+        console.log("✅ Ajustement type Maison (standard): +15%")
+      }
+    } else {
+      // Pas de comparables, ajustement standard pour maison
+      adjustmentFactor *= 1.15
+      adjustments.push("Type Maison (ajustement standard +15%)")
+      console.log("✅ Ajustement type Maison (standard, pas de comparables): +15%")
     }
-  } else if (type === "Appartement" && comparables.length > 0) {
-    const maisonCount = comparables.filter(c => 
-      c.title?.toLowerCase().includes("maison") || 
-      c.title?.toLowerCase().includes("villa")
-    ).length
-    const appartCount = comparables.filter(c => 
-      c.title?.toLowerCase().includes("appartement") || 
-      c.title?.toLowerCase().includes("appt") ||
-      c.title?.toLowerCase().includes("apt")
-    ).length
-    
-    if (maisonCount > appartCount && maisonCount > comparables.length * 0.6) {
-      adjustmentFactor *= 0.95
-      adjustments.push("Type Appartement vs Maisons (-5%)")
-      console.log("✅ Ajustement type: -5%")
+  } else if (type === "Appartement") {
+    // Si on compare un appartement avec des comparables qui sont majoritairement des maisons
+    if (comparables.length > 0) {
+      const maisonCount = comparables.filter(c => 
+        c.title?.toLowerCase().includes("maison") || 
+        c.title?.toLowerCase().includes("villa")
+      ).length
+      const appartCount = comparables.filter(c => 
+        c.title?.toLowerCase().includes("appartement") || 
+        c.title?.toLowerCase().includes("appt") ||
+        c.title?.toLowerCase().includes("apt")
+      ).length
+      
+      if (maisonCount > appartCount && maisonCount > comparables.length * 0.6) {
+        // Si majoritairement des maisons, ajuster -15% pour un appartement
+        adjustmentFactor *= 0.85
+        adjustments.push("Type Appartement vs Maisons (-15%)")
+        console.log("✅ Ajustement type Appartement: -15%")
+      }
+      // Si majoritairement des appartements, pas d'ajustement (c'est normal)
     }
+    // Pas d'ajustement par défaut pour appartement (c'est la référence)
   }
 
   // Ajustement selon le nombre de pièces
@@ -616,15 +642,54 @@ export async function estimateFromComparables(input: EstimationInput): Promise<E
       Object.assign(where, locationFilter)
     }
 
+    // FILTRE STRICT par type de bien pour éviter de mélanger appartements et maisons
+    // Construire un filtre AND qui inclut le type souhaité et exclut l'autre
+    const typeFilters: any[] = []
+    
     if (type === "Appartement") {
-      where.title = {
-        contains: "appartement",
-        mode: "insensitive",
-      }
+      typeFilters.push({
+        OR: [
+          { title: { contains: "appartement", mode: "insensitive" } },
+          { title: { contains: "appt", mode: "insensitive" } },
+          { title: { contains: "apt", mode: "insensitive" } },
+          { title: { contains: "studio", mode: "insensitive" } },
+        ]
+      })
+      typeFilters.push({
+        NOT: {
+          OR: [
+            { title: { contains: "maison", mode: "insensitive" } },
+            { title: { contains: "villa", mode: "insensitive" } },
+            { title: { contains: "pavillon", mode: "insensitive" } },
+          ]
+        }
+      })
     } else if (type === "Maison") {
-      where.title = {
-        contains: "maison",
-        mode: "insensitive",
+      typeFilters.push({
+        OR: [
+          { title: { contains: "maison", mode: "insensitive" } },
+          { title: { contains: "villa", mode: "insensitive" } },
+          { title: { contains: "pavillon", mode: "insensitive" } },
+        ]
+      })
+      typeFilters.push({
+        NOT: {
+          OR: [
+            { title: { contains: "appartement", mode: "insensitive" } },
+            { title: { contains: "appt", mode: "insensitive" } },
+            { title: { contains: "apt", mode: "insensitive" } },
+            { title: { contains: "studio", mode: "insensitive" } },
+          ]
+        }
+      })
+    }
+    
+    // Ajouter les filtres de type à la clause where
+    if (typeFilters.length > 0) {
+      if (where.AND) {
+        where.AND.push(...typeFilters)
+      } else {
+        where.AND = typeFilters
       }
     }
 
