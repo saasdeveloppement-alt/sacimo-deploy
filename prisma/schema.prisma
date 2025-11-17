@@ -126,22 +126,26 @@ model Tag {
 }
 
 model AnnonceScrape {
-  id            String   @id @default(cuid())
-  title         String
-  price         Int
-  surface       Int?
-  rooms         Int?
-  postalCode    String?
-  city          String
-  url           String   @unique
-  publishedAt   DateTime
-  images        String[]
-  description   String?
-  source        String   @default("LEBONCOIN")
-  isNew         Boolean  @default(true)
-  lastScrapedAt DateTime @default(now())
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id             String   @id @default(cuid())
+  title          String
+  price          Int
+  surface        Int?
+  rooms          Int?
+  postalCode     String?
+  city           String
+  url            String   @unique
+  publishedAt    DateTime
+  images         String[] @default([])
+  picturesRemote String[] @default([])
+  pictures       String[] @default([])
+  description    String?
+  source         String   @default("LEBONCOIN")
+  isNew          Boolean  @default(true)
+  lastScrapedAt  DateTime @default(now())
+  latitude       Float?
+  longitude      Float?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@map("annonce_scrapes")
 }
@@ -219,20 +223,20 @@ model VerificationToken {
 }
 
 model DemoRequest {
-  id           String             @id @default(cuid())
-  fullName     String             @map("full_name")
-  email        String
-  phone        String?
-  company      String
-  companySize  String?            @map("company_size")
-  role         String?
-  objectives   String?
-  message      String?
-  status       DemoRequestStatus  @default(PENDING)
-  createdAt    DateTime           @default(now()) @map("created_at")
+  id          String            @id @default(cuid())
+  fullName    String            @map("full_name")
+  email       String
+  phone       String?
+  company     String
+  companySize String?           @map("company_size")
+  role        String?
+  objectives  String?
+  message     String?
+  status      DemoRequestStatus @default(PENDING)
+  createdAt   DateTime          @default(now()) @map("created_at")
 
-  @@map("demo_requests")
   @@index([email])
+  @@map("demo_requests")
 }
 
 enum DemoRequestStatus {

@@ -155,8 +155,8 @@ export default function LocalisationPage() {
     <PageContainer>
       {/* Header */}
       <SectionHeader
-        title="Localisation & estimation"
-        subtitle="Analysez les biens avec géolocalisation et estimations IA"
+        title="Localisation"
+        subtitle="Analysez les biens avec géolocalisation"
         icon={<MapPin className="h-8 w-8 text-purple-600" />}
         action={
           <Button 

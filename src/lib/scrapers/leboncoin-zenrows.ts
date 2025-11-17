@@ -21,6 +21,8 @@ export interface LeBonCoinAnnonce {
   url: string;
   publishedAt: Date;
   images: string[];
+  picturesRemote?: string[];
+  pictures?: string[];
   description?: string;
 }
 

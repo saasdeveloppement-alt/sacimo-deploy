@@ -87,6 +87,8 @@ export async function GET(request: NextRequest) {
           city: true,
           url: true,
           images: true,
+          picturesRemote: true,
+          pictures: true,
           description: true,
           publishedAt: true,
         },

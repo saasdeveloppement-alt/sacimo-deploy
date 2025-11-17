@@ -12,6 +12,8 @@ interface MeloProperty {
   '@id': string
   '@type': string
   propertyType?: number
+  pictures?: string[] // Images au niveau property
+  picturesRemote?: string[] // Images remote au niveau property
   adverts?: Array<{
     price: number
     surface: number
@@ -20,7 +22,9 @@ interface MeloProperty {
     city: string
     zipCode: string
     description: string
-    images: string[]
+    images?: string[]
+    pictures?: string[]
+    picturesRemote?: string[]
     url: string
     createdAt: string
   }>
@@ -274,6 +278,23 @@ export class MeloService {
           console.log(">>> MELO PAGE SIZE:", json["hydra:member"]?.length)
           console.log(">>> MELO NEXT:", json["hydra:view"]?.["hydra:next"])
           
+          // 🔥 LOG ULTRA DÉTAILLÉ : Premier élément complet de la réponse Melo
+          if (pageCount === 1 && json['hydra:member'] && json['hydra:member'].length > 0) {
+            const firstProperty = json['hydra:member'][0] as any
+            console.log('\n🔥🔥🔥 PREMIÈRE PROPRIÉTÉ COMPLÈTE MELO.IO (searchAnnoncesWithPagination) 🔥🔥🔥')
+            console.log('📦 Structure complète de la première propriété:')
+            console.log(JSON.stringify(firstProperty, null, 2))
+            
+            // Log spécifique du premier advert si présent
+            if (firstProperty.adverts && firstProperty.adverts.length > 0) {
+              console.log('\n🔥🔥🔥 PREMIER ADVERT[0] COMPLET 🔥🔥🔥')
+              console.log('📦 Structure complète du premier advert:')
+              console.log(JSON.stringify(firstProperty.adverts[0], null, 2))
+            } else {
+              console.log('\n⚠️ Aucun advert trouvé dans la première propriété')
+            }
+          }
+          
           // Extraire les annonces de cette page
           const pageAnnonces = this.convertMeloToAnnonce(json['hydra:member'] || [])
           allAnnonces = [...allAnnonces, ...pageAnnonces]
@@ -357,10 +378,6 @@ export class MeloService {
   private convertMeloToAnnonce(meloProperties: MeloProperty[]): LeBonCoinAnnonce[] {
     console.log(`🔄 Conversion de ${meloProperties.length} propriétés Melo.io`)
     
-    if (meloProperties.length > 0) {
-      console.log('📋 Exemple de propriété brute Melo.io:', JSON.stringify(meloProperties[0], null, 2))
-    }
-    
     const annonces: LeBonCoinAnnonce[] = []
     
     meloProperties.forEach((property: MeloProperty, index: number) => {
@@ -373,6 +390,29 @@ export class MeloService {
       if (!advert) {
         console.warn(`⚠️ Propriété ${property['@id']} n'a pas d'advert`)
         return
+      }
+      
+      // 🔥 LOG FULL ADVERT - Objet brut complet pour les 3 premières propriétés
+      if (index < 3) {
+        console.log(`\n🔥 FULL ADVERT [${index + 1}] - Propriété ${property['@id']} 🔥`)
+        console.log('📦 Objet advert brut complet (convertMeloToAnnonce):')
+        console.log(JSON.stringify(advert, null, 2))
+        
+        console.log(`\n📸 [${index + 1}] ANALYSE IMAGES - Propriété ${property['@id']}`)
+        console.log('   Property level:', {
+          hasPictures: !!raw.pictures,
+          picturesCount: raw.pictures?.length || 0,
+          hasPicturesRemote: !!raw.picturesRemote,
+          picturesRemoteCount: raw.picturesRemote?.length || 0,
+        })
+        console.log('   Advert level:', {
+          hasImages: !!advert.images,
+          imagesCount: advert.images?.length || 0,
+          hasPictures: !!(advert as any).pictures,
+          picturesCount: (advert as any).pictures?.length || 0,
+          hasPicturesRemote: !!(advert as any).picturesRemote,
+          picturesRemoteCount: (advert as any).picturesRemote?.length || 0,
+        })
       }
       
       // Extraire le titre depuis la description (premiers 100 caractères)
@@ -389,6 +429,30 @@ export class MeloService {
       else if (property.propertyType === 5) typeLabel = 'Terrain'
       else if (property.propertyType === 6) typeLabel = 'Commerce'
       
+      // 🔍 Extraction des images selon la structure Melo
+      // Priorité : advert > property (root)
+      const primaryAdvert = property.adverts?.[0] as any
+      
+      // Extraire pictures depuis advert puis property
+      const picturesFromRoot = Array.isArray(raw.pictures) ? raw.pictures : []
+      const picturesFromAdvert = Array.isArray(primaryAdvert?.pictures) ? primaryAdvert.pictures : []
+      
+      // Extraire picturesRemote depuis advert puis property
+      const picturesRemoteFromRoot = Array.isArray(raw.picturesRemote) ? raw.picturesRemote : []
+      const picturesRemoteFromAdvert = Array.isArray(primaryAdvert?.picturesRemote) ? primaryAdvert.picturesRemote : []
+      
+      // Construire les tableaux finaux avec priorité advert > root
+      const images: string[] = picturesFromAdvert.length > 0
+        ? picturesFromAdvert
+        : picturesFromRoot
+      
+      const picturesRemote: string[] = picturesRemoteFromAdvert.length > 0
+        ? picturesRemoteFromAdvert
+        : picturesRemoteFromRoot
+      
+      // pictures = miroir de images (pour compatibilité)
+      const pictures: string[] = images
+      
       const converted: LeBonCoinAnnonce = {
         title: title || 'Sans titre',
         price: advert.price?.toString() || '0',
@@ -398,8 +462,25 @@ export class MeloService {
         city: meloCity,
         url: advert.url || '',
         publishedAt: advert.createdAt ? new Date(advert.createdAt) : new Date(),
-        images: advert.images || [],
+        images: images, // Priorité : advert.pictures > property.pictures
+        picturesRemote: picturesRemote, // Priorité : advert.picturesRemote > property.picturesRemote
+        pictures: pictures, // Miroir de images pour compatibilité
         description: advert.description || ''
+      }
+      
+      // Log détaillé pour les 3 premières conversions
+      if (index < 3) {
+        console.log(`   ✅ Images extraites:`)
+        console.log(`      - images: ${converted.images.length} URL(s)`)
+        console.log(`      - picturesRemote: ${converted.picturesRemote.length} URL(s)`)
+        console.log(`      - pictures: ${converted.pictures.length} URL(s)`)
+        if (converted.images.length > 0) {
+          console.log(`      - Première image: ${converted.images[0]?.substring(0, 100)}`)
+        } else if (converted.picturesRemote.length > 0) {
+          console.log(`      - Première pictureRemote: ${converted.picturesRemote[0]?.substring(0, 100)}`)
+        } else {
+          console.log(`      ⚠️ Aucune image trouvée pour cette annonce`)
+        }
       }
       
       // Log les premières conversions pour debug

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { meloService } from "@/lib/services/melo";
+import { isMeloSyncAllowed } from "@/lib/melo-safe";
 
 /**
  * Endpoint de test pour vérifier la configuration et la connexion à l'API Melo.io
@@ -12,6 +13,16 @@ import { meloService } from "@/lib/services/melo";
  * - Exemple de requête simple
  */
 export async function GET(req: NextRequest) {
+  if (!isMeloSyncAllowed()) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Sync Melo bloquée (environnement non autorisé) : exécution uniquement en production sur Vercel.",
+      },
+      { status: 403 }
+    )
+  }
+
   const results = {
     timestamp: new Date().toISOString(),
     config: {

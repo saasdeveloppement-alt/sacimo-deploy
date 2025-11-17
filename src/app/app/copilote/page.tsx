@@ -97,7 +97,10 @@ export default function CopilotePage() {
   }, [])
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+    // Utiliser setTimeout pour s'assurer que le DOM est mis à jour
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+    }, 100)
   }
 
   useEffect(() => {
@@ -258,14 +261,18 @@ export default function CopilotePage() {
           </motion.div>
 
           {/* Chat Interface */}
-          <motion.div variants={fadeInUp}>
-            <ModernCard
-              title="Conversation"
-              icon={<MessageSquare className="h-5 w-5 text-blue-600" />}
-              className="h-[600px] flex flex-col"
-            >
-              {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <motion.div variants={fadeInUp} className="min-w-0">
+            <div className="bg-white/80 backdrop-blur-sm border-slate-200/60 shadow-lg rounded-lg h-[600px] flex flex-col overflow-hidden">
+              {/* Header */}
+              <div className="px-6 py-4 border-b border-slate-200/60">
+                <div className="flex items-center gap-2 text-lg font-semibold text-slate-800">
+                  <MessageSquare className="h-5 w-5 text-blue-600" />
+                  Conversation
+                </div>
+              </div>
+              
+              {/* Messages - Zone scrollable */}
+              <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4" style={{ WebkitOverflowScrolling: 'touch' }}>
                 <AnimatePresence>
                   {messages.map((message) => (
                     <motion.div
@@ -276,19 +283,19 @@ export default function CopilotePage() {
                       transition={{ duration: 0.3 }}
                       className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
-                      <div className={`max-w-[80%] rounded-2xl p-4 ${
+                      <div className={`max-w-[80%] min-w-0 rounded-2xl p-4 ${
                         message.type === 'user' 
                           ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white' 
                           : 'bg-slate-100 text-slate-900'
                       }`}>
-                        <div className="flex items-start gap-3">
+                        <div className="flex items-start gap-3 min-w-0">
                           {message.type === 'assistant' && (
                             <div className="p-2 rounded-lg bg-purple-100 text-purple-600 flex-shrink-0 mt-1">
                               <Brain className="h-4 w-4" />
                             </div>
                           )}
-                          <div className="flex-1">
-                            <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                          <div className="flex-1 min-w-0">
+                            <div className="whitespace-pre-wrap break-words text-sm leading-relaxed overflow-wrap-anywhere">
                               {message.content}
                             </div>
                             <div className={`flex items-center justify-between mt-2 text-xs ${
@@ -383,7 +390,7 @@ export default function CopilotePage() {
                   Appuyez sur Entrée pour envoyer, Maj+Entrée pour une nouvelle ligne
                 </p>
               </div>
-            </ModernCard>
+            </div>
           </motion.div>
 
           {/* Historique des conversations */}

@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { meloService } from "@/lib/services/melo";
 import { prisma } from "@/lib/prisma";
+import { isMeloSyncAllowed } from "@/lib/melo-safe";
 
 export async function POST(req: NextRequest) {
+  if (!isMeloSyncAllowed()) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Sync Melo bloquée (environnement non autorisé) : exécution uniquement en production sur Vercel.",
+      },
+      { status: 403 }
+    )
+  }
   try {
     const body = await req.json()
     console.log("🔍 Scraper Melo.io - Paramètres:", body)

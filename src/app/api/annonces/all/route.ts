@@ -1,7 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { meloService } from "@/lib/services/melo";
+import { isMeloSyncAllowed } from "@/lib/melo-safe";
 
 export async function GET(req: NextRequest) {
+  if (!isMeloSyncAllowed()) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Sync Melo bloquée (environnement non autorisé) : exécution uniquement en production sur Vercel.",
+      },
+      { status: 403 }
+    )
+  }
+
   try {
     console.log("🔍 DEBUG MODE - Récupération de TOUTES les annonces Melo.io (sans filtre)")
     

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { meloSyncService } from "@/lib/services/melo-sync";
+import { isMeloSyncAllowed } from "@/lib/melo-safe";
 
 /**
  * Endpoint de synchronisation Melo.io
@@ -20,6 +21,16 @@ import { meloSyncService } from "@/lib/services/melo-sync";
  * }
  */
 export async function POST(req: NextRequest) {
+  if (!isMeloSyncAllowed()) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Sync Melo bloquée (environnement non autorisé) : exécution uniquement en production sur Vercel.",
+      },
+      { status: 403 }
+    )
+  }
+
   try {
     const body = await req.json();
     console.log("🔄 Synchronisation Melo.io - Paramètres:", body);

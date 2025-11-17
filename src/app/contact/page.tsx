@@ -1,142 +1,323 @@
 'use client';
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Mail, Phone, MapPin } from 'lucide-react';
+import { useState } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { toast } from 'sonner';
+import { Mail, Phone, MapPin, Clock, Send } from 'lucide-react';
 
 export default function ContactPage() {
-  const pathname = usePathname();
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    subject: '',
+    message: '',
+  });
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    // Simulation d'envoi
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
+    toast.success('Message envoyé !', {
+      description: 'Notre équipe vous répondra dans les 24h.'
+    });
+
+    // Reset form
+    setFormData({
+      name: '',
+      email: '',
+      phone: '',
+      subject: '',
+      message: '',
+    });
+
+    setIsSubmitting(false);
+  };
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+  };
 
   return (
-    <>
-      {/* Navbar inline */}
-      <nav style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        height: '80px',
-        background: 'linear-gradient(to right, rgb(46, 16, 101), rgb(76, 29, 149), rgb(79, 70, 229))',
-        borderBottom: '1px solid rgba(255,255,255,0.1)',
-        zIndex: 9999
-      }}>
-        <div style={{
-          height: '100%',
-          maxWidth: '1280px',
-          margin: '0 auto',
-          padding: '0 24px',
-          display: 'flex',
-          alignItems: 'center',
-          position: 'relative'
-        }}>
-          <div style={{ flexShrink: 0 }}>
-            <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
-              <div style={{ 
-                width: '40px', 
-                height: '40px', 
-                background: 'white',
-                borderRadius: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 'bold',
-                color: 'rgb(76, 29, 149)'
-              }}>S</div>
-              <span style={{ fontSize: '20px', fontWeight: 'bold', color: 'white' }}>SACIMO</span>
-            </Link>
-          </div>
-          <div style={{
-            position: 'absolute',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            display: 'flex',
-            gap: '32px'
-          }}>
-            <Link href="/fonctionnalites" style={{ color: pathname === '/fonctionnalites' ? 'white' : 'rgba(255,255,255,0.7)', fontSize: '15px', textDecoration: 'none', fontWeight: pathname === '/fonctionnalites' ? '600' : '400' }}>
-              Fonctionnalités
-            </Link>
-            <Link href="/tarifs" style={{ color: pathname === '/tarifs' ? 'white' : 'rgba(255,255,255,0.7)', fontSize: '15px', textDecoration: 'none', fontWeight: pathname === '/tarifs' ? '600' : '400' }}>
-              Tarifs
-            </Link>
-            <Link href="/contact" style={{ color: pathname === '/contact' ? 'white' : 'rgba(255,255,255,0.7)', fontSize: '15px', textDecoration: 'none', fontWeight: pathname === '/contact' ? '600' : '400' }}>
-              Contact
-            </Link>
-            <Link href="/ressources" style={{ color: pathname === '/ressources' ? 'white' : 'rgba(255,255,255,0.7)', fontSize: '15px', textDecoration: 'none', fontWeight: pathname === '/ressources' ? '600' : '400' }}>
-              Ressources
-            </Link>
-            <Link href="/about" style={{ color: pathname === '/about' ? 'white' : 'rgba(255,255,255,0.7)', fontSize: '15px', textDecoration: 'none', fontWeight: pathname === '/about' ? '600' : '400' }}>
-              À propos
-            </Link>
-        </div>
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: '12px' }}>
-            <Link href="/auth/signin" style={{ padding: '10px 20px', color: 'rgba(255,255,255,0.8)', textDecoration: 'none' }}>Se connecter</Link>
-            <Link href="/auth/signup" style={{ padding: '12px 24px', background: 'white', color: 'rgb(76, 29, 149)', borderRadius: '12px', fontWeight: '600', textDecoration: 'none', display: 'inline-block' }}>Essai gratuit</Link>
-          </div>
-        </div>
-      </nav>
-
-      {/* Contenu */}
-      <div style={{ paddingTop: '80px', minHeight: '100vh', backgroundColor: 'white' }}>
-        <div style={{ padding: '120px 24px', maxWidth: '800px', margin: '0 auto' }}>
-          <h1 style={{ fontSize: '64px', fontWeight: '300', marginBottom: '24px', textAlign: 'center', lineHeight: '1.2' }}>
-            Contactez-nous
-          </h1>
-          <p style={{ fontSize: '20px', color: '#64748b', textAlign: 'center', marginBottom: '64px', fontWeight: '300' }}>
-            Une question ? Notre équipe vous répond sous 24h
+    <div className="min-h-screen bg-gradient-to-b from-background to-accent/20">
+      <div className="container mx-auto px-4 py-16">
+        {/* Header */}
+        <div className="text-center mb-12">
+          <h1 className="text-4xl font-bold mb-4">📞 Contactez-nous</h1>
+          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+            Une question ? Un problème ? Notre équipe est là pour vous aider
           </p>
+        </div>
 
-          {/* Contact Info */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '24px', marginBottom: '64px' }}>
-            <div style={{ textAlign: 'center', padding: '32px', border: '1px solid #e5e7eb', borderRadius: '12px' }}>
-              <Mail style={{ width: '32px', height: '32px', color: 'rgb(76, 29, 149)', margin: '0 auto 16px' }} />
-              <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '8px' }}>Email</h3>
-              <a href="mailto:contact@sacimo.fr" style={{ color: '#64748b', textDecoration: 'none', fontSize: '14px' }}>contact@sacimo.fr</a>
-                    </div>
-            <div style={{ textAlign: 'center', padding: '32px', border: '1px solid #e5e7eb', borderRadius: '12px' }}>
-              <Phone style={{ width: '32px', height: '32px', color: 'rgb(76, 29, 149)', margin: '0 auto 16px' }} />
-              <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '8px' }}>Téléphone</h3>
-              <a href="tel:+33123456789" style={{ color: '#64748b', textDecoration: 'none', fontSize: '14px' }}>+33 1 23 45 67 89</a>
-                  </div>
-            <div style={{ textAlign: 'center', padding: '32px', border: '1px solid #e5e7eb', borderRadius: '12px' }}>
-              <MapPin style={{ width: '32px', height: '32px', color: 'rgb(76, 29, 149)', margin: '0 auto 16px' }} />
-              <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '8px' }}>Adresse</h3>
-              <p style={{ color: '#64748b', fontSize: '14px', fontWeight: '300' }}>Paris, France</p>
-                    </div>
+        <div className="grid lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          {/* Formulaire de contact */}
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle>Envoyez-nous un message</CardTitle>
+              <CardDescription>
+                Remplissez le formulaire ci-dessous et nous vous répondrons dans les plus brefs délais
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="grid md:grid-cols-2 gap-4">
+                  {/* Nom */}
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Nom complet *</Label>
+                    <Input
+                      id="name"
+                      name="name"
+                      placeholder="Jean Dupont"
+                      value={formData.name}
+                      onChange={handleChange}
+                      required
+                    />
                   </div>
 
-          {/* Form */}
-          <div style={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '16px', padding: '48px' }}>
-            <form>
-              <div style={{ marginBottom: '24px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>Nom complet</label>
-                <input type="text" style={{ width: '100%', padding: '12px 16px', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '16px' }} />
-              </div>
-              <div style={{ marginBottom: '24px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>Email</label>
-                <input type="email" style={{ width: '100%', padding: '12px 16px', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '16px' }} />
-              </div>
-              <div style={{ marginBottom: '24px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>Message</label>
-                <textarea rows={6} style={{ width: '100%', padding: '12px 16px', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '16px', fontFamily: 'inherit' }}></textarea>
-              </div>
-              <button type="submit" style={{ 
-                width: '100%',
-                padding: '16px',
-                background: 'linear-gradient(135deg, rgb(76, 29, 149), rgb(79, 70, 229))',
-                color: 'white',
-                border: 'none',
-                borderRadius: '12px',
-                fontSize: '16px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}>
-                Envoyer le message
-              </button>
-            </form>
+                  {/* Email */}
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email *</Label>
+                    <Input
+                      id="email"
+                      name="email"
+                      type="email"
+                      placeholder="jean@exemple.com"
+                      value={formData.email}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  {/* Téléphone */}
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Téléphone</Label>
+                    <Input
+                      id="phone"
+                      name="phone"
+                      type="tel"
+                      placeholder="+33 6 12 34 56 78"
+                      value={formData.phone}
+                      onChange={handleChange}
+                    />
+                  </div>
+
+                  {/* Sujet */}
+                  <div className="space-y-2">
+                    <Label htmlFor="subject">Sujet *</Label>
+                    <Input
+                      id="subject"
+                      name="subject"
+                      placeholder="Problème technique, Question..."
+                      value={formData.subject}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Message */}
+                <div className="space-y-2">
+                  <Label htmlFor="message">Message *</Label>
+                  <Textarea
+                    id="message"
+                    name="message"
+                    placeholder="Décrivez votre demande en détail..."
+                    rows={6}
+                    value={formData.message}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+
+                {/* Bouton */}
+                <Button 
+                  type="submit" 
+                  className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <>Envoi en cours...</>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4 mr-2" />
+                      Envoyer le message
+                    </>
+                  )}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          {/* Coordonnées */}
+          <div className="space-y-6">
+            {/* Email */}
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 bg-primary/10 rounded-lg">
+                    <Mail className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold mb-1">Email</h3>
+                    <a 
+                      href="mailto:contact@sacimo.com"
+                      className="text-sm text-muted-foreground hover:text-primary"
+                    >
+                      contact@sacimo.com
+                    </a>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Réponse sous 24h
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Téléphone */}
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 bg-primary/10 rounded-lg">
+                    <Phone className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold mb-1">Téléphone</h3>
+                    <a 
+                      href="tel:+33123456789"
+                      className="text-sm text-muted-foreground hover:text-primary"
+                    >
+                      +33 1 23 45 67 89
+                    </a>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Lun-Ven : 9h-18h
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Adresse */}
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 bg-primary/10 rounded-lg">
+                    <MapPin className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold mb-1">Adresse</h3>
+                    <p className="text-sm text-muted-foreground">
+                      123 Avenue des Champs-Élysées<br />
+                      75008 Paris, France
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Horaires */}
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 bg-primary/10 rounded-lg">
+                    <Clock className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold mb-1">Horaires</h3>
+                    <div className="text-sm text-muted-foreground space-y-1">
+                      <p>Lundi - Vendredi : 9h - 18h</p>
+                      <p>Samedi : 10h - 16h</p>
+                      <p>Dimanche : Fermé</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
+
+        {/* Section FAQ rapide */}
+        <div className="max-w-4xl mx-auto mt-16">
+          <h2 className="text-2xl font-bold text-center mb-8">
+            Questions fréquentes
+          </h2>
+          <div className="grid md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">💳 Facturation</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  Pour toute question relative à votre abonnement ou facturation,
+                  consultez votre{' '}
+                  <a href="/app/facturation" className="text-primary hover:underline">
+                    espace facturation
+                  </a>
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">🔧 Support technique</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  Pour un problème technique urgent, utilisez le chat en direct
+                  disponible en bas à droite de votre écran
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">📚 Documentation</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  Consultez notre{' '}
+                  <a href="/resources/faq" className="text-primary hover:underline">
+                    centre d'aide
+                  </a>
+                  {' '}pour trouver des réponses aux questions courantes
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">💬 Réseaux sociaux</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  Suivez-nous sur{' '}
+                  <a href="#" className="text-primary hover:underline">Twitter</a>
+                  ,{' '}
+                  <a href="#" className="text-primary hover:underline">LinkedIn</a>
+                  {' '}et{' '}
+                  <a href="#" className="text-primary hover:underline">Facebook</a>
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
     </div>
-    </>
   );
 }
 

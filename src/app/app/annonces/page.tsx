@@ -1,5 +1,13 @@
 import Link from "next/link"
-import { formatPrice, formatSurface, truncateText } from "@/lib/utils/format"
+import { 
+  formatPrice,
+  formatSurface,
+  truncateText,
+  formatPublishedAt,
+  formatCityLine,
+  formatTransactionBadge,
+  formatTypeLabel,
+} from "@/lib/utils/format"
 
 type SearchParamsPromise = Promise<Record<string, string>>
 
@@ -12,7 +20,9 @@ interface Annonce {
   postalCode: string | null
   city: string
   url: string
-  images: string[]
+  images?: string[]
+  picturesRemote?: string[]
+  pictures?: string[]
   description: string | null
   publishedAt: string
 }
@@ -51,7 +61,7 @@ const getNumberParam = (params: URLSearchParams, key: string): number | undefine
 }
 
 const buildQueryString = (filters: Filters, page: number, limit: number): URLSearchParams => {
-  const params = new URLSearchParams()
+      const params = new URLSearchParams()
   if (filters.ville) params.set("ville", filters.ville)
   if (filters.postalCode) params.set("postalCode", filters.postalCode)
   if (filters.type) params.set("type", filters.type)
@@ -88,9 +98,20 @@ const buildPaginationLink = (
   return `/app/annonces?${params.toString()}`
 }
 
-const firstImage = (images: string[]): string | null => {
-  if (!images || images.length === 0) return null
-  return images.find((src) => !!src) ?? null
+function getAnnonceImage(annonce: Annonce): string | null {
+  if (annonce.images && annonce.images.length > 0) {
+    return annonce.images[0]
+  }
+
+  if (annonce.picturesRemote && annonce.picturesRemote.length > 0) {
+    return annonce.picturesRemote[0]
+  }
+
+  if (annonce.pictures && annonce.pictures.length > 0) {
+    return annonce.pictures[0]
+  }
+
+  return null
 }
 
 export default async function AnnoncesPage({
@@ -131,7 +152,7 @@ export default async function AnnoncesPage({
           {total.toLocaleString("fr-FR")} annonces importées depuis Melo.io et stockées dans la base
           SACIMO. Filtrez et explorez librement le stock disponible.
         </p>
-      </div>
+          </div>
 
       <form className="mb-8 grid gap-4 rounded-xl border border-gray-100 bg-white p-6 shadow-sm sm:grid-cols-2 lg:grid-cols-6">
         <div className="lg:col-span-2">
@@ -145,7 +166,7 @@ export default async function AnnoncesPage({
             placeholder="Paris, Lyon, Cannes..."
             className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
           />
-        </div>
+              </div>
 
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="prixMin">
@@ -158,8 +179,8 @@ export default async function AnnoncesPage({
             min="0"
             defaultValue={filters.prixMin?.toString() ?? ""}
             className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-          />
-        </div>
+                    />
+                  </div>
 
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="prixMax">
@@ -173,8 +194,8 @@ export default async function AnnoncesPage({
             defaultValue={filters.prixMax?.toString() ?? ""}
             className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
           />
-        </div>
-
+                </div>
+                
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="surfaceMin">
             Surface min (m²)
@@ -201,8 +222,8 @@ export default async function AnnoncesPage({
             defaultValue={filters.surfaceMax?.toString() ?? ""}
             className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
           />
-        </div>
-
+                </div>
+                
         <div className="lg:col-span-2">
           <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="type">
             Type de bien
@@ -217,8 +238,8 @@ export default async function AnnoncesPage({
             <option value="appartement">Appartement</option>
             <option value="maison">Maison</option>
           </select>
-        </div>
-
+              </div>
+              
         <input type="hidden" name="limit" value={limit.toString()} />
 
         <div className="flex items-end gap-3 lg:col-span-2">
@@ -249,52 +270,84 @@ export default async function AnnoncesPage({
       {hasResults ? (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {data.map((annonce) => {
-            const image = firstImage(annonce.images)
+            const image = getAnnonceImage(annonce)
+            const transactionBadge = formatTransactionBadge(annonce)
+            const typeLabel = formatTypeLabel(annonce)
+
             return (
               <article
                 key={annonce.id}
                 className="flex flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md"
               >
-                <div className="h-48 w-full bg-gray-100">
+                {/* Image */}
+                <div className="relative h-48 w-full bg-gray-100">
                   {image ? (
-                    <img src={image} alt={annonce.title} className="h-full w-full object-cover" />
+                    <img
+                      src={image}
+                      alt={annonce.title || "Photo annonce"}
+                      className="h-full w-full object-cover"
+                    />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-sm text-gray-500">
                       Photo indisponible
                     </div>
                   )}
-                </div>
-                <div className="flex flex-1 flex-col gap-3 p-5">
-                  <div className="flex items-center justify-between text-xs text-gray-500">
-                    <span>{new Date(annonce.publishedAt).toLocaleDateString("fr-FR")}</span>
-                    <span>{annonce.rooms ?? 0} pièce(s)</span>
+                  {/* Badge transaction */}
+                  <div className="absolute right-2 top-2 z-10">
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                        transactionBadge.variant === "rent"
+                          ? "bg-blue-100 text-blue-700"
+                          : "bg-green-100 text-green-700"
+                      }`}
+                    >
+                      {transactionBadge.label}
+                    </span>
                   </div>
-                  <h2 className="text-lg font-semibold text-gray-900">
+                </div>
+
+                {/* Contenu */}
+                <div className="flex flex-1 flex-col gap-3 p-5">
+                  {/* Date et type */}
+                  <div className="flex items-center justify-between text-xs text-gray-500">
+                    <span>{formatPublishedAt(annonce.publishedAt)}</span>
+                    {typeLabel && (
+                      <span className="rounded bg-gray-100 px-2 py-0.5 text-gray-600">
+                        {typeLabel}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Titre */}
+                  <h2 className="text-lg font-semibold text-gray-900 leading-tight">
                     {truncateText(annonce.title, 80)}
                   </h2>
+
+                  {/* Prix */}
                   <p className="text-xl font-bold text-primary">{formatPrice(annonce.price)}</p>
+
+                  {/* Surface – Ville CodePostal */}
                   <p className="text-sm text-gray-600">
-                    {formatSurface(annonce.surface)} · {annonce.city}
-                    {annonce.postalCode ? ` ${annonce.postalCode}` : ""}
+                    {formatCityLine(annonce.surface, annonce.city, annonce.postalCode)}
+                    {annonce.rooms && annonce.rooms > 0 && ` · ${annonce.rooms} pièce${annonce.rooms > 1 ? "s" : ""}`}
                   </p>
-                  <p className="text-sm text-gray-500">
-                    {truncateText(annonce.description || "", 140)}
-                  </p>
-                  <div className="mt-auto pt-4">
+
+                  {/* Bouton */}
+                  <div className="mt-auto pt-2">
                     <a
                       href={annonce.url}
                       target="_blank"
                       rel="noreferrer"
                       className="inline-flex w-full justify-center rounded-lg border border-primary/20 px-4 py-2 text-sm font-semibold text-primary transition hover:bg-primary/5"
                     >
-                      Voir l’annonce
+                      Voir l'annonce
                     </a>
                   </div>
                 </div>
               </article>
-            )
-          })}
-        </div>
+                      )
+                    })}
+                  </div>
       ) : (
         <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-12 text-center text-gray-500">
           Aucune annonce ne correspond à vos filtres pour le moment.

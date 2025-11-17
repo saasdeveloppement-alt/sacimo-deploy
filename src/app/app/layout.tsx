@@ -7,8 +7,17 @@ import { useSession } from "next-auth/react"
 import { DashboardSidebar } from "@/components/DashboardSidebar"
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  
+  // Attendre que la session soit chargée pour éviter les erreurs
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-gray-500">Chargement...</div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

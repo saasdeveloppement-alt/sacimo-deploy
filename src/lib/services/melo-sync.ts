@@ -46,6 +46,7 @@ export interface SyncOptions {
   };
   limit?: number;
   transformToListing?: boolean; // Transformer en Listing structuré
+  department?: string; // Département direct (ex: "33", "75") pour filtrage
 }
 
 class MeloSyncService {
@@ -128,7 +129,11 @@ class MeloSyncService {
         itemsPerPage: 100,
       };
       
-      if (options.filters) {
+      // Si department est fourni directement (via route de debug), l'utiliser
+      if (options.department && /^\d{2}$/.test(options.department)) {
+        searchParams.department = options.department
+        console.log(`📍 Département direct: ${options.department} → includedDepartments[]=${options.department}`)
+      } else if (options.filters) {
         const filters = options.filters
 
         // Si on a un code postal exact, utiliser includedDepartments[]
@@ -435,6 +440,8 @@ class MeloSyncService {
             url: annonce.url || '',
             publishedAt: annonce.publishedAt || new Date(),
             images: annonce.images || [],
+            picturesRemote: annonce.picturesRemote || [],
+            pictures: annonce.pictures || [],
             description: annonce.description || '',
             source: 'MELO', // Source Melo.io
             isNew: true,
@@ -775,6 +782,8 @@ class MeloSyncService {
                 postalCode: annonce.postalCode || null,
                 publishedAt: annonce.publishedAt || new Date(),
                 images: annonce.images || [],
+                picturesRemote: annonce.picturesRemote || [],
+                pictures: annonce.pictures || [],
                 description: annonce.description || '',
                 isNew: false,
                 lastScrapedAt: new Date(),
@@ -794,6 +803,8 @@ class MeloSyncService {
                 url: annonce.url || '',
                 publishedAt: annonce.publishedAt || new Date(),
                 images: annonce.images || [],
+                picturesRemote: annonce.picturesRemote || [],
+                pictures: annonce.pictures || [],
                 description: annonce.description || '',
                 source: 'MELO',
                 isNew: true,
