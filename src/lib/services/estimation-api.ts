@@ -422,7 +422,8 @@ export async function estimateFromPublicAPI(
         pricePerSqmMedian: Math.round(priceMedian / surface),
         pricePerSqmAverage: Math.round(average * adjustmentFactor),
         sampleSize: marketData.length,
-        confidence: Math.min(0.9, marketData.length / 50), // Confiance basée sur le nombre d'échantillons
+        // Confiance basée sur le nombre d'échantillons et les ajustements (minimum 60%)
+        confidence: Math.min(0.85, Math.max(0.60, (marketData.length / 50) * 0.9 - (adjustments.length * 0.01))),
         strategy: "public_api",
         adjustments: adjustments.length > 0 ? adjustments : [], // Toujours retourner un array, même vide
         comparables: marketData.map((d, index) => ({
@@ -534,7 +535,8 @@ export async function estimateFromPublicAPI(
       pricePerSqmMedian: Math.round(priceMedian / surface),
       pricePerSqmAverage: Math.round(adjustedBasePricePerSqm * adjustmentFactor),
       sampleSize: fallbackComparables.length,
-      confidence: 0.3, // Faible confiance car données approximatives
+      // Confiance minimum 60% même pour données approximatives
+      confidence: Math.max(0.60, 0.70 - (adjustments.length * 0.01)),
       strategy: "departmental_fallback",
       adjustments: adjustments.length > 0 ? adjustments : [], // Toujours retourner un array, même vide
       comparables: fallbackComparables,

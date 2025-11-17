@@ -774,19 +774,26 @@ export async function estimateFromComparables(input: EstimationInput): Promise<E
     }
   }
 
-  // Calcul du score de confiance basé sur le nombre de comparables
+  // Calcul du score de confiance basé sur plusieurs facteurs
   console.log(`📈 Total comparables trouvés: ${comparables.length}`)
   
-  let confidence = 100
-
-  if (comparables.length >= 8) {
+  // Base de confiance selon le nombre de comparables (minimum 60%)
+  let confidence = 60 // Minimum garanti
+  
+  if (comparables.length >= 20) {
     confidence = 90
+  } else if (comparables.length >= 15) {
+    confidence = 85
+  } else if (comparables.length >= 10) {
+    confidence = 80
+  } else if (comparables.length >= 8) {
+    confidence = 75
   } else if (comparables.length >= 5) {
-    confidence = 60
+    confidence = 70
   } else if (comparables.length >= 3) {
-    confidence = 40
+    confidence = 65
   } else if (comparables.length >= 1) {
-    confidence = 20
+    confidence = 60
   } else {
     // Fallback total → estimation départementale moyenne
     // Vérifier que postalCode existe et a au moins 2 caractères
@@ -817,7 +824,7 @@ export async function estimateFromComparables(input: EstimationInput): Promise<E
       pricePerSqmMedian: Math.round(fallbackPricePerSqm),
       pricePerSqmAverage: Math.round(fallbackPricePerSqm),
       sampleSize: 0,
-      confidence: 0.15, // 15% en décimal
+      confidence: 0.60, // 60% minimum en décimal
       strategy: usedStrategyId || "fallback_departmental",
       comparables: []
     }
@@ -844,9 +851,34 @@ export async function estimateFromComparables(input: EstimationInput): Promise<E
   const dispersion =
     stats.q1 > 0 ? (stats.q3 - stats.q1) / stats.q1 : 0
 
-  // Le confidence a déjà été calculé plus haut basé sur le nombre de comparables
-  // On le convertit en décimal (0-1) pour correspondre au type EstimationResult
+  // Ajuster la confiance selon la dispersion (moins de dispersion = plus de confiance)
+  if (dispersion > 0) {
+    if (dispersion < 0.15) {
+      // Dispersion très faible (< 15%) = +10% de confiance
+      confidence = Math.min(95, confidence + 10)
+      console.log(`📊 Dispersion faible (${(dispersion * 100).toFixed(1)}%): +10% confiance`)
+    } else if (dispersion < 0.25) {
+      // Dispersion faible (< 25%) = +5% de confiance
+      confidence = Math.min(95, confidence + 5)
+      console.log(`📊 Dispersion modérée (${(dispersion * 100).toFixed(1)}%): +5% confiance`)
+    } else if (dispersion > 0.50) {
+      // Dispersion élevée (> 50%) = -10% de confiance
+      confidence = Math.max(60, confidence - 10) // Minimum 60%
+      console.log(`📊 Dispersion élevée (${(dispersion * 100).toFixed(1)}%): -10% confiance`)
+    } else if (dispersion > 0.40) {
+      // Dispersion modérée-élevée (> 40%) = -5% de confiance
+      confidence = Math.max(60, confidence - 5) // Minimum 60%
+      console.log(`📊 Dispersion modérée-élevée (${(dispersion * 100).toFixed(1)}%): -5% confiance`)
+    }
+  }
+
+  // Ajuster selon le nombre d'ajustements appliqués (plus d'ajustements = moins de confiance)
+  // On va calculer cela plus tard après avoir calculé les ajustements
+  
+  // Le confidence est en pourcentage (0-100), on le convertit en décimal (0-1) pour correspondre au type EstimationResult
   const confidenceDecimal = confidence / 100
+  
+  console.log(`📊 Score de confiance final: ${confidence}% (décimal: ${confidenceDecimal.toFixed(2)})`)
 
   const pricePerSqmMedian = stats.median
   const pricePerSqmAverage = stats.average
@@ -885,9 +917,22 @@ export async function estimateFromComparables(input: EstimationInput): Promise<E
   console.log(`💰 Différence: ${difference > 0 ? '+' : ''}${difference.toLocaleString('fr-FR')}€ (${differencePercent > 0 ? '+' : ''}${differencePercent}%)`)
   console.log(`💰 =================================\n`)
 
+  // Ajuster la confiance selon le nombre d'ajustements appliqués
+  // Plus d'ajustements = estimation moins "pure" = moins de confiance
+  // Mais on garde un minimum de 60%
+  if (adjustments.length > 0) {
+    const adjustmentPenalty = Math.min(adjustments.length * 1, 10) // Max -10% pour 10+ ajustements (réduit)
+    confidence = Math.max(60, confidence - adjustmentPenalty) // Minimum 60%
+    console.log(`📊 ${adjustments.length} ajustement(s) appliqué(s): -${adjustmentPenalty}% confiance`)
+  }
+
   // Recalculer le prix au m² après ajustement
   const adjustedPricePerSqmMedian = Math.round(priceMedian / surface)
   const adjustedPricePerSqmAverage = Math.round(pricePerSqmAverage * adjustmentFactor)
+  
+  // Confiance finale après tous les ajustements
+  const finalConfidenceDecimal = confidence / 100
+  console.log(`📊 Score de confiance final (après ajustements): ${confidence}% (décimal: ${finalConfidenceDecimal.toFixed(2)})`)
 
   // Log des ajustements appliqués
   console.log(`\n💰 ========== RÉSUMÉ DES AJUSTEMENTS ==========`)
@@ -949,7 +994,7 @@ export async function estimateFromComparables(input: EstimationInput): Promise<E
     pricePerSqmMedian: adjustedPricePerSqmMedian,
     pricePerSqmAverage: adjustedPricePerSqmAverage,
     sampleSize: trimmed.length,
-    confidence: confidenceDecimal,
+    confidence: finalConfidenceDecimal, // Utiliser la confiance finale après ajustements
     strategy: usedStrategyId,
     adjustments: adjustments.length > 0 ? adjustments : [], // Toujours retourner un array, même vide
     comparables: fullComparables,
