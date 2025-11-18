@@ -119,13 +119,17 @@ export function extractAddressCandidatesFromVision(
   const addressPatterns = [
     // Adresse complète avec numéro, rue, code postal, ville (priorité haute)
     /\d+\s+(?:rue|avenue|boulevard|place|chemin|impasse|allée|route|passage|voie|cours|quai|esplanade|promenade)\s+[^\n,]+(?:,\s*)?\d{5}\s+[A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞŸ][a-zàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ\s-]+/gi,
+    // Place/Rue sans numéro mais avec nom (ex: "Place Tourny", "Place de la Bourse")
+    /(?:place|Place|PLACE)\s+[A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞŸ][a-zàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ\s-]+(?:,\s*)?(?:Bordeaux|Paris|Lyon|Marseille|Toulouse|Nice|Nantes|Strasbourg|Montpellier|Lille|Rennes|Reims|Saint-Étienne|Le Havre|Toulon|Grenoble|Dijon|Angers|Nîmes|Villeurbanne|Saint-Denis|Le Mans|Aix-en-Provence|Clermont-Ferrand|Brest|Limoges|Tours|Amiens|Perpignan|Metz|Besançon|Boulogne-Billancourt|Orléans|Mulhouse|Rouen|Caen|Nancy|Argenteuil|Montreuil|Saint-Paul|Roubaix|Tourcoing|Nanterre|Avignon|Créteil|Dunkirk|Poitiers|Asnières-sur-Seine|Versailles|Courbevoie|Vitry-sur-Seine|Colombes|Aulnay-sous-Bois|La Rochelle|Champigny-sur-Marne|Rueil-Malmaison|Antibes|Saint-Maur-des-Fossés|Cannes|Bourges|Drancy|Mérignac|Saint-Nazaire|Colmar|Issy-les-Moulineaux|Noisy-le-Grand|Évry|Cergy|Pessac|Valence|Antony|La Seyne-sur-Mer|Clichy|Troyes|Neuilly-sur-Seine|Villeneuve-d'Ascq|Pantin|Niort|Le Blanc-Mesnil|Haguenau|Bobigny|Lorient|Beauvais|Hyères|Épinay-sur-Seine|Sartrouville|Maisons-Alfort|Meaux|Chelles|Villejuif|Cholet|Évry-Courcouronnes|Fontenay-sous-Bois|Fréjus|Vannes|Bondy|Laval|Arles|Sète|Clamart|Bayonne|Sarcelles|Corbeil-Essonnes|Mantes-la-Jolie|Saint-Ouen|Saint-Quentin|Gennevilliers|Ivry-sur-Seine|Charleville-Mézières|Blois|Châlons-en-Champagne|Chambéry|Albi|Brive-la-Gaillarde|Châteauroux|Montbéliard|Tarbes|Angoulême)/i,
+    // Place/Rue sans numéro (ex: "Place Tourny", "Rue de la Paix")
+    /(?:place|Place|PLACE|rue|Rue|RUE|avenue|Avenue|AVENUE|boulevard|Boulevard|BOULEVARD|chemin|Chemin|CHEMIN|impasse|Impasse|IMPASSE|allée|Allée|ALLÉE|route|Route|ROUTE|passage|Passage|PASSAGE|voie|Voie|VOIE|cours|Cours|COURS|quai|Quai|QUAI|esplanade|Esplanade|ESPLANADE|promenade|Promenade|PROMENADE)\s+[A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞŸ][a-zàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ\s-]+/gi,
     // Numéro + Rue + Ville (ex: "15 Rue de la Paix Paris")
     /\d+\s+(?:rue|avenue|boulevard|place|chemin|impasse|allée|route|passage|voie|cours|quai|esplanade|promenade)\s+[^\n,]+(?:,?\s*)?[A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞŸ][a-zàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ\s-]+/gi,
     // Numéro + Rue (ex: "15 Rue de la Paix")
     /\d+\s+(?:rue|avenue|boulevard|place|chemin|impasse|allée|route|passage|voie|cours|quai|esplanade|promenade)\s+[^\n,]+/gi,
-    // Code postal + Ville (ex: "75001 Paris")
+    // Code postal + Ville (ex: "75001 Paris", "33000 Bordeaux")
     /\d{5}\s+[A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞŸ][a-zàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ\s-]+/gi,
-    // Ville seule si elle est connue (ex: "Paris", "Lyon")
+    // Ville seule si elle est connue (ex: "Paris", "Bordeaux")
     /\b(?:Paris|Lyon|Marseille|Toulouse|Nice|Nantes|Strasbourg|Montpellier|Bordeaux|Lille|Rennes|Reims|Saint-Étienne|Le Havre|Toulon|Grenoble|Dijon|Angers|Nîmes|Villeurbanne|Saint-Denis|Le Mans|Aix-en-Provence|Clermont-Ferrand|Brest|Limoges|Tours|Amiens|Perpignan|Metz|Besançon|Boulogne-Billancourt|Orléans|Mulhouse|Rouen|Caen|Nancy|Argenteuil|Montreuil|Saint-Paul|Roubaix|Tourcoing|Nanterre|Avignon|Créteil|Dunkirk|Poitiers|Asnières-sur-Seine|Versailles|Courbevoie|Vitry-sur-Seine|Colombes|Aulnay-sous-Bois|La Rochelle|Champigny-sur-Marne|Rueil-Malmaison|Antibes|Saint-Maur-des-Fossés|Cannes|Bourges|Drancy|Mérignac|Saint-Nazaire|Colmar|Issy-les-Moulineaux|Noisy-le-Grand|Évry|Cergy|Pessac|Valence|Antony|La Seyne-sur-Mer|Clichy|Troyes|Neuilly-sur-Seine|Villeneuve-d'Ascq|Pantin|Niort|Le Blanc-Mesnil|Haguenau|Bobigny|Lorient|Beauvais|Hyères|Épinay-sur-Seine|Sartrouville|Maisons-Alfort|Meaux|Chelles|Villejuif|Cholet|Évry-Courcouronnes|Fontenay-sous-Bois|Fréjus|Vannes|Bondy|Laval|Arles|Sète|Clamart|Bayonne|Sarcelles|Corbeil-Essonnes|Mantes-la-Jolie|Saint-Ouen|Saint-Quentin|Gennevilliers|Ivry-sur-Seine|Charleville-Mézières|Blois|Châlons-en-Champagne|Chambéry|Albi|Brive-la-Gaillarde|Châteauroux|Montbéliard|Tarbes|Angoulême|Lons-le-Saunier|Agen|Foix|Gap|Mende|Privas|Aurillac|Cahors|Rodez|Millau|Alès|Nîmes|Uzès|Béziers|Perpignan|Carcassonne|Foix|Pamiers|Auch|Tarbes|Lourdes|Pau|Bayonne|Dax|Mont-de-Marsan|Périgueux|Bergerac|Sarlat-la-Canéda|Brive-la-Gaillarde|Tulle|Ussel|Guéret|Aubusson|Limoges|Bellac|Rochechouart|Angoulême|Cognac|Confolens|La Rochelle|Rochefort|Saintes|Jonzac|Marennes|Royan|Saint-Jean-d'Angély|Niort|Parthenay|Bressuire|Thouars|Loudun|Châtellerault|Poitiers|Montmorillon|Civray|Confolens|Bellac|Limoges|Saint-Junien|Rochechouart|Ussel|Tulle|Brive-la-Gaillarde|Sarlat-la-Canéda|Bergerac|Périgueux|Mont-de-Marsan|Dax|Bayonne|Pau|Lourdes|Tarbes|Auch|Pamiers|Foix|Carcassonne|Perpignan|Béziers|Uzès|Nîmes|Alès|Millau|Rodez|Cahors|Aurillac|Privas|Mende|Gap|Foix|Agen|Lons-le-Saunier|Angoulême|Tarbes|Montbéliard|Châteauroux|Brive-la-Gaillarde|Albi|Chambéry|Châlons-en-Champagne|Blois|Charleville-Mézières|Ivry-sur-Seine|Gennevilliers|Saint-Quentin|Saint-Ouen|Mantes-la-Jolie|Corbeil-Essonnes|Sarcelles|Bayonne|Clamart|Sète|Arles|Laval|Bondy|Vannes|Fréjus|Fontenay-sous-Bois|Évry-Courcouronnes|Cholet|Villejuif|Chelles|Meaux|Maisons-Alfort|Sartrouville|Épinay-sur-Seine|Hyères|Beauvais|Lorient|Bobigny|Haguenau|Le Blanc-Mesnil|Niort|Pantin|Villeneuve-d'Ascq|Neuilly-sur-Seine|Troyes|Clichy|La Seyne-sur-Seine|Antony|Valence|Pessac|Cergy|Évry|Noisy-le-Grand|Issy-les-Moulineaux|Colmar|Saint-Nazaire|Mérignac|Drancy|Bourges|Cannes|Saint-Maur-des-Fossés|Antibes|Rueil-Malmaison|Champigny-sur-Marne|La Rochelle|Aulnay-sous-Bois|Colombes|Vitry-sur-Seine|Courbevoie|Versailles|Asnières-sur-Seine|Poitiers|Dunkirk|Créteil|Avignon|Nanterre|Tourcoing|Roubaix|Saint-Paul|Montreuil|Argenteuil|Nancy|Caen|Rouen|Mulhouse|Orléans|Boulogne-Billancourt|Besançon|Metz|Perpignan|Amiens|Tours|Limoges|Brest|Clermont-Ferrand|Aix-en-Provence|Le Mans|Saint-Denis|Villeurbanne|Nîmes|Angers|Dijon|Grenoble|Toulon|Le Havre|Saint-Étienne|Reims|Rennes|Lille|Bordeaux|Montpellier|Strasbourg|Nantes|Nice|Toulouse|Marseille)\b/gi,
   ]
 
@@ -183,6 +187,10 @@ export function extractAddressCandidatesFromVision(
             )
           ) {
             score += 0.15 // Bonus augmenté
+            // Bonus supplémentaire pour les places (souvent des lieux emblématiques)
+            if (cleaned.toLowerCase().includes("place")) {
+              score += 0.1
+            }
           }
 
           // Bonus si l'adresse est complète (numéro + rue + code postal + ville)
@@ -246,12 +254,18 @@ export function extractAddressCandidatesFromVision(
           desc.includes("store") ||
           desc.includes("shop") ||
           desc.includes("restaurant") ||
-          desc.includes("cafe")
+          desc.includes("cafe") ||
+          desc.includes("square") ||
+          desc.includes("plaza") ||
+          desc.includes("monument") ||
+          desc.includes("statue") ||
+          desc.includes("fountain")
         )
       })
       .sort((a, b) => b.score - a.score) // Trier par score de confiance Vision
 
     // Si on a des indicateurs de lieu forts, créer un candidat basé sur le contexte
+    // MAIS seulement si on n'a pas détecté de ville différente dans le texte
     if (locationIndicators.length > 0 && context?.city) {
       const topLabel = locationIndicators[0]
       // Plus le label est confiant, plus on augmente le score
@@ -264,11 +278,33 @@ export function extractAddressCandidatesFromVision(
   }
 
   // Dernier fallback : utiliser uniquement le contexte
-  if (candidates.length === 0 && context?.city) {
+  // ⚠️ ATTENTION : Ne pas utiliser ce fallback si on a détecté une ville dans le texte
+  // qui est différente du contexte de l'annonce
+  const detectedCityInText = fullText
+    ? (fullText.match(/\b(?:Bordeaux|Paris|Lyon|Marseille|Toulouse|Nice|Nantes|Strasbourg|Montpellier|Lille|Rennes|Reims|Saint-Étienne|Le Havre|Toulon|Grenoble|Dijon|Angers|Nîmes|Villeurbanne|Saint-Denis|Le Mans|Aix-en-Provence|Clermont-Ferrand|Brest|Limoges|Tours|Amiens|Perpignan|Metz|Besançon|Boulogne-Billancourt|Orléans|Mulhouse|Rouen|Caen|Nancy|Argenteuil|Montreuil|Saint-Paul|Roubaix|Tourcoing|Nanterre|Avignon|Créteil|Dunkirk|Poitiers|Asnières-sur-Seine|Versailles|Courbevoie|Vitry-sur-Seine|Colombes|Aulnay-sous-Bois|La Rochelle|Champigny-sur-Marne|Rueil-Malmaison|Antibes|Saint-Maur-des-Fossés|Cannes|Bourges|Drancy|Mérignac|Saint-Nazaire|Colmar|Issy-les-Moulineaux|Noisy-le-Grand|Évry|Cergy|Pessac|Valence|Antony|La Seyne-sur-Mer|Clichy|Troyes|Neuilly-sur-Seine|Villeneuve-d'Ascq|Pantin|Niort|Le Blanc-Mesnil|Haguenau|Bobigny|Lorient|Beauvais|Hyères|Épinay-sur-Seine|Sartrouville|Maisons-Alfort|Meaux|Chelles|Villejuif|Cholet|Évry-Courcouronnes|Fontenay-sous-Bois|Fréjus|Vannes|Bondy|Laval|Arles|Sète|Clamart|Bayonne|Sarcelles|Corbeil-Essonnes|Mantes-la-Jolie|Saint-Ouen|Saint-Quentin|Gennevilliers|Ivry-sur-Seine|Charleville-Mézières|Blois|Châlons-en-Champagne|Chambéry|Albi|Brive-la-Gaillarde|Châteauroux|Montbéliard|Tarbes|Angoulême)\b/gi) || [])
+    : []
+
+  const detectedCityName = detectedCityInText.length > 0 
+    ? detectedCityInText[0].trim() 
+    : null
+
+  // Ne pas utiliser le fallback contextuel si on a détecté une ville différente
+  const shouldUseContextFallback = 
+    candidates.length === 0 && 
+    context?.city && 
+    (!detectedCityName || detectedCityName.toLowerCase() === context.city.toLowerCase())
+
+  if (shouldUseContextFallback) {
     const contextAddress = `${context.city}${context.postalCode ? ` ${context.postalCode}` : ""}, France`
     candidates.push({
       rawText: contextAddress,
       score: 0.15, // Score très bas car basé uniquement sur le contexte
+    })
+  } else if (candidates.length === 0 && detectedCityName) {
+    // Si on a détecté une ville mais pas d'adresse complète, créer un candidat avec cette ville
+    candidates.push({
+      rawText: `${detectedCityName}, France`,
+      score: 0.25, // Score un peu plus élevé car basé sur une détection réelle
     })
   }
 
@@ -494,4 +530,3 @@ export async function readExifFromImage(
     return {}
   }
 }
-

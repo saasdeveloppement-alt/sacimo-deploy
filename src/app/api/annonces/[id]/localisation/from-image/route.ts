@@ -301,7 +301,97 @@ export async function POST(
     })
 
     if (addressCandidates.length === 0) {
-      // Essayer d'utiliser le contexte de l'annonce comme fallback
+      // ⚠️ NE PAS utiliser le contexte de l'annonce si on a détecté une ville différente dans l'image
+      // Vérifier si une ville a été détectée dans le texte Vision
+      const visionText = visionResult.fullTextAnnotation?.text || ""
+      const detectedCities = visionText.match(
+        /\b(?:Bordeaux|Paris|Lyon|Marseille|Toulouse|Nice|Nantes|Strasbourg|Montpellier|Lille|Rennes|Reims|Saint-Étienne|Le Havre|Toulon|Grenoble|Dijon|Angers|Nîmes|Villeurbanne|Saint-Denis|Le Mans|Aix-en-Provence|Clermont-Ferrand|Brest|Limoges|Tours|Amiens|Perpignan|Metz|Besançon|Boulogne-Billancourt|Orléans|Mulhouse|Rouen|Caen|Nancy|Argenteuil|Montreuil|Saint-Paul|Roubaix|Tourcoing|Nanterre|Avignon|Créteil|Dunkirk|Poitiers|Asnières-sur-Seine|Versailles|Courbevoie|Vitry-sur-Seine|Colombes|Aulnay-sous-Bois|La Rochelle|Champigny-sur-Marne|Rueil-Malmaison|Antibes|Saint-Maur-des-Fossés|Cannes|Bourges|Drancy|Mérignac|Saint-Nazaire|Colmar|Issy-les-Moulineaux|Noisy-le-Grand|Évry|Cergy|Pessac|Valence|Antony|La Seyne-sur-Mer|Clichy|Troyes|Neuilly-sur-Seine|Villeneuve-d'Ascq|Pantin|Niort|Le Blanc-Mesnil|Haguenau|Bobigny|Lorient|Beauvais|Hyères|Épinay-sur-Seine|Sartrouville|Maisons-Alfort|Meaux|Chelles|Villejuif|Cholet|Évry-Courcouronnes|Fontenay-sous-Bois|Fréjus|Vannes|Bondy|Laval|Arles|Sète|Clamart|Bayonne|Sarcelles|Corbeil-Essonnes|Mantes-la-Jolie|Saint-Ouen|Saint-Quentin|Gennevilliers|Ivry-sur-Seine|Charleville-Mézières|Blois|Châlons-en-Champagne|Chambéry|Albi|Brive-la-Gaillarde|Châteauroux|Montbéliard|Tarbes|Angoulême)\b/gi
+      )
+      
+      const detectedCityName = detectedCities && detectedCities.length > 0 
+        ? detectedCities[0].trim() 
+        : null
+
+      // Si on a détecté une ville différente de celle de l'annonce, utiliser cette ville
+      if (detectedCityName && detectedCityName.toLowerCase() !== annonce.city?.toLowerCase()) {
+        console.log(`📍 [Localisation] Ville détectée dans l'image (${detectedCityName}) différente du contexte (${annonce.city}), utilisation de la ville détectée`)
+        
+        const detectedCityAddress = `${detectedCityName}, France`
+        const fallbackCandidates = await geocodeAddressCandidates(
+          [
+            {
+              rawText: detectedCityAddress,
+              score: 0.3,
+            },
+          ],
+          {
+            city: detectedCityName,
+            country: "France",
+          },
+        )
+
+        if (fallbackCandidates.length > 0) {
+          const bestCandidate = fallbackCandidates[0]
+          
+          let location = await prisma.annonceLocation.findUnique({
+            where: { annonceScrapeId: id },
+          })
+
+          const locationData = {
+            autoAddress: bestCandidate.address,
+            autoLatitude: bestCandidate.latitude,
+            autoLongitude: bestCandidate.longitude,
+            autoConfidence: 0.35, // Confiance un peu plus élevée car basée sur une détection réelle
+            autoSource: "VISION_CONTEXT_FALLBACK",
+            visionRaw: visionResult as any,
+            geocodingCandidates: fallbackCandidates as any,
+          }
+
+          if (!location) {
+            location = await prisma.annonceLocation.create({
+              data: {
+                annonceScrapeId: id,
+                ...locationData,
+              },
+            })
+          } else {
+            location = await prisma.annonceLocation.update({
+              where: { id: location.id },
+              data: locationData,
+            })
+          }
+
+          await prisma.annonceScrape.update({
+            where: { id },
+            data: {
+              latitude: bestCandidate.latitude,
+              longitude: bestCandidate.longitude,
+            },
+          })
+
+          return NextResponse.json({
+            status: "ok",
+            source: "VISION_CONTEXT_FALLBACK",
+            warning: `Ville détectée dans l'image (${detectedCityName}) différente du contexte de l'annonce (${annonce.city})`,
+            autoLocation: {
+              address: bestCandidate.address,
+              latitude: bestCandidate.latitude,
+              longitude: bestCandidate.longitude,
+              confidence: 0.35,
+              streetViewUrl: bestCandidate.streetViewUrl,
+            },
+            candidates: fallbackCandidates.map((c) => ({
+              address: c.address,
+              latitude: c.latitude,
+              longitude: c.longitude,
+              geocodingScore: c.geocodingScore,
+              globalScore: c.globalScore,
+            })),
+          })
+        }
+      }
+
+      // Essayer d'utiliser le contexte de l'annonce comme fallback UNIQUEMENT si aucune ville différente n'a été détectée
       const fallbackAddress = `${annonce.city}${annonce.postalCode ? ` ${annonce.postalCode}` : ""}, France`
       
       console.log(`⚠️ [Localisation] Aucune adresse détectée, utilisation du contexte: ${fallbackAddress}`)
@@ -390,8 +480,16 @@ export async function POST(
 
     // 9. Géocoding
     console.log("🗺️ [Localisation] Géocodage des adresses...")
-    // Ne pas passer le contexte de l'annonce si les adresses détectées contiennent déjà des villes ou codes postaux
-    // Cela évite de forcer une mauvaise ville (ex: forcer Paris alors que c'est Bordeaux)
+    
+    // Détecter si une ville est présente dans les candidats OU dans le texte Vision complet
+    const visionText = visionResult.fullTextAnnotation?.text || ""
+    const detectedCities = visionText.match(
+      /\b(?:Bordeaux|Paris|Lyon|Marseille|Toulouse|Nice|Nantes|Strasbourg|Montpellier|Lille|Rennes|Reims|Saint-Étienne|Le Havre|Toulon|Grenoble|Dijon|Angers|Nîmes|Villeurbanne|Saint-Denis|Le Mans|Aix-en-Provence|Clermont-Ferrand|Brest|Limoges|Tours|Amiens|Perpignan|Metz|Besançon|Boulogne-Billancourt|Orléans|Mulhouse|Rouen|Caen|Nancy|Argenteuil|Montreuil|Saint-Paul|Roubaix|Tourcoing|Nanterre|Avignon|Créteil|Dunkirk|Poitiers|Asnières-sur-Seine|Versailles|Courbevoie|Vitry-sur-Seine|Colombes|Aulnay-sous-Bois|La Rochelle|Champigny-sur-Marne|Rueil-Malmaison|Antibes|Saint-Maur-des-Fossés|Cannes|Bourges|Drancy|Mérignac|Saint-Nazaire|Colmar|Issy-les-Moulineaux|Noisy-le-Grand|Évry|Cergy|Pessac|Valence|Antony|La Seyne-sur-Mer|Clichy|Troyes|Neuilly-sur-Seine|Villeneuve-d'Ascq|Pantin|Niort|Le Blanc-Mesnil|Haguenau|Bobigny|Lorient|Beauvais|Hyères|Épinay-sur-Seine|Sartrouville|Maisons-Alfort|Meaux|Chelles|Villejuif|Cholet|Évry-Courcouronnes|Fontenay-sous-Bois|Fréjus|Vannes|Bondy|Laval|Arles|Sète|Clamart|Bayonne|Sarcelles|Corbeil-Essonnes|Mantes-la-Jolie|Saint-Ouen|Saint-Quentin|Gennevilliers|Ivry-sur-Seine|Charleville-Mézières|Blois|Châlons-en-Champagne|Chambéry|Albi|Brive-la-Gaillarde|Châteauroux|Montbéliard|Tarbes|Angoulême)\b/gi
+    )
+    const detectedCityName = detectedCities && detectedCities.length > 0 
+      ? detectedCities[0].trim() 
+      : null
+    
     const hasCityInCandidates = addressCandidates.some((candidate) => {
       const text = candidate.rawText
       // Détecter un code postal français (5 chiffres)
@@ -401,15 +499,28 @@ export async function POST(
       return hasPostalCode || hasCityPattern
     })
     
-    const geocodedCandidates = await geocodeAddressCandidates(
-      addressCandidates,
-      hasCityInCandidates
-        ? { country: "France" } // Ne passer que le pays si une ville est déjà détectée
+    // Si on a détecté une ville dans le texte Vision, l'utiliser pour le géocodage
+    // même si elle n'est pas dans les candidats d'adresse
+    const geocodingContext = detectedCityName && detectedCityName.toLowerCase() !== annonce.city?.toLowerCase()
+      ? {
+          city: detectedCityName,
+          country: "France",
+        }
+      : hasCityInCandidates
+        ? { country: "France" } // Ne passer que le pays si une ville est déjà détectée dans les candidats
         : {
             city: annonce.city,
             postalCode: annonce.postalCode || undefined,
             country: "France",
-          },
+          }
+    
+    if (detectedCityName && detectedCityName.toLowerCase() !== annonce.city?.toLowerCase()) {
+      console.log(`📍 [Localisation] Utilisation de la ville détectée dans l'image (${detectedCityName}) pour le géocodage au lieu du contexte (${annonce.city})`)
+    }
+    
+    const geocodedCandidates = await geocodeAddressCandidates(
+      addressCandidates,
+      geocodingContext,
     )
 
     if (geocodedCandidates.length === 0) {
@@ -507,4 +618,3 @@ export async function POST(
     )
   }
 }
-
