@@ -231,6 +231,46 @@ export function extractAddressCandidatesFromVision(
         }
       }
     }
+    
+    // Si toujours rien, chercher des villes seules dans le texte (détection générique)
+    if (candidates.length === 0 && fullText) {
+      const commonWords = new Set([
+        'rue', 'avenue', 'boulevard', 'place', 'chemin', 'impasse', 'allée',
+        'route', 'passage', 'voie', 'cours', 'quai', 'esplanade', 'promenade',
+        'france', 'french', 'code', 'postal', 'numero', 'numéro', 'le', 'la', 'les',
+        'de', 'du', 'des', 'et', 'ou', 'sur', 'sous', 'dans', 'pour', 'avec', 'sans',
+        'mairie', 'ville', 'commune', 'département', 'région'
+      ])
+      
+      // Pattern pour détecter des villes (mots avec majuscule, 3+ caractères)
+      const cityPattern = /\b([A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞŸ][a-zàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]+(?:[-' ][A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞŸ][a-zàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]+)*)\b/g
+      const cityMatches = fullText.match(cityPattern) || []
+      
+      const cities = cityMatches
+        .map(m => m.trim())
+        .filter(m => m.length >= 3 && !commonWords.has(m.toLowerCase()))
+        .filter((m, i, arr) => arr.indexOf(m) === i) // Dédupliquer
+      
+      // Prendre la première ville détectée et créer un candidat
+      if (cities.length > 0) {
+        const detectedCity = cities[0]
+        // Essayer de trouver un code postal à proximité dans le texte
+        const postalCodeMatch = fullText.match(/\b(\d{5})\b/)
+        const postalCode = postalCodeMatch ? postalCodeMatch[1] : null
+        
+        const cityAddress = postalCode 
+          ? `${postalCode} ${detectedCity}, France`
+          : `${detectedCity}, France`
+        
+        if (!foundAddresses.has(cityAddress)) {
+          foundAddresses.add(cityAddress)
+          candidates.push({
+            rawText: cityAddress,
+            score: 0.35, // Score moyen car basé sur détection de ville seule
+          })
+        }
+      }
+    }
   }
 
   } // Fin du if (fullText)

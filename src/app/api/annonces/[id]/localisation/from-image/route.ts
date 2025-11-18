@@ -526,9 +526,9 @@ export async function POST(
       return hasPostalCode || hasCityPattern
     })
     
-    // Si on a détecté une ville dans le texte Vision, l'utiliser pour le géocodage
-    // même si elle n'est pas dans les candidats d'adresse
-    const geocodingContext = detectedCityName && detectedCityName.toLowerCase() !== annonce.city?.toLowerCase()
+    // PRIORITÉ : Si on a détecté une ville dans le texte Vision, TOUJOURS l'utiliser pour le géocodage
+    // même si elle n'est pas dans les candidats d'adresse, et même si elle est différente du contexte
+    const geocodingContext = detectedCityName
       ? {
           city: detectedCityName,
           country: "France",
@@ -541,8 +541,12 @@ export async function POST(
             country: "France",
           }
     
-    if (detectedCityName && detectedCityName.toLowerCase() !== annonce.city?.toLowerCase()) {
-      console.log(`📍 [Localisation] Utilisation de la ville détectée dans l'image (${detectedCityName}) pour le géocodage au lieu du contexte (${annonce.city})`)
+    if (detectedCityName) {
+      if (detectedCityName.toLowerCase() !== annonce.city?.toLowerCase()) {
+        console.log(`📍 [Localisation] Ville détectée dans l'image (${detectedCityName}) différente du contexte (${annonce.city}), utilisation de la ville détectée`)
+      } else {
+        console.log(`📍 [Localisation] Ville détectée dans l'image (${detectedCityName}) correspond au contexte`)
+      }
     }
     
     const geocodedCandidates = await geocodeAddressCandidates(
