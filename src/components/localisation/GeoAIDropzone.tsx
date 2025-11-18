@@ -331,7 +331,7 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
                         />
                       </svg>
                       {/* Contenu au centre */}
-                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <div className="absolute inset-0 flex items-center justify-center">
                         <span
                           className={`text-3xl font-bold leading-none ${
                             result.autoLocation.confidence > 0.8
@@ -342,36 +342,23 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
                           }`}
                         >
                           {Math.round(result.autoLocation.confidence * 100)}
-                        </span>
-                        <span
-                          className={`text-xs font-semibold ${
-                            result.autoLocation.confidence > 0.8
-                              ? "text-green-600"
-                              : result.autoLocation.confidence > 0.6
-                                ? "text-yellow-600"
-                                : "text-orange-600"
-                          }`}
-                        >
-                          %
+                          <span
+                            className={`ml-1 text-lg font-semibold ${
+                              result.autoLocation.confidence > 0.8
+                                ? "text-green-600"
+                                : result.autoLocation.confidence > 0.6
+                                  ? "text-yellow-600"
+                                  : "text-orange-600"
+                            }`}
+                          >
+                            %
+                          </span>
                         </span>
                       </div>
                     </div>
                     <p className="text-xs font-medium text-gray-600">Score de confiance</p>
                   </div>
                 </div>
-              </div>
-
-              {/* Texte explicatif */}
-              <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4">
-                <p className="text-sm text-gray-700">
-                  <strong>Comment ça fonctionne ?</strong> Notre IA a analysé votre image en utilisant{" "}
-                  {result.source === "EXIF"
-                    ? "les données GPS intégrées à la photo"
-                    : result.source === "VISION_CONTEXT_FALLBACK"
-                      ? "le contexte de l'annonce (ville, code postal)"
-                      : "la reconnaissance optique de caractères (OCR) et la détection de repères visuels"}{" "}
-                  pour identifier cette localisation. La précision dépend de la qualité de l'image et des informations visibles.
-                </p>
               </div>
 
               {/* Warning si fallback */}
@@ -405,6 +392,19 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
                 <Button variant="outline" className="flex-1" onClick={handleReset}>
                   Réessayer
                 </Button>
+              </div>
+
+              {/* Texte explicatif - Déplacé sous les boutons */}
+              <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4">
+                <p className="text-sm text-gray-700">
+                  <strong>Comment ça fonctionne ?</strong> Notre IA a analysé votre image en utilisant{" "}
+                  {result.source === "EXIF"
+                    ? "les données GPS intégrées à la photo"
+                    : result.source === "VISION_CONTEXT_FALLBACK"
+                      ? "le contexte de l'annonce (ville, code postal)"
+                      : "la reconnaissance optique de caractères (OCR) et la détection de repères visuels"}{" "}
+                  pour identifier cette localisation. La précision dépend de la qualité de l'image et des informations visibles.
+                </p>
               </div>
             </motion.div>
           )}
