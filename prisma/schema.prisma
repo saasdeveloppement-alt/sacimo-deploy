@@ -126,28 +126,57 @@ model Tag {
 }
 
 model AnnonceScrape {
-  id             String   @id @default(cuid())
+  id             String          @id @default(cuid())
   title          String
   price          Int
   surface        Int?
   rooms          Int?
   postalCode     String?
   city           String
-  url            String   @unique
+  url            String           @unique
   publishedAt    DateTime
-  images         String[] @default([])
-  picturesRemote String[] @default([])
-  pictures       String[] @default([])
+  images         String[]         @default([])
+  picturesRemote String[]         @default([])
+  pictures       String[]         @default([])
   description    String?
-  source         String   @default("LEBONCOIN")
-  isNew          Boolean  @default(true)
-  lastScrapedAt  DateTime @default(now())
+  source         String           @default("LEBONCOIN")
+  isNew          Boolean          @default(true)
+  lastScrapedAt  DateTime         @default(now())
   latitude       Float?
   longitude      Float?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  location       AnnonceLocation?
 
   @@map("annonce_scrapes")
+}
+
+model AnnonceLocation {
+  id                 String   @id @default(cuid())
+  annonceScrapeId    String   @unique
+  // Localisation validée (par l'agent)
+  address            String?
+  latitude           Float?
+  longitude          Float?
+  precisionMeters    Int?     // Précision estimée en mètres
+
+  // Données AUTO issues du pipeline Vision/StreetView
+  autoAddress        String?
+  autoLatitude       Float?
+  autoLongitude      Float?
+  autoConfidence     Float?   // 0 à 1
+  autoSource         String?  // "EXIF" | "VISION_GEOCODING" | "MANUAL" etc.
+
+  // Logs / debug
+  visionRaw          Json?    // Payload brut (ou partiel) de Google Vision
+  geocodingCandidates Json?   // Liste d'adresses / coords candidates avec score
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  annonceScrape      AnnonceScrape @relation(fields: [annonceScrapeId], references: [id], onDelete: Cascade)
+
+  @@map("annonce_locations")
 }
 
 enum UserRole {

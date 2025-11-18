@@ -188,12 +188,12 @@ export default function DemoRequestPage() {
               Laissez-nous vos coordonnées : notre équipe reviendra vers vous sous 24 heures pour planifier une démonstration.
             </p>
           </div>
-
-          {error && (
+        
+        {error && (
             <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-              {error}
-            </div>
-          )}
+            {error}
+          </div>
+        )}
 
           {success && (
             <div className="mb-6 flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
@@ -207,37 +207,37 @@ export default function DemoRequestPage() {
 
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div className="grid gap-4 sm:grid-cols-2">
-              <div>
+          <div>
                 <label htmlFor="fullName" className="text-sm font-medium text-slate-700">
                   Nom & prénom *
-                </label>
-                <input
+            </label>
+            <input
                   id="fullName"
                   name="fullName"
                   value={form.fullName}
                   onChange={handleChange('fullName')}
-                  type="text"
-                  required
+              type="text"
+              required
                   placeholder="Alexandre Dupont"
                   className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-sm outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-200"
-                />
-              </div>
-              <div>
+            />
+          </div>
+          <div>
                 <label htmlFor="email" className="text-sm font-medium text-slate-700">
                   Email professionnel *
-                </label>
-                <input
-                  id="email"
-                  name="email"
+            </label>
+            <input
+              id="email"
+              name="email"
                   value={form.email}
                   onChange={handleChange('email')}
-                  type="email"
-                  required
+              type="email"
+              required
                   placeholder="prenom@agence.fr"
                   className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-sm outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-200"
-                />
+            />
               </div>
-            </div>
+          </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
@@ -254,17 +254,17 @@ export default function DemoRequestPage() {
                   className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-sm outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-200"
                 />
               </div>
-              <div>
+          <div>
                 <label htmlFor="company" className="text-sm font-medium text-slate-700">
                   Agence / structure *
-                </label>
-                <input
+            </label>
+            <input
                   id="company"
                   name="company"
                   value={form.company}
                   onChange={handleChange('company')}
                   type="text"
-                  required
+              required
                   placeholder="Agence Horizon Immobilier"
                   className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-sm outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-200"
                 />
@@ -346,20 +346,20 @@ export default function DemoRequestPage() {
                 placeholder="Partagez-nous vos attentes, vos outils actuels ou un besoin spécifique…"
                 className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-sm outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-200"
               />
-            </div>
+          </div>
 
-            <button
-              type="submit"
-              disabled={loading}
+          <button
+            type="submit"
+            disabled={loading}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-500/30 transition hover:from-violet-500 hover:to-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
-            >
+          >
               {loading ? 'Envoi en cours…' : 'Planifier une démonstration'}
-            </button>
+          </button>
 
             <p className="text-center text-xs text-slate-500">
               En soumettant ce formulaire, vous acceptez d’être recontacté(e) par l’équipe SACIMO. Vos données ne seront jamais partagées avec des tiers.
             </p>
-          </form>
+        </form>
 
           <div className="mt-8 flex items-center justify-between text-xs text-slate-500">
             <Link href="/auth/signin" className="font-medium text-violet-600 hover:text-violet-500">
