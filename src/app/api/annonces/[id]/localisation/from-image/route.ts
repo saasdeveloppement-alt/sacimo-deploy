@@ -22,6 +22,7 @@ import {
   geocodeAddressCandidates,
   readExifFromImage,
   fetchStreetViewPreview,
+  reverseGeocode,
 } from "@/lib/google/locationClient"
 import type { LocationFromImageResult, GeocodedCandidate } from "@/types/location"
 
@@ -172,13 +173,27 @@ export async function POST(
         },
       })
 
+      // Utiliser le reverse geocoding pour obtenir l'adresse réelle
+      const reverseGeocodeResult = await reverseGeocode(exifData.lat, exifData.lng)
+      const address = reverseGeocodeResult?.address || `${exifData.lat}, ${exifData.lng}`
+      
+      // Mettre à jour l'adresse dans la location
+      if (reverseGeocodeResult) {
+        await prisma.annonceLocation.update({
+          where: { id: location.id },
+          data: {
+            autoAddress: reverseGeocodeResult.address,
+          },
+        })
+      }
+
       const streetViewUrl = fetchStreetViewPreview(exifData.lat, exifData.lng)
 
       return NextResponse.json({
         status: "ok",
         source: "EXIF",
         autoLocation: {
-          address: `${exifData.lat}, ${exifData.lng}`,
+          address,
           latitude: exifData.lat,
           longitude: exifData.lng,
           confidence: 0.98,
@@ -202,27 +217,20 @@ export async function POST(
               `🎯 [Localisation] Landmark détecté: ${landmark.description} à ${location.latLng.latitude}, ${location.latLng.longitude}`,
             )
 
-            // Géocoder pour obtenir l'adresse complète
-            const landmarkCandidates = await geocodeAddressCandidates(
-              [
-                {
-                  rawText: `${landmark.description}, ${annonce.city}`,
-                  score: 0.95,
-                },
-              ],
-              {
-                city: annonce.city,
-                postalCode: annonce.postalCode || undefined,
-                country: "France",
-              },
+            // Utiliser le reverse geocoding pour obtenir l'adresse réelle depuis les coordonnées du landmark
+            // C'est plus fiable que le forward geocoding car on a déjà les coordonnées exactes
+            const reverseGeocodeResult = await reverseGeocode(
+              location.latLng.latitude,
+              location.latLng.longitude,
             )
+            
+            // Utiliser l'adresse du reverse geocoding si disponible, sinon fallback sur la description du landmark
+            const landmarkAddress = reverseGeocodeResult?.address || `${landmark.description}, France`
 
-            if (landmarkCandidates.length > 0) {
-              const bestCandidate = landmarkCandidates[0]
+            if (reverseGeocodeResult) {
               // Utiliser les coordonnées du landmark (plus précises)
-              bestCandidate.latitude = location.latLng.latitude
-              bestCandidate.longitude = location.latLng.longitude
-              bestCandidate.globalScore = 0.95
+              const landmarkLat = location.latLng.latitude
+              const landmarkLng = location.latLng.longitude
 
               // Sauvegarder
               let locationRecord = await prisma.annonceLocation.findUnique({
@@ -230,13 +238,13 @@ export async function POST(
               })
 
               const locationData = {
-                autoAddress: bestCandidate.address,
-                autoLatitude: bestCandidate.latitude,
-                autoLongitude: bestCandidate.longitude,
+                autoAddress: landmarkAddress,
+                autoLatitude: landmarkLat,
+                autoLongitude: landmarkLng,
                 autoConfidence: 0.95,
                 autoSource: "VISION_LANDMARK",
                 visionRaw: visionResult as any,
-                geocodingCandidates: [bestCandidate] as any,
+                geocodingCandidates: [{ address: landmarkAddress, latitude: landmarkLat, longitude: landmarkLng, globalScore: 0.95 }] as any,
               }
 
               if (!locationRecord) {
@@ -256,23 +264,28 @@ export async function POST(
               await prisma.annonceScrape.update({
                 where: { id },
                 data: {
-                  latitude: bestCandidate.latitude,
-                  longitude: bestCandidate.longitude,
+                  latitude: landmarkLat,
+                  longitude: landmarkLng,
                 },
               })
+
+              const streetViewUrl = fetchStreetViewPreview(landmarkLat, landmarkLng)
 
               return NextResponse.json({
                 status: "ok",
                 source: "VISION_LANDMARK",
                 autoLocation: {
-                  address: bestCandidate.address,
-                  latitude: bestCandidate.latitude,
-                  longitude: bestCandidate.longitude,
+                  address: landmarkAddress,
+                  latitude: landmarkLat,
+                  longitude: landmarkLng,
                   confidence: 0.95,
-                  streetViewUrl: bestCandidate.streetViewUrl,
+                  streetViewUrl,
                 },
-                candidates: [bestCandidate],
+                candidates: [{ address: landmarkAddress, latitude: landmarkLat, longitude: landmarkLng, globalScore: 0.95 }],
               } as LocationFromImageResult)
+            } else {
+              // Si le reverse geocoding échoue, continuer avec le pipeline normal
+              console.log("⚠️ [Localisation] Reverse geocoding échoué pour landmark, continuation avec pipeline normal")
             }
           }
         }
@@ -377,11 +390,27 @@ export async function POST(
 
     // 9. Géocoding
     console.log("🗺️ [Localisation] Géocodage des adresses...")
-    const geocodedCandidates = await geocodeAddressCandidates(addressCandidates, {
-      city: annonce.city,
-      postalCode: annonce.postalCode || undefined,
-      country: "France",
+    // Ne pas passer le contexte de l'annonce si les adresses détectées contiennent déjà des villes ou codes postaux
+    // Cela évite de forcer une mauvaise ville (ex: forcer Paris alors que c'est Bordeaux)
+    const hasCityInCandidates = addressCandidates.some((candidate) => {
+      const text = candidate.rawText
+      // Détecter un code postal français (5 chiffres)
+      const hasPostalCode = /\d{5}/.test(text)
+      // Détecter un pattern de ville (mot avec majuscule suivi de lettres minuscules, typique des noms de villes françaises)
+      const hasCityPattern = /[A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞŸ][a-zàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]+(?:\s+[A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞŸ][a-zàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]+)*/.test(text)
+      return hasPostalCode || hasCityPattern
     })
+    
+    const geocodedCandidates = await geocodeAddressCandidates(
+      addressCandidates,
+      hasCityInCandidates
+        ? { country: "France" } // Ne passer que le pays si une ville est déjà détectée
+        : {
+            city: annonce.city,
+            postalCode: annonce.postalCode || undefined,
+            country: "France",
+          },
+    )
 
     if (geocodedCandidates.length === 0) {
       return NextResponse.json({

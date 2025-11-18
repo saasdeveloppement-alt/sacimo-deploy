@@ -291,22 +291,37 @@ export async function geocodeAddressCandidates(
 
   for (const candidate of candidates) {
     try {
-      // Construire la requête de géocodage avec contexte pour améliorer la précision
+      // Construire la requête de géocodage
       let addressQuery = candidate.rawText
       
-      // Ajouter le contexte si pas déjà présent
-      if (context) {
-        const hasCity = addressQuery.toLowerCase().includes(context.city?.toLowerCase() || "")
-        const hasPostalCode = context.postalCode && addressQuery.includes(context.postalCode)
-        
-        if (!hasCity && context.city) {
-          addressQuery = `${addressQuery}, ${context.city}`
-        }
-        if (!hasPostalCode && context.postalCode) {
-          addressQuery = `${addressQuery} ${context.postalCode}`
-        }
+      // Ne PAS ajouter le contexte de l'annonce si l'adresse détectée contient déjà une ville ou un code postal
+      // Cela évite de forcer une mauvaise ville (ex: forcer Paris alors que c'est Bordeaux)
+      
+      // Détecter si l'adresse contient déjà une ville française (mot commençant par majuscule suivi de lettres)
+      // ou un code postal français (5 chiffres)
+      const hasPostalCode = /\d{5}/.test(addressQuery)
+      const hasCityPattern = /[A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞŸ][a-zàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]+(?:\s+[A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞŸ][a-zàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]+)*/.test(addressQuery)
+      
+      // Si l'adresse contient déjà un code postal OU semble contenir une ville, ne pas ajouter le contexte
+      if (context && (hasPostalCode || hasCityPattern)) {
+        // Ajouter uniquement le pays si nécessaire
         if (context.country && !addressQuery.toLowerCase().includes("france")) {
           addressQuery = `${addressQuery}, ${context.country}`
+        }
+      } else if (context) {
+        // Si pas de ville/code postal détecté, on peut utiliser le contexte mais avec précaution
+        // Ne pas forcer la ville si l'adresse semble complète
+        const addressLength = addressQuery.trim().length
+        if (addressLength > 20) {
+          // Adresse assez longue, probablement complète, ne pas ajouter le contexte
+          if (context.country && !addressQuery.toLowerCase().includes("france")) {
+            addressQuery = `${addressQuery}, ${context.country}`
+          }
+        } else {
+          // Adresse courte, on peut ajouter le contexte mais seulement le pays
+          if (context.country && !addressQuery.toLowerCase().includes("france")) {
+            addressQuery = `${addressQuery}, ${context.country}`
+          }
         }
       }
 
@@ -391,6 +406,44 @@ export async function geocodeAddressCandidates(
 
   // Trier par score global décroissant
   return geocoded.sort((a, b) => b.globalScore - a.globalScore)
+}
+
+/**
+ * Reverse geocoding : convertit des coordonnées GPS en adresse
+ */
+export async function reverseGeocode(
+  lat: number,
+  lng: number,
+): Promise<{ address: string; formattedAddress: string } | null> {
+  if (!GOOGLE_MAPS_API_KEY) {
+    throw new Error("GOOGLE_MAPS_API_KEY non configurée")
+  }
+
+  try {
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${GOOGLE_MAPS_API_KEY}&language=fr&region=fr`
+
+    const response = await fetch(url)
+
+    if (!response.ok) {
+      console.warn(`Erreur reverse geocoding: ${response.status}`)
+      return null
+    }
+
+    const data = await response.json()
+
+    if (data.status === "OK" && data.results && data.results.length > 0) {
+      const result = data.results[0]
+      return {
+        address: result.formatted_address,
+        formattedAddress: result.formatted_address,
+      }
+    }
+
+    return null
+  } catch (error) {
+    console.error("Erreur lors du reverse geocoding:", error)
+    return null
+  }
 }
 
 /**
