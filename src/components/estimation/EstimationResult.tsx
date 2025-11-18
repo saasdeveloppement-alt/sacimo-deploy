@@ -152,6 +152,12 @@ function PriceRangeBar({ low, median, high }: { low: number; median: number; hig
  */
 function StrategyBadge({ strategy }: { strategy: string }) {
   const getStrategyInfo = (strategy: string) => {
+    if (strategy === "meilleursagents_market_price") {
+      return { label: "SACIMO (MeilleursAgents)", variant: "default" as const, color: "bg-purple-100 text-purple-700 border-purple-300" }
+    }
+    if (strategy === "dvf_market_price") {
+      return { label: "SACIMO (DVF)", variant: "default" as const, color: "bg-blue-100 text-blue-700 border-blue-300" }
+    }
     if (strategy.includes("strict")) {
       return { label: "Strict", variant: "default" as const, color: "bg-green-100 text-green-700 border-green-300" }
     }
@@ -245,14 +251,26 @@ export function EstimationResult({ result, className, photoUrl }: EstimationResu
           {/* Prix au m² et confiance */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <p className="text-sm text-gray-500">Prix au m²</p>
+              <p className="text-sm text-gray-500">Prix m² moyen</p>
               <div className="space-y-1">
                 <p className="text-2xl font-semibold text-gray-900">
-                  {formatPrice(pricePerSqmMedian)}
+                  {formatPrice(pricePerSqmAverage || pricePerSqmMedian)}
                 </p>
-                <p className="text-sm text-gray-500">
-                  Moyenne : {formatPrice(pricePerSqmAverage)}
-                </p>
+                {strategy === "meilleursagents_market_price" && (
+                  <p className="text-xs text-gray-500 italic">
+                    Estimation SACIMO basée sur MeilleursAgents.com
+                  </p>
+                )}
+                {strategy === "dvf_market_price" && (
+                  <p className="text-xs text-gray-500 italic">
+                    Estimation SACIMO basée sur les transactions DVF réelles
+                  </p>
+                )}
+                {strategy !== "dvf_market_price" && strategy !== "meilleursagents_market_price" && (
+                  <p className="text-sm text-gray-500">
+                    Médiane : {formatPrice(pricePerSqmMedian)}
+                  </p>
+                )}
               </div>
             </div>
             <div className="space-y-2">
@@ -324,7 +342,15 @@ export function EstimationResult({ result, className, photoUrl }: EstimationResu
                 <StrategyBadge strategy={strategy} />
               </div>
               <p className="text-xs text-gray-600 mt-2">
-                {strategy.includes("strict") ? "Recherche précise" : strategy.includes("dept") ? "Recherche élargie" : "Recherche standard"}
+                {strategy === "meilleursagents_market_price"
+                  ? "Prix au m² moyen depuis MeilleursAgents.com"
+                  : strategy === "dvf_market_price" 
+                    ? "Prix au m² réel du marché (DVF)" 
+                    : strategy.includes("strict") 
+                      ? "Recherche précise" 
+                      : strategy.includes("dept") 
+                        ? "Recherche élargie" 
+                        : "Recherche standard"}
               </p>
             </div>
             <div className="space-y-2 p-4 bg-green-50 rounded-lg border border-green-100">
@@ -332,9 +358,19 @@ export function EstimationResult({ result, className, photoUrl }: EstimationResu
                 <Globe className="h-4 w-4" />
                 Source de données
               </p>
-              <p className="text-lg font-semibold text-green-700">Base DVF</p>
+              <p className="text-lg font-semibold text-green-700">
+                {strategy === "meilleursagents_market_price" 
+                  ? "MeilleursAgents.com" 
+                  : strategy === "dvf_market_price" 
+                    ? "SACIMO (DVF)" 
+                    : "Base DVF"}
+              </p>
               <p className="text-xs text-gray-600">
-                Données officielles DGFiP
+                {strategy === "meilleursagents_market_price"
+                  ? "Prix au m² moyen depuis MeilleursAgents.com"
+                  : strategy === "dvf_market_price" 
+                    ? "Transactions DVF réelles (12 derniers mois)" 
+                    : "Données officielles DGFiP"}
               </p>
             </div>
           </div>

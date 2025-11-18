@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
+import { getMarketPricePerSqm } from "@/lib/services/dvf-supabase"
 
 /**
  * Constantes et helpers pour le calcul de distance géographique
@@ -573,13 +574,59 @@ export async function estimateFromComparables(input: EstimationInput): Promise<E
     hasGarden: !!hasGarden,
   })
 
+  console.log("\n" + "=".repeat(70))
+  console.log("🏠 ESTIMATION SACIMO - PRIX AU M² RÉEL DU MARCHÉ")
+  console.log("=".repeat(70))
+
   const normalizedCity = normalizeCity(city)
   const pc = postalCode || null
 
   const now = new Date()
 
+  // PRIORITÉ 1 : Récupérer le prix au m² réel du marché depuis DVF (comme MeilleursAgents)
+  let marketPricePerSqm: {
+    medianPricePerSqm: number
+    avgPricePerSqm: number // Prix m² moyen (comme MeilleursAgents)
+    q1PricePerSqm: number
+    q3PricePerSqm: number
+    p10PricePerSqm: number // Percentile 10% (min)
+    p90PricePerSqm: number // Percentile 90% (max)
+    sampleSize: number
+    transactions: any[]
+  } | null = null
+
+  if (pc && pc.length >= 5) {
+    console.log("\n📊 ÉTAPE 1: Récupération du prix au m² réel du marché (DVF)...")
+    marketPricePerSqm = await getMarketPricePerSqm(pc, type, surface, rooms)
+    
+    if (marketPricePerSqm) {
+      const sourceLabel = marketPricePerSqm.source === "meilleursagents" ? "MeilleursAgents" : "Supabase DVF"
+      console.log(`✅ Prix au m² réel du marché trouvé (estimation SACIMO):`)
+      console.log(`   Source: ${sourceLabel}`)
+      console.log(`   Prix m² moyen: ${marketPricePerSqm.avgPricePerSqm.toLocaleString("fr-FR")} €/m²`)
+      console.log(`   Fourchette: ${marketPricePerSqm.p10PricePerSqm.toLocaleString("fr-FR")} - ${marketPricePerSqm.p90PricePerSqm.toLocaleString("fr-FR")} €/m²`)
+      if (marketPricePerSqm.source === "dvf") {
+        console.log(`   Basé sur ${marketPricePerSqm.sampleSize} transactions DVF réelles`)
+      }
+    } else {
+      console.log("⚠️ Prix au m² réel non disponible, utilisation des comparables locaux...")
+    }
+  } else {
+    console.log("⚠️ Code postal incomplet, utilisation des comparables locaux...")
+  }
+
   let usedStrategyId = ""
   let comparables: { price: number; surface: number; city: string; postalCode: string; rooms: number | null; title: string | null }[] = []
+  
+  // Si on a un prix au m² depuis MeilleursAgents ou DVF, on l'utilise comme base
+  if (marketPricePerSqm) {
+    // La stratégie sera définie selon la source
+    if (marketPricePerSqm.source === "meilleursagents") {
+      usedStrategyId = "meilleursagents_market_price"
+    } else {
+      usedStrategyId = "dvf_market_price"
+    }
+  }
 
   // On essaie chaque stratégie jusqu'à obtenir assez de comparables
   for (const strategy of SEARCH_STRATEGIES) {
@@ -839,6 +886,164 @@ export async function estimateFromComparables(input: EstimationInput): Promise<E
     }
   }
 
+  // Si on a le prix au m² réel du marché (DVF), l'utiliser comme base
+  // Sinon, utiliser les comparables locaux
+  let pricePerSqmMedian: number
+  let pricePerSqmAverage: number
+  let pricePerSqmQ1: number
+  let pricePerSqmQ3: number
+  let baseSampleSize: number
+  let dvfComparables: any[] = []
+
+  if (marketPricePerSqm) {
+    // UTILISER LE PRIX AU M² RÉEL DU MARCHÉ (estimation SACIMO)
+    console.log("\n📊 ÉTAPE 2: Utilisation du prix au m² réel du marché (DVF)")
+    
+    // SACIMO utilise la MOYENNE comme référence principale (pas la médiane)
+    // C'est ce qui est affiché : "Prix m² moyen"
+    pricePerSqmMedian = marketPricePerSqm.avgPricePerSqm // Utiliser la moyenne comme référence
+    pricePerSqmAverage = marketPricePerSqm.avgPricePerSqm
+    pricePerSqmQ1 = marketPricePerSqm.p10PricePerSqm // Utiliser P10 comme minimum
+    pricePerSqmQ3 = marketPricePerSqm.p90PricePerSqm // Utiliser P90 comme maximum
+    baseSampleSize = marketPricePerSqm.sampleSize
+    dvfComparables = marketPricePerSqm.transactions
+
+    console.log(`✅ Prix de base (estimation SACIMO):`)
+    console.log(`   Prix m² moyen: ${pricePerSqmMedian.toLocaleString("fr-FR")} €/m²`)
+    console.log(`   Fourchette: ${pricePerSqmQ1.toLocaleString("fr-FR")} - ${pricePerSqmQ3.toLocaleString("fr-FR")} €/m²`)
+    console.log(`   Basé sur ${baseSampleSize} transactions DVF réelles`)
+
+    // Confiance de base selon le nombre de transactions DVF
+    let confidence = 60 // Minimum garanti
+    if (baseSampleSize >= 50) {
+      confidence = 90
+    } else if (baseSampleSize >= 30) {
+      confidence = 85
+    } else if (baseSampleSize >= 20) {
+      confidence = 80
+    } else if (baseSampleSize >= 10) {
+      confidence = 75
+    } else if (baseSampleSize >= 5) {
+      confidence = 70
+    } else {
+      confidence = 65
+    }
+
+    // Calculer le prix de base AVANT ajustements
+    // Utiliser la moyenne comme référence principale
+    const basePriceMedian = Math.round(pricePerSqmMedian * surface)
+    const basePriceLow = Math.round(pricePerSqmQ1 * surface) // P10
+    const basePriceHigh = Math.round(pricePerSqmQ3 * surface) // P90
+
+    console.log(`\n💰 Prix de base (AVANT ajustements):`)
+    console.log(`   Médian: ${basePriceMedian.toLocaleString("fr-FR")} €`)
+    console.log(`   Fourchette: ${basePriceLow.toLocaleString("fr-FR")} - ${basePriceHigh.toLocaleString("fr-FR")} €`)
+
+    // Calculer les ajustements avec la fonction helper
+    // IMPORTANT: Si la source est MeilleursAgents, on applique des ajustements MINIMAUX
+    // car MeilleursAgents donne déjà un prix au m² moyen précis pour le secteur
+    const isMeilleursAgents = marketPricePerSqm.source === "meilleursagents"
+    
+    let adjustmentFactor = 1.0
+    let adjustments: string[] = []
+    
+    if (isMeilleursAgents) {
+      // Pour MeilleursAgents, on applique SEULEMENT les ajustements pour l'état du bien
+      // et les équipements très spécifiques, mais pas pour la surface/pièces/type
+      // car MeilleursAgents donne déjà un prix moyen pour le secteur
+      console.log(`\n🔧 [MeilleursAgents] Ajustements minimaux (seulement état/équipements)`)
+      
+      // Ajustements uniquement pour l'état du bien
+      if (condition === "neuf") {
+        adjustmentFactor = 1.05 // +5% pour neuf
+        adjustments.push("Bien neuf: +5%")
+      } else if (condition === "rénové") {
+        adjustmentFactor = 1.02 // +2% pour rénové
+        adjustments.push("Bien rénové: +2%")
+      } else if (condition === "à_rénover") {
+        adjustmentFactor = 0.90 // -10% pour à rénover
+        adjustments.push("Bien à rénover: -10%")
+      } else if (condition === "à_rafraîchir") {
+        adjustmentFactor = 0.95 // -5% pour à rafraîchir
+        adjustments.push("Bien à rafraîchir: -5%")
+      }
+      
+      // Ajustements très légers pour équipements premium
+      if (hasPool) {
+        adjustmentFactor *= 1.03
+        adjustments.push("Piscine: +3%")
+      }
+      if (hasGarden && type === "Appartement") {
+        adjustmentFactor *= 1.02
+        adjustments.push("Jardin (appartement): +2%")
+      }
+    } else {
+      // Pour DVF, on applique tous les ajustements normalement
+      const adjustmentResult = calculatePriceAdjustments(
+        input,
+        dvfComparables.map(c => ({ surface: c.surface, rooms: c.rooms, title: c.type })),
+        basePriceMedian
+      )
+      adjustmentFactor = adjustmentResult.factor
+      adjustments = adjustmentResult.adjustments
+    }
+
+    console.log(`\n🔧 Ajustements appliqués:`)
+    console.log(`   Facteur: ×${adjustmentFactor.toFixed(3)}`)
+    if (adjustments.length > 0) {
+      adjustments.forEach(adj => console.log(`   - ${adj}`))
+    } else {
+      console.log(`   - Aucun ajustement`)
+    }
+
+    // Appliquer les ajustements au prix de base
+    const priceMedian = Math.round(basePriceMedian * adjustmentFactor)
+    const priceLow = Math.round(basePriceLow * adjustmentFactor)
+    const priceHigh = Math.round(basePriceHigh * adjustmentFactor)
+
+    // Ajuster la confiance selon les ajustements
+    if (adjustments.length > 0) {
+      const adjustmentPenalty = Math.min(adjustments.length * 1, 10)
+      confidence = Math.max(60, confidence - adjustmentPenalty)
+    }
+
+    const finalConfidenceDecimal = confidence / 100
+
+    console.log(`\n💰 Prix final (APRÈS ajustements):`)
+    console.log(`   Médian: ${priceMedian.toLocaleString("fr-FR")} €`)
+    console.log(`   Fourchette: ${priceLow.toLocaleString("fr-FR")} - ${priceHigh.toLocaleString("fr-FR")} €`)
+    console.log(`   Confiance: ${confidence}%`)
+
+    // Préparer les comparables DVF pour l'affichage
+    const fullComparables = dvfComparables.map((comp) => ({
+      id: comp.id,
+      price: comp.price,
+      surface: comp.surface,
+      pricePerSqm: comp.pricePerSqm,
+      city: comp.city,
+      postalCode: comp.postalCode,
+      rooms: comp.rooms,
+      type: comp.type,
+      url: comp.url,
+    }))
+
+    return {
+      priceMedian,
+      priceLow,
+      priceHigh,
+      pricePerSqmMedian: Math.round(priceMedian / surface),
+      pricePerSqmAverage: Math.round(pricePerSqmAverage * adjustmentFactor),
+      sampleSize: baseSampleSize,
+      confidence: finalConfidenceDecimal,
+      strategy: usedStrategyId || (marketPricePerSqm.source === "meilleursagents" ? "meilleursagents_market_price" : "dvf_market_price"), // Utiliser la stratégie correcte selon la source
+      adjustments: adjustments.length > 0 ? adjustments : [],
+      comparables: fullComparables,
+    }
+  }
+
+  // FALLBACK : Utiliser les comparables locaux si pas de données DVF
+  console.log("\n📊 ÉTAPE 2: Utilisation des comparables locaux (fallback)")
+
   // Calcul du score de confiance basé sur plusieurs facteurs
   console.log(`📈 Total comparables trouvés: ${comparables.length}`)
   
@@ -945,13 +1150,16 @@ export async function estimateFromComparables(input: EstimationInput): Promise<E
   
   console.log(`📊 Score de confiance final: ${confidence}% (décimal: ${confidenceDecimal.toFixed(2)})`)
 
-  const pricePerSqmMedian = stats.median
-  const pricePerSqmAverage = stats.average
+  pricePerSqmMedian = stats.median
+  pricePerSqmAverage = stats.average
+  pricePerSqmQ1 = stats.q1
+  pricePerSqmQ3 = stats.q3
+  baseSampleSize = trimmed.length
 
   // Calculer le prix de base AVANT ajustements
   const basePriceMedian = Math.round(pricePerSqmMedian * surface)
-  const basePriceLow = Math.round(stats.q1 * surface)
-  const basePriceHigh = Math.round(stats.q3 * surface)
+  const basePriceLow = Math.round(pricePerSqmQ1 * surface)
+  const basePriceHigh = Math.round(pricePerSqmQ3 * surface)
 
   // Calculer les ajustements avec la fonction helper
   const { factor: adjustmentFactor, adjustments } = calculatePriceAdjustments(

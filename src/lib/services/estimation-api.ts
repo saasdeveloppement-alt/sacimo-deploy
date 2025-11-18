@@ -8,6 +8,7 @@
  */
 
 import { EstimationInput, EstimationResult, calculatePriceAdjustments } from "./estimation"
+import { fetchDVFTransactions, fetchDVFDepartmentStats } from "./dvf-supabase"
 
 interface DVFResponse {
   fields: Array<{
@@ -130,7 +131,10 @@ async function fetchMarketData(
   postalCode: string,
   type: "Appartement" | "Maison",
   surface: number,
-  rooms: number
+  rooms: number,
+  radiusKm?: number,
+  latitude?: number,
+  longitude?: number
 ): Promise<Array<{
   prix: number
   surface: number
@@ -141,52 +145,128 @@ async function fetchMarketData(
   type: string | null
 }>> {
   try {
-    // 1. Géocodage pour obtenir les coordonnées et le code INSEE
-    const coords = await geocodeAddress(city, postalCode)
-    
-    if (!coords) {
-      console.warn("⚠️ Impossible de géocoder l'adresse")
-      return []
-    }
-
-    // 2. Récupérer les données DVF pour cette zone
+    // 1. PRIORITÉ : Essayer Supabase DVF (données réelles en production)
     const surfaceMin = Math.max(10, surface * 0.7)
     const surfaceMax = surface * 1.3
+    const roomsMin = rooms > 0 ? Math.max(1, rooms - 1) : undefined
+    const roomsMax = rooms > 0 ? rooms + 1 : undefined
+
+    console.log("🔍 Tentative récupération DVF via Supabase...")
+    const supabaseData = await fetchDVFTransactions(
+      postalCode,
+      type,
+      surfaceMin,
+      surfaceMax,
+      roomsMin,
+      roomsMax,
+      radiusKm,
+      latitude,
+      longitude,
+      100,
+      12 // 12 derniers mois
+    )
+
+    if (supabaseData.length > 0) {
+      console.log(`✅ ${supabaseData.length} transactions DVF réelles trouvées via Supabase pour ${city} ${postalCode}`)
+      // Convertir au format attendu
+      return supabaseData.map(d => ({
+        prix: d.price,
+        surface: d.surface,
+        prixPerSqm: d.pricePerSqm,
+        city: d.city,
+        postalCode: d.postalCode,
+        rooms: d.rooms,
+        type: d.type,
+      }))
+    }
+
+    console.log("ℹ️ Aucune donnée Supabase, tentative géocodage + API DVF...")
+
+    // 2. FALLBACK : Géocodage pour obtenir les coordonnées
+    const coords = await geocodeAddress(city, postalCode)
     
+    if (coords && radiusKm) {
+      // Réessayer avec les coordonnées géocodées
+      const supabaseDataWithCoords = await fetchDVFTransactions(
+        postalCode,
+        type,
+        surfaceMin,
+        surfaceMax,
+        roomsMin,
+        roomsMax,
+        radiusKm,
+        coords.lat,
+        coords.lon,
+        100,
+        12 // 12 derniers mois
+      )
+
+      if (supabaseDataWithCoords.length > 0) {
+        console.log(`✅ ${supabaseDataWithCoords.length} transactions DVF trouvées avec géolocalisation`)
+        return supabaseDataWithCoords.map(d => ({
+          prix: d.price,
+          surface: d.surface,
+          prixPerSqm: d.pricePerSqm,
+          city: d.city,
+          postalCode: d.postalCode,
+          rooms: d.rooms,
+          type: d.type,
+        }))
+      }
+    }
+
+    // 3. FALLBACK : Ancienne méthode (API DVF Etalab - souvent non disponible)
     const dvfData = await fetchDVFData(postalCode, type, surfaceMin, surfaceMax)
     
-    // 3. Convertir les données DVF au format attendu
-    const marketData = dvfData
-      .filter(d => {
-        // Filtrer selon le type de bien
-        const typeMatch = type === "Appartement" 
-          ? d.type?.toLowerCase().includes("appartement") || d.type?.toLowerCase().includes("apt")
-          : d.type?.toLowerCase().includes("maison") || d.type?.toLowerCase().includes("villa")
-        
-        return typeMatch && d.surface >= surfaceMin && d.surface <= surfaceMax
-      })
-      .map(d => ({
-        prix: d.prix,
-        surface: d.surface,
-        prixPerSqm: Math.round(d.prix / d.surface),
-        city: city,
-        postalCode: postalCode,
-        rooms: null, // Les données DVF n'incluent pas toujours le nombre de pièces
-        type: type,
-      }))
-    
-    // 4. Si on a des données DVF, les retourner
-    if (marketData.length > 0) {
-      console.log(`✅ ${marketData.length} transactions DVF trouvées pour ${city} ${postalCode}`)
-      return marketData
+    if (dvfData.length > 0) {
+      console.log(`✅ ${dvfData.length} transactions DVF trouvées via API pour ${city} ${postalCode}`)
+      const marketData = dvfData
+        .filter(d => {
+          const typeMatch = type === "Appartement" 
+            ? d.type?.toLowerCase().includes("appartement") || d.type?.toLowerCase().includes("apt")
+            : d.type?.toLowerCase().includes("maison") || d.type?.toLowerCase().includes("villa")
+          
+          return typeMatch && d.surface >= surfaceMin && d.surface <= surfaceMax
+        })
+        .map(d => ({
+          prix: d.prix,
+          surface: d.surface,
+          prixPerSqm: Math.round(d.prix / d.surface),
+          city: city,
+          postalCode: postalCode,
+          rooms: null,
+          type: type,
+        }))
+      
+      if (marketData.length > 0) {
+        return marketData
+      }
     }
     
-    // 5. Si pas de données DVF, utiliser des données agrégées par département
-    // basées sur les statistiques DVF officielles
+    // 4. FALLBACK FINAL : Données agrégées par département (statistiques statiques)
+    console.log("ℹ️ Utilisation des données agrégées par département (fallback)")
     const department = postalCode.substring(0, 2)
+    
+    // Essayer d'abord les stats Supabase si disponibles
+    const deptStats = await fetchDVFDepartmentStats(department, type)
+    if (deptStats && deptStats.sampleSize > 0) {
+      console.log(`✅ Statistiques départementales Supabase disponibles pour ${department}`)
+      // Utiliser les stats Supabase pour générer des comparables
+      const aggregatedData = await fetchAggregatedDVFData(department, type, surface, rooms, deptStats.medianPricePerSqm)
+      return aggregatedData.map(d => ({
+        prix: d.prix,
+        surface: d.surface,
+        prixPerSqm: d.prixPerSqm,
+        city: d.city || city,
+        postalCode: d.postalCode || postalCode,
+        rooms: d.rooms,
+        type: d.type || type,
+      }))
+    }
+    
+    // Fallback sur données statiques codées en dur
     const aggregatedData = await fetchAggregatedDVFData(department, type, surface, rooms)
     
-    // Convertir au format attendu (prix -> price)
     return aggregatedData.map(d => ({
       prix: d.prix,
       surface: d.surface,
@@ -210,7 +290,8 @@ async function fetchAggregatedDVFData(
   department: string,
   type: "Appartement" | "Maison",
   surface: number,
-  rooms: number
+  rooms: number,
+  customMedianPricePerSqm?: number
 ): Promise<Array<{
   prix: number
   surface: number
@@ -323,13 +404,20 @@ async function fetchAggregatedDVFData(
     "95": { appartement: 3200, maison: 3520 }, // Val-d'Oise - Maison +10%
   }
 
-  const deptData = dvfPriceData[department]
-  if (!deptData) {
-    return []
+  // Utiliser le prix médian personnalisé si fourni (depuis Supabase), sinon utiliser les données statiques
+  let basePricePerSqm: number
+  
+  if (customMedianPricePerSqm && customMedianPricePerSqm > 0) {
+    basePricePerSqm = customMedianPricePerSqm
+    console.log(`✅ Utilisation du prix médian Supabase: ${basePricePerSqm}€/m² pour ${department}`)
+  } else {
+    const deptData = dvfPriceData[department]
+    if (!deptData) {
+      return []
+    }
+    const propertyType = type === "Appartement" ? "appartement" : "maison"
+    basePricePerSqm = deptData[propertyType]
   }
-
-  const propertyType = type === "Appartement" ? "appartement" : "maison"
-  const basePricePerSqm = deptData[propertyType]
 
   // Générer des données simulées basées sur les statistiques DVF
   // avec variation pour simuler plusieurs transactions
@@ -365,14 +453,31 @@ export async function estimateFromPublicAPI(
 ): Promise<EstimationResult> {
   const { city, postalCode, surface, rooms, type } = input
 
-  console.log("🌐 Estimation via API publique pour:", { city, postalCode, surface, rooms, type })
+  console.log("=".repeat(60))
+  console.log("🌐 [ESTIMATION] Démarrage estimation via API publique")
+  console.log("📋 Paramètres:", { city, postalCode, surface, rooms, type })
+  console.log("=".repeat(60))
 
   try {
-    // 1. Récupérer les données de marché via API publique
-    const marketData = await fetchMarketData(city, postalCode, type, surface, rooms)
+    // 1. Récupérer les données de marché via API publique (avec support Supabase DVF)
+    console.log("🔍 [ESTIMATION] Étape 1: Récupération des données de marché...")
+    const marketData = await fetchMarketData(
+      city, 
+      postalCode, 
+      type, 
+      surface, 
+      rooms,
+      input.radiusKm,
+      input.latitude,
+      input.longitude
+    )
+    
+    console.log(`📊 [ESTIMATION] ${marketData.length} transaction(s) récupérée(s)`)
     
     // 2. Si on a des données, les utiliser
     if (marketData.length > 0) {
+      console.log("📈 [ESTIMATION] Étape 2: Calcul des statistiques...")
+      
       const pricesPerSqm = marketData.map(d => d.prixPerSqm)
       const sorted = [...pricesPerSqm].sort((a, b) => a - b)
       const n = sorted.length
@@ -382,9 +487,25 @@ export async function estimateFromPublicAPI(
       const q3 = sorted[Math.floor(n * 0.75)]
       const average = sorted.reduce((sum, v) => sum + v, 0) / n
 
+      console.log("📊 [ESTIMATION] Statistiques calculées:", {
+        median: Math.round(median),
+        q1: Math.round(q1),
+        q3: Math.round(q3),
+        average: Math.round(average),
+        min: Math.round(sorted[0]),
+        max: Math.round(sorted[n - 1]),
+        sampleSize: n
+      })
+
       const basePriceMedian = Math.round(median * surface)
       const basePriceLow = Math.round(q1 * surface)
       const basePriceHigh = Math.round(q3 * surface)
+      
+      console.log("💰 [ESTIMATION] Prix estimés (avant ajustements):", {
+        median: basePriceMedian,
+        low: basePriceLow,
+        high: basePriceHigh
+      })
 
       // Calculer les ajustements basés sur les filtres utilisateur
       console.log("🔧 [API Publique] Calcul des ajustements pour:", {
@@ -415,23 +536,41 @@ export async function estimateFromPublicAPI(
       })
 
       // Appliquer les ajustements
+      console.log("🔧 [ESTIMATION] Étape 3: Application des ajustements...")
       const priceMedian = Math.round(basePriceMedian * adjustmentFactor)
       const priceLow = Math.round(basePriceLow * adjustmentFactor)
       const priceHigh = Math.round(basePriceHigh * adjustmentFactor)
+      
+      console.log("💰 [ESTIMATION] Prix estimés (après ajustements):", {
+        median: priceMedian,
+        low: priceLow,
+        high: priceHigh,
+        adjustmentFactor: adjustmentFactor.toFixed(3),
+        adjustmentsCount: adjustments.length
+      })
 
-      return {
+      // Calcul de la confiance
+      const baseConfidence = Math.min(0.90, Math.max(0.60, (marketData.length / 20) * 0.3 + 0.60))
+      const adjustedConfidence = Math.max(0.60, baseConfidence - (adjustments.length * 0.01))
+      
+      console.log("📊 [ESTIMATION] Confiance calculée:", {
+        baseConfidence: (baseConfidence * 100).toFixed(1) + "%",
+        adjustedConfidence: (adjustedConfidence * 100).toFixed(1) + "%",
+        sampleSize: marketData.length
+      })
+
+      const result = {
         priceMedian,
         priceLow,
         priceHigh,
         pricePerSqmMedian: Math.round(priceMedian / surface),
         pricePerSqmAverage: Math.round(average * adjustmentFactor),
         sampleSize: marketData.length,
-        // Confiance basée sur le nombre d'échantillons et les ajustements (minimum 60%)
-        confidence: Math.min(0.85, Math.max(0.60, (marketData.length / 50) * 0.9 - (adjustments.length * 0.01))),
-        strategy: "public_api",
-        adjustments: adjustments.length > 0 ? adjustments : [], // Toujours retourner un array, même vide
+        confidence: adjustedConfidence,
+        strategy: "supabase_dvf", // Indique que les données viennent de Supabase DVF
+        adjustments: adjustments.length > 0 ? adjustments : [],
         comparables: marketData.map((d, index) => ({
-          id: `api-${index}-${Date.now()}`,
+          id: `dvf-${index}-${Date.now()}`,
           price: d.prix,
           surface: d.surface,
           pricePerSqm: d.prixPerSqm,
@@ -439,13 +578,18 @@ export async function estimateFromPublicAPI(
           postalCode: d.postalCode,
           rooms: d.rooms,
           type: d.type,
-          url: null, // Les données API publiques n'ont pas d'URL d'annonce directe
+          url: null,
         })),
       }
+      
+      console.log("✅ [ESTIMATION] Estimation terminée avec succès")
+      console.log("=".repeat(60))
+      
+      return result
     }
 
     // 3. Si pas de données API, fallback vers estimation basique
-    // Utiliser des données de référence par département
+    console.log("⚠️ [ESTIMATION] Aucune donnée trouvée, utilisation du fallback départemental")
     const department = postalCode.substring(0, 2)
     
     // Prix médian au m² par département (données de référence INSEE/DVF 2023)
