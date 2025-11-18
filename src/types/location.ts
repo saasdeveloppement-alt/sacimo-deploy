@@ -75,4 +75,3 @@ export type LocationFromImageResult = {
   }
   candidates?: GeocodedCandidate[]
 }
-

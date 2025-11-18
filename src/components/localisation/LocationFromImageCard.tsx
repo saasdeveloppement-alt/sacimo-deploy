@@ -394,4 +394,3 @@ export function LocationFromImageCard({
     </Card>
   )
 }
-

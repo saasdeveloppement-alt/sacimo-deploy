@@ -180,4 +180,3 @@ export function GeoAIHistory({ refreshTrigger = 0 }: GeoAIHistoryProps) {
     </Card>
   )
 }
-

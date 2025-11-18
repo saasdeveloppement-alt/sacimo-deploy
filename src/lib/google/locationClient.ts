@@ -90,7 +90,7 @@ export async function callVisionForImage(
  */
 export function extractAddressCandidatesFromVision(
   visionResult: VisionResult,
-  context?: { city?: string; postalCode?: string; country?: string },
+  context?: { city?: string; postalCode?: string; country?: string; department?: string },
 ): AddressCandidate[] {
   const candidates: AddressCandidate[] = []
   const fullText = visionResult.fullTextAnnotation?.text || ""
@@ -383,7 +383,7 @@ export function extractAddressCandidatesFromVision(
  */
 export async function geocodeAddressCandidates(
   candidates: AddressCandidate[],
-  context?: { city?: string; postalCode?: string; country?: string },
+  context?: { city?: string; postalCode?: string; country?: string; department?: string },
 ): Promise<GeocodedCandidate[]> {
   if (!GOOGLE_MAPS_API_KEY) {
     throw new Error("GOOGLE_MAPS_API_KEY non configurée")

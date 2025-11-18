@@ -18,11 +18,20 @@ export function useGeoAI(options: UseGeoAIOptions = {}) {
   const [error, setError] = useState<string | null>(null)
   const [progress, setProgress] = useState(0)
 
-  const uploadImage = async (file: File, annonceId?: string) => {
+  const uploadImage = async (file: File, department?: string, annonceId?: string) => {
     const targetAnnonceId = annonceId || options.annonceId
 
     if (!targetAnnonceId) {
       const err = "ID d'annonce requis"
+      setError(err)
+      setState("error")
+      options.onError?.(err)
+      toast.error(err)
+      return
+    }
+
+    if (!department) {
+      const err = "Département requis"
       setError(err)
       setState("error")
       options.onError?.(err)
@@ -70,6 +79,7 @@ export function useGeoAI(options: UseGeoAIOptions = {}) {
 
       const formData = new FormData()
       formData.append("file", file)
+      formData.append("department", department)
 
       const response = await fetch(
         `/api/annonces/${targetAnnonceId}/localisation/from-image`,
@@ -199,4 +209,3 @@ export function useGeoAI(options: UseGeoAIOptions = {}) {
     isIdle: state === "idle",
   }
 }
-

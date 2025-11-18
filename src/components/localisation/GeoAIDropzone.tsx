@@ -17,6 +17,8 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Card, CardContent } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
 import { useGeoAI } from "@/hooks/useGeoAI"
 import type { LocationFromImageResult } from "@/types/location"
 import { SimpleMap } from "@/components/localisation/SimpleMap"
@@ -26,9 +28,115 @@ interface GeoAIDropzoneProps {
   onLocationValidated?: () => void
 }
 
+// Liste des départements français
+const DEPARTMENTS = [
+  { code: "01", name: "Ain" },
+  { code: "02", name: "Aisne" },
+  { code: "03", name: "Allier" },
+  { code: "04", name: "Alpes-de-Haute-Provence" },
+  { code: "05", name: "Hautes-Alpes" },
+  { code: "06", name: "Alpes-Maritimes" },
+  { code: "07", name: "Ardèche" },
+  { code: "08", name: "Ardennes" },
+  { code: "09", name: "Ariège" },
+  { code: "10", name: "Aube" },
+  { code: "11", name: "Aude" },
+  { code: "12", name: "Aveyron" },
+  { code: "13", name: "Bouches-du-Rhône" },
+  { code: "14", name: "Calvados" },
+  { code: "15", name: "Cantal" },
+  { code: "16", name: "Charente" },
+  { code: "17", name: "Charente-Maritime" },
+  { code: "18", name: "Cher" },
+  { code: "19", name: "Corrèze" },
+  { code: "21", name: "Côte-d'Or" },
+  { code: "22", name: "Côtes-d'Armor" },
+  { code: "23", name: "Creuse" },
+  { code: "24", name: "Dordogne" },
+  { code: "25", name: "Doubs" },
+  { code: "26", name: "Drôme" },
+  { code: "27", name: "Eure" },
+  { code: "28", name: "Eure-et-Loir" },
+  { code: "29", name: "Finistère" },
+  { code: "2A", name: "Corse-du-Sud" },
+  { code: "2B", name: "Haute-Corse" },
+  { code: "30", name: "Gard" },
+  { code: "31", name: "Haute-Garonne" },
+  { code: "32", name: "Gers" },
+  { code: "33", name: "Gironde" },
+  { code: "34", name: "Hérault" },
+  { code: "35", name: "Ille-et-Vilaine" },
+  { code: "36", name: "Indre" },
+  { code: "37", name: "Indre-et-Loire" },
+  { code: "38", name: "Isère" },
+  { code: "39", name: "Jura" },
+  { code: "40", name: "Landes" },
+  { code: "41", name: "Loir-et-Cher" },
+  { code: "42", name: "Loire" },
+  { code: "43", name: "Haute-Loire" },
+  { code: "44", name: "Loire-Atlantique" },
+  { code: "45", name: "Loiret" },
+  { code: "46", name: "Lot" },
+  { code: "47", name: "Lot-et-Garonne" },
+  { code: "48", name: "Lozère" },
+  { code: "49", name: "Maine-et-Loire" },
+  { code: "50", name: "Manche" },
+  { code: "51", name: "Marne" },
+  { code: "52", name: "Haute-Marne" },
+  { code: "53", name: "Mayenne" },
+  { code: "54", name: "Meurthe-et-Moselle" },
+  { code: "55", name: "Meuse" },
+  { code: "56", name: "Morbihan" },
+  { code: "57", name: "Moselle" },
+  { code: "58", name: "Nièvre" },
+  { code: "59", name: "Nord" },
+  { code: "60", name: "Oise" },
+  { code: "61", name: "Orne" },
+  { code: "62", name: "Pas-de-Calais" },
+  { code: "63", name: "Puy-de-Dôme" },
+  { code: "64", name: "Pyrénées-Atlantiques" },
+  { code: "65", name: "Hautes-Pyrénées" },
+  { code: "66", name: "Pyrénées-Orientales" },
+  { code: "67", name: "Bas-Rhin" },
+  { code: "68", name: "Haut-Rhin" },
+  { code: "69", name: "Rhône" },
+  { code: "70", name: "Haute-Saône" },
+  { code: "71", name: "Saône-et-Loire" },
+  { code: "72", name: "Sarthe" },
+  { code: "73", name: "Savoie" },
+  { code: "74", name: "Haute-Savoie" },
+  { code: "75", name: "Paris" },
+  { code: "76", name: "Seine-Maritime" },
+  { code: "77", name: "Seine-et-Marne" },
+  { code: "78", name: "Yvelines" },
+  { code: "79", name: "Deux-Sèvres" },
+  { code: "80", name: "Somme" },
+  { code: "81", name: "Tarn" },
+  { code: "82", name: "Tarn-et-Garonne" },
+  { code: "83", name: "Var" },
+  { code: "84", name: "Vaucluse" },
+  { code: "85", name: "Vendée" },
+  { code: "86", name: "Vienne" },
+  { code: "87", name: "Haute-Vienne" },
+  { code: "88", name: "Vosges" },
+  { code: "89", name: "Yonne" },
+  { code: "90", name: "Territoire de Belfort" },
+  { code: "91", name: "Essonne" },
+  { code: "92", name: "Hauts-de-Seine" },
+  { code: "93", name: "Seine-Saint-Denis" },
+  { code: "94", name: "Val-de-Marne" },
+  { code: "95", name: "Val-d'Oise" },
+  { code: "971", name: "Guadeloupe" },
+  { code: "972", name: "Martinique" },
+  { code: "973", name: "Guyane" },
+  { code: "974", name: "La Réunion" },
+  { code: "976", name: "Mayotte" },
+]
+
 export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidated }: GeoAIDropzoneProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null)
+  const [selectedDepartment, setSelectedDepartment] = useState<string>("")
   const { state, result, error, progress, uploadImage, validateLocation, reset, isLoading } =
     useGeoAI({
       annonceId,
@@ -41,22 +149,32 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
     const file = event.target.files?.[0]
     if (!file) return
     
+    if (!selectedDepartment) {
+      alert("Veuillez sélectionner un département pour aider à la localisation")
+      return
+    }
+    
     // Créer une URL pour l'image uploadée
     const imageUrl = URL.createObjectURL(file)
     setUploadedImageUrl(imageUrl)
     
-    await uploadImage(file)
+    await uploadImage(file, selectedDepartment)
   }
 
   const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault()
     const file = e.dataTransfer.files[0]
     if (file) {
+      if (!selectedDepartment) {
+        alert("Veuillez sélectionner un département pour aider à la localisation")
+        return
+      }
+      
       // Créer une URL pour l'image uploadée
       const imageUrl = URL.createObjectURL(file)
       setUploadedImageUrl(imageUrl)
       
-      await uploadImage(file)
+      await uploadImage(file, selectedDepartment)
     }
   }
 
@@ -107,8 +225,33 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="text-center"
+              className="space-y-6"
             >
+              {/* Sélection du département */}
+              <div className="space-y-2">
+                <Label htmlFor="department" className="text-sm font-medium text-gray-700">
+                  Département ou secteur <span className="text-red-500">*</span>
+                </Label>
+                <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+                  <SelectTrigger
+                    id="department"
+                    className="w-full bg-white border-purple-200 focus:border-purple-400"
+                  >
+                    <SelectValue placeholder="Sélectionnez un département" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    {DEPARTMENTS.map((dept) => (
+                      <SelectItem key={dept.code} value={dept.code}>
+                        {dept.code} - {dept.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-gray-500">
+                  Cette information aide l'IA à orienter la recherche de localisation
+                </p>
+              </div>
+
               <div
                 className="relative cursor-pointer rounded-2xl border-2 border-dashed border-purple-300 bg-gradient-to-br from-purple-50/50 to-blue-50/50 p-12 transition-all hover:border-purple-400 hover:bg-purple-50/70"
                 onDrop={handleDrop}
@@ -143,6 +286,7 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
                 <Button
                   size="lg"
                   className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                  disabled={!selectedDepartment}
                 >
                   <Upload className="mr-2 h-5 w-5" />
                   Sélectionner une image
