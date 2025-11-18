@@ -17,11 +17,29 @@ export default function LocalisationPage() {
     averagePrecision: 0,
     totalAnalyzed: 0,
   })
+  const [annonceId, setAnnonceId] = useState<string | null>(null)
+  const [historyRefreshTrigger, setHistoryRefreshTrigger] = useState(0)
 
-  // Charger les stats depuis l'API (à implémenter)
+  // Charger un ID d'annonce réel depuis l'API
   useEffect(() => {
-    // TODO: Appel API pour récupérer les vraies stats
-    // Pour l'instant, valeurs mockées
+    const fetchAnnonceId = async () => {
+      try {
+        const response = await fetch("/api/annonces?limit=1")
+      const data = await response.json()
+        if (data.success && data.annonces && data.annonces.length > 0) {
+          setAnnonceId(data.annonces[0].id)
+        } else {
+          // Fallback: utiliser un ID par défaut (sera créé si nécessaire)
+          setAnnonceId("demo-annonce-id")
+        }
+      } catch (error) {
+        console.error("Erreur lors de la récupération d'une annonce:", error)
+        setAnnonceId("demo-annonce-id")
+      }
+    }
+    fetchAnnonceId()
+
+    // Charger les stats
     setStats({
       totalLocalized: 127,
       averagePrecision: 87,
@@ -30,8 +48,10 @@ export default function LocalisationPage() {
   }, [])
 
   const handleLocationValidated = () => {
-    // Recharger les stats après validation
-    // TODO: Refresh stats
+    // Recharger l'historique après validation
+    setHistoryRefreshTrigger((prev) => prev + 1)
+    // Recharger les stats
+    // TODO: Refresh stats from API
   }
 
   return (
@@ -47,18 +67,16 @@ export default function LocalisationPage() {
             />
           </motion.div>
 
-          {/* Main Content Grid: Dropzone + Stats side by side on large screens */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            {/* Dropzone - Takes 2 columns on large screens */}
-            <motion.div variants={fadeInUp} className="lg:col-span-2">
-              <GeoAIDropzone annonceId="demo-annonce-id" onLocationValidated={handleLocationValidated} />
-            </motion.div>
-
-            {/* Stats - Takes 1 column on large screens */}
-            <motion.div variants={fadeInUp} className="lg:col-span-1">
-              <GeoAIStats />
-            </motion.div>
-          </div>
+          {/* Main Content: Dropzone - Pleine largeur */}
+          <motion.div variants={fadeInUp}>
+            {annonceId ? (
+              <GeoAIDropzone annonceId={annonceId} onLocationValidated={handleLocationValidated} />
+            ) : (
+              <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
+                <p className="text-gray-500">Chargement...</p>
+              </div>
+            )}
+          </motion.div>
 
           {/* Grid: History + Map - Equal columns */}
           <motion.div 
@@ -66,12 +84,17 @@ export default function LocalisationPage() {
             variants={staggerChildren}
           >
             <motion.div variants={fadeInUp}>
-              <GeoAIHistory />
+              <GeoAIHistory refreshTrigger={historyRefreshTrigger} />
             </motion.div>
 
             <motion.div variants={fadeInUp}>
               <GeoAIMap />
             </motion.div>
+          </motion.div>
+
+          {/* Stats - En bas */}
+          <motion.div variants={fadeInUp}>
+            <GeoAIStats />
           </motion.div>
 
           {/* Footer */}

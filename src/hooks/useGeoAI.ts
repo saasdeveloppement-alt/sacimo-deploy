@@ -82,21 +82,46 @@ export function useGeoAI(options: UseGeoAIOptions = {}) {
       clearInterval(progressInterval)
       setProgress(100)
 
+      if (!response.ok) {
+        const errorText = await response.text()
+        let errorData
+        try {
+          errorData = JSON.parse(errorText)
+        } catch {
+          errorData = { error: errorText || `Erreur HTTP ${response.status}` }
+        }
+        const err = errorData.error || `Erreur ${response.status}: ${response.statusText}`
+        console.error("❌ [useGeoAI] Erreur API:", err, errorData)
+        setError(err)
+        setState("error")
+        options.onError?.(err)
+        toast.error(err)
+        return
+      }
+
       const data: LocationFromImageResult = await response.json()
 
       if (data.status === "error") {
         const err = data.error || "Erreur lors du traitement"
+        console.error("❌ [useGeoAI] Erreur dans la réponse:", err, data)
         setError(err)
         setState("error")
         options.onError?.(err)
         toast.error(err)
       } else {
+        console.log("✅ [useGeoAI] Succès:", data)
         setResult(data)
         setState("success")
         options.onSuccess?.(data)
-        toast.success(
-          `Localisation détectée avec ${Math.round((data.autoLocation?.confidence || 0) * 100)}% de confiance`,
-        )
+        if (data.warning) {
+          toast.warning(data.warning, {
+            description: `Confiance: ${Math.round((data.autoLocation?.confidence || 0) * 100)}%`,
+          })
+        } else {
+          toast.success(
+            `Localisation détectée avec ${Math.round((data.autoLocation?.confidence || 0) * 100)}% de confiance`,
+          )
+        }
       }
     } catch (err: any) {
       const errorMessage = err.message || "Erreur lors de l'upload"

@@ -26,10 +26,33 @@ export type VisionResult = {
   }>
   fullTextAnnotation?: {
     text: string
+    pages?: Array<{
+      property?: {
+        detectedLanguages?: Array<{ languageCode: string; confidence: number }>
+      }
+    }>
   }
   labelAnnotations?: Array<{
     description: string
     score: number
+    mid?: string
+  }>
+  landmarkAnnotations?: Array<{
+    description: string
+    score: number
+    locations?: Array<{
+      latLng?: {
+        latitude: number
+        longitude: number
+      }
+    }>
+  }>
+  logoAnnotations?: Array<{
+    description: string
+    score: number
+    boundingPoly?: {
+      vertices: Array<{ x?: number; y?: number }>
+    }
   }>
 }
 
@@ -40,8 +63,9 @@ export type ExifData = {
 
 export type LocationFromImageResult = {
   status: "ok" | "error"
-  source?: "EXIF" | "VISION_GEOCODING" | "MANUAL"
+  source?: "EXIF" | "VISION_GEOCODING" | "VISION_LANDMARK" | "VISION_CONTEXT_FALLBACK" | "MANUAL"
   error?: string
+  warning?: string
   autoLocation?: {
     address: string
     latitude: number

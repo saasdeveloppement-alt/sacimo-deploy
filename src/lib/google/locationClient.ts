@@ -46,10 +46,18 @@ export async function callVisionForImage(
           features: [
             {
               type: "TEXT_DETECTION",
-              maxResults: 10,
+              maxResults: 50,
             },
             {
               type: "LABEL_DETECTION",
+              maxResults: 20,
+            },
+            {
+              type: "LANDMARK_DETECTION",
+              maxResults: 10,
+            },
+            {
+              type: "LOGO_DETECTION",
               maxResults: 10,
             },
           ],
@@ -78,6 +86,7 @@ export async function callVisionForImage(
 
 /**
  * Extrait les candidats d'adresse depuis le résultat Vision
+ * Utilise à la fois le texte OCR, les landmarks, les labels visuels et le contexte
  */
 export function extractAddressCandidatesFromVision(
   visionResult: VisionResult,
@@ -85,19 +94,39 @@ export function extractAddressCandidatesFromVision(
 ): AddressCandidate[] {
   const candidates: AddressCandidate[] = []
   const fullText = visionResult.fullTextAnnotation?.text || ""
+  const labels = visionResult.labelAnnotations || []
+  const landmarks = visionResult.landmarkAnnotations || []
 
-  if (!fullText) {
-    return candidates
+  // PRIORITÉ 1 : Landmarks détectés (très précis)
+  if (landmarks.length > 0) {
+    for (const landmark of landmarks) {
+      if (landmark.locations && landmark.locations.length > 0) {
+        const location = landmark.locations[0]
+        if (location.latLng) {
+          // Les landmarks ont des coordonnées GPS directes, très précis !
+          candidates.push({
+            rawText: `${landmark.description}, ${context?.city || "France"}`,
+            score: 0.95, // Très haute confiance pour les landmarks
+          })
+        }
+      }
+    }
   }
 
-  // Patterns pour détecter les adresses françaises
+  // PRIORITÉ 2 : Extraction de texte OCR (adresses dans l'image)
+  if (fullText) {
+    // Patterns améliorés pour détecter les adresses françaises
   const addressPatterns = [
+    // Adresse complète avec numéro, rue, code postal, ville (priorité haute)
+    /\d+\s+(?:rue|avenue|boulevard|place|chemin|impasse|allée|route|passage|voie|cours|quai|esplanade|promenade)\s+[^\n,]+(?:,\s*)?\d{5}\s+[A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞŸ][a-zàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ\s-]+/gi,
+    // Numéro + Rue + Ville (ex: "15 Rue de la Paix Paris")
+    /\d+\s+(?:rue|avenue|boulevard|place|chemin|impasse|allée|route|passage|voie|cours|quai|esplanade|promenade)\s+[^\n,]+(?:,?\s*)?[A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞŸ][a-zàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ\s-]+/gi,
     // Numéro + Rue (ex: "15 Rue de la Paix")
-    /\d+\s+(?:rue|avenue|boulevard|place|chemin|impasse|allée|route|passage)\s+[^\n,]+/gi,
+    /\d+\s+(?:rue|avenue|boulevard|place|chemin|impasse|allée|route|passage|voie|cours|quai|esplanade|promenade)\s+[^\n,]+/gi,
     // Code postal + Ville (ex: "75001 Paris")
     /\d{5}\s+[A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞŸ][a-zàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ\s-]+/gi,
-    // Adresse complète (ex: "15 Rue de la Paix, 75001 Paris")
-    /\d+\s+(?:rue|avenue|boulevard|place|chemin|impasse|allée|route|passage)\s+[^\n,]+,\s*\d{5}\s+[A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞŸ][a-zàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ\s-]+/gi,
+    // Ville seule si elle est connue (ex: "Paris", "Lyon")
+    /\b(?:Paris|Lyon|Marseille|Toulouse|Nice|Nantes|Strasbourg|Montpellier|Bordeaux|Lille|Rennes|Reims|Saint-Étienne|Le Havre|Toulon|Grenoble|Dijon|Angers|Nîmes|Villeurbanne|Saint-Denis|Le Mans|Aix-en-Provence|Clermont-Ferrand|Brest|Limoges|Tours|Amiens|Perpignan|Metz|Besançon|Boulogne-Billancourt|Orléans|Mulhouse|Rouen|Caen|Nancy|Argenteuil|Montreuil|Saint-Paul|Roubaix|Tourcoing|Nanterre|Avignon|Créteil|Dunkirk|Poitiers|Asnières-sur-Seine|Versailles|Courbevoie|Vitry-sur-Seine|Colombes|Aulnay-sous-Bois|La Rochelle|Champigny-sur-Marne|Rueil-Malmaison|Antibes|Saint-Maur-des-Fossés|Cannes|Bourges|Drancy|Mérignac|Saint-Nazaire|Colmar|Issy-les-Moulineaux|Noisy-le-Grand|Évry|Cergy|Pessac|Valence|Antony|La Seyne-sur-Mer|Clichy|Troyes|Neuilly-sur-Seine|Villeneuve-d'Ascq|Pantin|Niort|Le Blanc-Mesnil|Haguenau|Bobigny|Lorient|Beauvais|Hyères|Épinay-sur-Seine|Sartrouville|Maisons-Alfort|Meaux|Chelles|Villejuif|Cholet|Évry-Courcouronnes|Fontenay-sous-Bois|Fréjus|Vannes|Bondy|Laval|Arles|Sète|Clamart|Bayonne|Sarcelles|Corbeil-Essonnes|Mantes-la-Jolie|Saint-Ouen|Saint-Quentin|Gennevilliers|Ivry-sur-Seine|Charleville-Mézières|Blois|Châlons-en-Champagne|Chambéry|Albi|Brive-la-Gaillarde|Châteauroux|Montbéliard|Tarbes|Angoulême|Lons-le-Saunier|Agen|Foix|Gap|Mende|Privas|Aurillac|Cahors|Rodez|Millau|Alès|Nîmes|Uzès|Béziers|Perpignan|Carcassonne|Foix|Pamiers|Auch|Tarbes|Lourdes|Pau|Bayonne|Dax|Mont-de-Marsan|Périgueux|Bergerac|Sarlat-la-Canéda|Brive-la-Gaillarde|Tulle|Ussel|Guéret|Aubusson|Limoges|Bellac|Rochechouart|Angoulême|Cognac|Confolens|La Rochelle|Rochefort|Saintes|Jonzac|Marennes|Royan|Saint-Jean-d'Angély|Niort|Parthenay|Bressuire|Thouars|Loudun|Châtellerault|Poitiers|Montmorillon|Civray|Confolens|Bellac|Limoges|Saint-Junien|Rochechouart|Ussel|Tulle|Brive-la-Gaillarde|Sarlat-la-Canéda|Bergerac|Périgueux|Mont-de-Marsan|Dax|Bayonne|Pau|Lourdes|Tarbes|Auch|Pamiers|Foix|Carcassonne|Perpignan|Béziers|Uzès|Nîmes|Alès|Millau|Rodez|Cahors|Aurillac|Privas|Mende|Gap|Foix|Agen|Lons-le-Saunier|Angoulême|Tarbes|Montbéliard|Châteauroux|Brive-la-Gaillarde|Albi|Chambéry|Châlons-en-Champagne|Blois|Charleville-Mézières|Ivry-sur-Seine|Gennevilliers|Saint-Quentin|Saint-Ouen|Mantes-la-Jolie|Corbeil-Essonnes|Sarcelles|Bayonne|Clamart|Sète|Arles|Laval|Bondy|Vannes|Fréjus|Fontenay-sous-Bois|Évry-Courcouronnes|Cholet|Villejuif|Chelles|Meaux|Maisons-Alfort|Sartrouville|Épinay-sur-Seine|Hyères|Beauvais|Lorient|Bobigny|Haguenau|Le Blanc-Mesnil|Niort|Pantin|Villeneuve-d'Ascq|Neuilly-sur-Seine|Troyes|Clichy|La Seyne-sur-Seine|Antony|Valence|Pessac|Cergy|Évry|Noisy-le-Grand|Issy-les-Moulineaux|Colmar|Saint-Nazaire|Mérignac|Drancy|Bourges|Cannes|Saint-Maur-des-Fossés|Antibes|Rueil-Malmaison|Champigny-sur-Marne|La Rochelle|Aulnay-sous-Bois|Colombes|Vitry-sur-Seine|Courbevoie|Versailles|Asnières-sur-Seine|Poitiers|Dunkirk|Créteil|Avignon|Nanterre|Tourcoing|Roubaix|Saint-Paul|Montreuil|Argenteuil|Nancy|Caen|Rouen|Mulhouse|Orléans|Boulogne-Billancourt|Besançon|Metz|Perpignan|Amiens|Tours|Limoges|Brest|Clermont-Ferrand|Aix-en-Provence|Le Mans|Saint-Denis|Villeurbanne|Nîmes|Angers|Dijon|Grenoble|Toulon|Le Havre|Saint-Étienne|Reims|Rennes|Lille|Bordeaux|Montpellier|Strasbourg|Nantes|Nice|Toulouse|Marseille)\b/gi,
   ]
 
   const foundAddresses = new Set<string>()
@@ -126,10 +155,10 @@ export function extractAddressCandidatesFromVision(
           // Bonus si correspond au contexte (ville, code postal)
           if (context) {
             if (context.postalCode && cleaned.includes(context.postalCode)) {
-              score += 0.15
+              score += 0.25 // Bonus plus important pour correspondance code postal
             }
             if (context.city && cleaned.toLowerCase().includes(context.city.toLowerCase())) {
-              score += 0.15
+              score += 0.2 // Bonus pour correspondance ville
             }
           }
 
@@ -142,13 +171,29 @@ export function extractAddressCandidatesFromVision(
             "chemin",
             "impasse",
             "allée",
+            "voie",
+            "cours",
+            "quai",
+            "esplanade",
+            "promenade",
           ]
           if (
             addressKeywords.some((keyword) =>
               cleaned.toLowerCase().includes(keyword),
             )
           ) {
-            score += 0.1
+            score += 0.15 // Bonus augmenté
+          }
+
+          // Bonus si l'adresse est complète (numéro + rue + code postal + ville)
+          const hasAllComponents =
+            /^\d+/.test(cleaned) && // Numéro
+            addressKeywords.some((k) => cleaned.toLowerCase().includes(k)) && // Type de rue
+            /\d{5}/.test(cleaned) && // Code postal
+            /[A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞŸ]/.test(cleaned) // Ville (majuscule)
+
+          if (hasAllComponents) {
+            score += 0.2 // Bonus important pour adresse complète
           }
 
           score = Math.min(1, score) // Cap à 1
@@ -180,6 +225,53 @@ export function extractAddressCandidatesFromVision(
     }
   }
 
+  } // Fin du if (fullText)
+
+  // Si toujours rien, essayer d'extraire des indices des labels visuels
+  if (candidates.length === 0 && labels.length > 0) {
+    // Chercher des labels qui pourraient indiquer un type de lieu spécifique
+    const locationIndicators = labels
+      .filter((label) => {
+        const desc = label.description.toLowerCase()
+        return (
+          desc.includes("street") ||
+          desc.includes("road") ||
+          desc.includes("building") ||
+          desc.includes("architecture") ||
+          desc.includes("residential") ||
+          desc.includes("commercial") ||
+          desc.includes("facade") ||
+          desc.includes("door") ||
+          desc.includes("entrance") ||
+          desc.includes("store") ||
+          desc.includes("shop") ||
+          desc.includes("restaurant") ||
+          desc.includes("cafe")
+        )
+      })
+      .sort((a, b) => b.score - a.score) // Trier par score de confiance Vision
+
+    // Si on a des indicateurs de lieu forts, créer un candidat basé sur le contexte
+    if (locationIndicators.length > 0 && context?.city) {
+      const topLabel = locationIndicators[0]
+      // Plus le label est confiant, plus on augmente le score
+      const baseScore = 0.2 + Math.min(0.2, topLabel.score * 0.3)
+      candidates.push({
+        rawText: `${context.city}${context.postalCode ? ` ${context.postalCode}` : ""}, France`,
+        score: baseScore,
+      })
+    }
+  }
+
+  // Dernier fallback : utiliser uniquement le contexte
+  if (candidates.length === 0 && context?.city) {
+    const contextAddress = `${context.city}${context.postalCode ? ` ${context.postalCode}` : ""}, France`
+    candidates.push({
+      rawText: contextAddress,
+      score: 0.15, // Score très bas car basé uniquement sur le contexte
+    })
+  }
+
   // Trier par score décroissant
   return candidates.sort((a, b) => b.score - a.score)
 }
@@ -189,6 +281,7 @@ export function extractAddressCandidatesFromVision(
  */
 export async function geocodeAddressCandidates(
   candidates: AddressCandidate[],
+  context?: { city?: string; postalCode?: string; country?: string },
 ): Promise<GeocodedCandidate[]> {
   if (!GOOGLE_MAPS_API_KEY) {
     throw new Error("GOOGLE_MAPS_API_KEY non configurée")
@@ -198,9 +291,28 @@ export async function geocodeAddressCandidates(
 
   for (const candidate of candidates) {
     try {
+      // Construire la requête de géocodage avec contexte pour améliorer la précision
+      let addressQuery = candidate.rawText
+      
+      // Ajouter le contexte si pas déjà présent
+      if (context) {
+        const hasCity = addressQuery.toLowerCase().includes(context.city?.toLowerCase() || "")
+        const hasPostalCode = context.postalCode && addressQuery.includes(context.postalCode)
+        
+        if (!hasCity && context.city) {
+          addressQuery = `${addressQuery}, ${context.city}`
+        }
+        if (!hasPostalCode && context.postalCode) {
+          addressQuery = `${addressQuery} ${context.postalCode}`
+        }
+        if (context.country && !addressQuery.toLowerCase().includes("france")) {
+          addressQuery = `${addressQuery}, ${context.country}`
+        }
+      }
+
       const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
-        candidate.rawText,
-      )}&key=${GOOGLE_MAPS_API_KEY}&region=fr`
+        addressQuery,
+      )}&key=${GOOGLE_MAPS_API_KEY}&region=fr&components=country:fr`
 
       const response = await fetch(url)
 
@@ -223,17 +335,32 @@ export async function geocodeAddressCandidates(
         // Bonus selon le type de résultat
         const locationType = result.geometry.location_type
         if (locationType === "ROOFTOP") {
-          geocodingScore = 0.95
+          geocodingScore = 0.98 // Très précis
         } else if (locationType === "RANGE_INTERPOLATED") {
-          geocodingScore = 0.85
+          geocodingScore = 0.88
         } else if (locationType === "GEOMETRIC_CENTER") {
-          geocodingScore = 0.75
+          geocodingScore = 0.78
         } else if (locationType === "APPROXIMATE") {
-          geocodingScore = 0.65
+          geocodingScore = 0.68
         }
 
-        // Score global = moyenne pondérée
-        const globalScore = (candidate.score * 0.4 + geocodingScore * 0.6)
+        // Vérifier si l'adresse géocodée correspond au contexte
+        if (context) {
+          const geocodedAddress = result.formatted_address.toLowerCase()
+          if (context.postalCode && geocodedAddress.includes(context.postalCode)) {
+            geocodingScore += 0.05 // Bonus si code postal correspond
+          }
+          if (context.city && geocodedAddress.includes(context.city.toLowerCase())) {
+            geocodingScore += 0.05 // Bonus si ville correspond
+          }
+          geocodingScore = Math.min(1, geocodingScore) // Cap à 1
+        }
+
+        // Score global = moyenne pondérée (favoriser le géocodage si précis)
+        // Si le géocodage est très précis (ROOFTOP), lui donner plus de poids
+        const geocodingWeight = geocodingScore > 0.9 ? 0.7 : 0.6
+        const candidateWeight = 1 - geocodingWeight
+        const globalScore = candidate.score * candidateWeight + geocodingScore * geocodingWeight
 
         const streetViewUrl = fetchStreetViewPreview(
           location.lat,

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   Upload,
@@ -19,6 +19,7 @@ import { Progress } from "@/components/ui/progress"
 import { Card, CardContent } from "@/components/ui/card"
 import { useGeoAI } from "@/hooks/useGeoAI"
 import type { LocationFromImageResult } from "@/types/location"
+import { SimpleMap } from "@/components/localisation/SimpleMap"
 
 interface GeoAIDropzoneProps {
   annonceId?: string
@@ -27,6 +28,7 @@ interface GeoAIDropzoneProps {
 
 export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidated }: GeoAIDropzoneProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null)
   const { state, result, error, progress, uploadImage, validateLocation, reset, isLoading } =
     useGeoAI({
       annonceId,
@@ -38,6 +40,11 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
+    
+    // Créer une URL pour l'image uploadée
+    const imageUrl = URL.createObjectURL(file)
+    setUploadedImageUrl(imageUrl)
+    
     await uploadImage(file)
   }
 
@@ -45,6 +52,10 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
     e.preventDefault()
     const file = e.dataTransfer.files[0]
     if (file) {
+      // Créer une URL pour l'image uploadée
+      const imageUrl = URL.createObjectURL(file)
+      setUploadedImageUrl(imageUrl)
+      
       await uploadImage(file)
     }
   }
@@ -64,8 +75,26 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
 
     if (success) {
       onLocationValidated?.()
+      // Ne pas réinitialiser l'image pour qu'elle reste visible
     }
   }
+
+  const handleReset = () => {
+    reset()
+    if (uploadedImageUrl) {
+      URL.revokeObjectURL(uploadedImageUrl)
+      setUploadedImageUrl(null)
+    }
+  }
+
+  // Cleanup des URLs d'objets lors du démontage
+  useEffect(() => {
+    return () => {
+      if (uploadedImageUrl) {
+        URL.revokeObjectURL(uploadedImageUrl)
+      }
+    }
+  }, [uploadedImageUrl])
 
   return (
     <Card className="border-2 border-purple-200/50 bg-gradient-to-br from-white to-purple-50/30 shadow-xl">
@@ -168,76 +197,201 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="rounded-full bg-green-100 p-3">
-                    <CheckCircle2 className="h-6 w-6 text-green-600" />
+                  <div
+                    className={`rounded-full p-3 ${
+                      result.source === "VISION_CONTEXT_FALLBACK"
+                        ? "bg-orange-100"
+                        : result.source === "EXIF"
+                          ? "bg-green-100"
+                          : "bg-blue-100"
+                    }`}
+                  >
+                    <CheckCircle2
+                      className={`h-6 w-6 ${
+                        result.source === "VISION_CONTEXT_FALLBACK"
+                          ? "text-orange-600"
+                          : result.source === "EXIF"
+                            ? "text-green-600"
+                            : "text-blue-600"
+                      }`}
+                    />
                   </div>
                   <div>
                     <h3 className="text-xl font-bold text-gray-900">Localisation détectée</h3>
                     <p className="text-sm text-gray-600">
-                      Source : {result.source === "EXIF" ? "GPS EXIF" : "Vision + Géocodage"}
+                      Source :{" "}
+                      {result.source === "EXIF"
+                        ? "GPS EXIF"
+                        : result.source === "VISION_CONTEXT_FALLBACK"
+                          ? "Contexte de l'annonce"
+                          : "Vision + Géocodage"}
                     </p>
                   </div>
                 </div>
-                <Button variant="ghost" size="sm" onClick={reset}>
+                <Button variant="ghost" size="sm" onClick={handleReset}>
                   <X className="h-4 w-4" />
                 </Button>
               </div>
 
-              {/* Address */}
-              <div className="rounded-xl bg-gradient-to-br from-purple-50 to-blue-50 p-6">
-                <div className="mb-4 flex items-center gap-2">
-                  <MapPin className="h-5 w-5 text-purple-600" />
-                  <span className="text-sm font-medium text-gray-700">Adresse détectée</span>
-                </div>
-                <p className="mb-2 text-lg font-semibold text-gray-900">
-                  {result.autoLocation.address}
-                </p>
-                <p className="text-sm text-gray-600">
-                  {result.autoLocation.latitude.toFixed(6)}, {result.autoLocation.longitude.toFixed(6)}
-                </p>
-              </div>
+              {/* Image d'origine + Comparaison */}
+              {uploadedImageUrl && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 gap-4 rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50/50 to-blue-50/50 p-4 md:grid-cols-2">
+                    {/* Image analysée */}
+                    <div>
+                      <p className="mb-2 text-sm font-medium text-gray-700">Image analysée</p>
+                      <div className="relative overflow-hidden rounded-lg border border-gray-200">
+                        <img
+                          src={uploadedImageUrl}
+                          alt="Image analysée"
+                          className="h-64 w-full object-cover"
+                        />
+                      </div>
+                    </div>
 
-              {/* Confidence Score */}
-              <div className="flex items-center justify-between rounded-xl bg-gray-50 p-4">
-                <span className="text-sm font-medium text-gray-700">Score de confiance</span>
-                <Badge
-                  className={
-                    result.autoLocation.confidence > 0.8
-                      ? "bg-green-100 text-green-700"
-                      : result.autoLocation.confidence > 0.6
-                        ? "bg-yellow-100 text-yellow-700"
-                        : "bg-orange-100 text-orange-700"
-                  }
-                >
-                  {Math.round(result.autoLocation.confidence * 100)}%
-                </Badge>
-              </div>
+                    {/* Street View */}
+                    <div>
+                      <p className="mb-2 text-sm font-medium text-gray-700">Vue Street View</p>
+                      {result.autoLocation.streetViewUrl ? (
+                        <div className="relative overflow-hidden rounded-lg border border-gray-200">
+                          <img
+                            src={result.autoLocation.streetViewUrl}
+                            alt="Street View"
+                            className="h-64 w-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.style.display = "none"
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <div className="flex h-64 items-center justify-center rounded-lg border border-gray-200 bg-gray-50">
+                          <p className="text-sm text-gray-500">Aperçu non disponible</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
 
-              {/* Street View Preview */}
-              {result.autoLocation.streetViewUrl && (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-gray-700">Aperçu Street View</p>
-                  <div className="relative overflow-hidden rounded-lg border border-gray-200">
-                    <img
-                      src={result.autoLocation.streetViewUrl}
-                      alt="Street View"
-                      className="h-64 w-full object-cover"
-                      onError={(e) => {
-                        e.currentTarget.style.display = "none"
-                      }}
-                    />
-                    <a
-                      href={`https://www.google.com/maps?q=${result.autoLocation.latitude},${result.autoLocation.longitude}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="absolute bottom-2 right-2 rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-md hover:bg-gray-50"
-                    >
-                      <Map className="mr-1 inline h-3 w-3" />
-                      Voir dans Google Maps
-                    </a>
+                  {/* Légende */}
+                  <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-3">
+                    <p className="text-xs text-gray-600">
+                      <strong>Vue globale :</strong> Comparez l'image analysée avec la vue Street View pour valider la précision de la localisation détectée.
+                    </p>
                   </div>
                 </div>
               )}
+
+              {/* Address - Pleine largeur, juste après les images */}
+              <div className="w-full rounded-xl bg-gradient-to-br from-purple-50 to-blue-50 p-6">
+                <div className="mb-4 flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="mb-3 flex items-center gap-2">
+                      <MapPin className="h-5 w-5 text-purple-600" />
+                      <span className="text-sm font-medium text-gray-700">Adresse détectée</span>
+                    </div>
+                    <p className="mb-2 text-lg font-semibold text-gray-900">
+                      {result.autoLocation.address}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      {result.autoLocation.latitude.toFixed(6)}, {result.autoLocation.longitude.toFixed(6)}
+                    </p>
+                  </div>
+                  
+                  {/* Score de confiance - Design circulaire amélioré */}
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="relative">
+                      {/* Cercle de progression SVG */}
+                      <svg className="h-24 w-24 -rotate-90 transform" viewBox="0 0 100 100">
+                        {/* Cercle de fond */}
+                        <circle
+                          cx="50"
+                          cy="50"
+                          r="45"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="8"
+                          className="text-gray-200"
+                        />
+                        {/* Cercle de progression */}
+                        <circle
+                          cx="50"
+                          cy="50"
+                          r="45"
+                          fill="none"
+                          strokeWidth="8"
+                          strokeLinecap="round"
+                          strokeDasharray={`${2 * Math.PI * 45}`}
+                          strokeDashoffset={`${2 * Math.PI * 45 * (1 - result.autoLocation.confidence)}`}
+                          className={
+                            result.autoLocation.confidence > 0.8
+                              ? "text-green-500"
+                              : result.autoLocation.confidence > 0.6
+                                ? "text-yellow-500"
+                                : "text-orange-500"
+                          }
+                        />
+                      </svg>
+                      {/* Contenu au centre */}
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <span
+                          className={`text-3xl font-bold leading-none ${
+                            result.autoLocation.confidence > 0.8
+                              ? "text-green-600"
+                              : result.autoLocation.confidence > 0.6
+                                ? "text-yellow-600"
+                                : "text-orange-600"
+                          }`}
+                        >
+                          {Math.round(result.autoLocation.confidence * 100)}
+                        </span>
+                        <span
+                          className={`text-xs font-semibold ${
+                            result.autoLocation.confidence > 0.8
+                              ? "text-green-600"
+                              : result.autoLocation.confidence > 0.6
+                                ? "text-yellow-600"
+                                : "text-orange-600"
+                          }`}
+                        >
+                          %
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-xs font-medium text-gray-600">Score de confiance</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Texte explicatif */}
+              <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4">
+                <p className="text-sm text-gray-700">
+                  <strong>Comment ça fonctionne ?</strong> Notre IA a analysé votre image en utilisant{" "}
+                  {result.source === "EXIF"
+                    ? "les données GPS intégrées à la photo"
+                    : result.source === "VISION_CONTEXT_FALLBACK"
+                      ? "le contexte de l'annonce (ville, code postal)"
+                      : "la reconnaissance optique de caractères (OCR) et la détection de repères visuels"}{" "}
+                  pour identifier cette localisation. La précision dépend de la qualité de l'image et des informations visibles.
+                </p>
+              </div>
+
+              {/* Warning si fallback */}
+              {result.warning && (
+                <div className="rounded-lg border border-orange-200 bg-orange-50 p-3">
+                  <p className="text-sm text-orange-800">{result.warning}</p>
+                </div>
+              )}
+
+              {/* Carte interactive - Format horizontal */}
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-gray-700">Position GPS</p>
+                <SimpleMap
+                  latitude={result.autoLocation.latitude}
+                  longitude={result.autoLocation.longitude}
+                  address={result.autoLocation.address}
+                  height="300px"
+                  zoom={17}
+                />
+              </div>
 
               {/* Actions */}
               <div className="flex gap-3">
@@ -248,7 +402,7 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
                   <CheckCircle2 className="mr-2 h-4 w-4" />
                   Valider cette localisation
                 </Button>
-                <Button variant="outline" className="flex-1" onClick={reset}>
+                <Button variant="outline" className="flex-1" onClick={handleReset}>
                   Réessayer
                 </Button>
               </div>
@@ -273,7 +427,7 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
               <h3 className="mb-2 text-2xl font-bold text-gray-900">Erreur d'analyse</h3>
               <p className="mb-6 text-gray-600">{error || "Une erreur est survenue"}</p>
 
-              <Button onClick={reset} variant="outline">
+              <Button onClick={handleReset} variant="outline">
                 Réessayer
               </Button>
             </motion.div>
@@ -283,4 +437,3 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
     </Card>
   )
 }
-

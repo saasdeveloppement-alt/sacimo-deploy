@@ -1,54 +1,111 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import { MapPin, Clock, ExternalLink, CheckCircle2 } from "lucide-react"
+import { MapPin, Clock, ExternalLink, CheckCircle2, RefreshCw } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 
 interface LocalizationHistoryItem {
   id: string
   address: string
+  latitude: number
+  longitude: number
   confidence: number
   source: string
-  timestamp: Date
-  imageUrl?: string
+  timestamp: Date | string
+  imageUrl?: string | null
   annonceId?: string
+  annonceTitle?: string
 }
 
 interface GeoAIHistoryProps {
-  items?: LocalizationHistoryItem[]
+  refreshTrigger?: number
 }
 
-export function GeoAIHistory({ items = [] }: GeoAIHistoryProps) {
-  // Mock data si pas d'items
-  const historyItems: LocalizationHistoryItem[] =
-    items.length > 0
-      ? items
-      : [
-          {
-            id: "1",
-            address: "15 Rue de la Paix, 75001 Paris",
-            confidence: 0.92,
-            source: "VISION_GEOCODING",
-            timestamp: new Date(Date.now() - 3600000),
-          },
-          {
-            id: "2",
-            address: "42 Avenue des Champs-Élysées, 75008 Paris",
-            confidence: 0.98,
-            source: "EXIF",
-            timestamp: new Date(Date.now() - 7200000),
-          },
-        ]
+export function GeoAIHistory({ refreshTrigger = 0 }: GeoAIHistoryProps) {
+  const [historyItems, setHistoryItems] = useState<LocalizationHistoryItem[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const fetchHistory = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch("/api/annonces/localisation/history")
+      const data = await response.json()
+
+      if (data.success && data.history) {
+        setHistoryItems(data.history)
+      } else {
+        setHistoryItems([])
+      }
+    } catch (error) {
+      console.error("Erreur lors du chargement de l'historique:", error)
+      setHistoryItems([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchHistory()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshTrigger])
+
+  const formatDate = (date: Date | string) => {
+    const d = typeof date === "string" ? new Date(date) : date
+    return d.toLocaleDateString("fr-FR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+  }
+
+  const getSourceLabel = (source: string) => {
+    switch (source) {
+      case "EXIF":
+        return "GPS EXIF"
+      case "VISION_LANDMARK":
+        return "Repère visuel"
+      case "VISION_GEOCODING":
+        return "Vision + OCR"
+      case "VISION_CONTEXT_FALLBACK":
+        return "Contexte"
+      default:
+        return "Manuel"
+    }
+  }
 
   return (
     <Card className="border-purple-200/50 bg-gradient-to-br from-white to-purple-50/30">
       <CardContent className="p-6">
-        <h3 className="mb-6 text-xl font-bold text-gray-900">Historique des localisations IA</h3>
+        <div className="mb-6 flex items-center justify-between">
+          <h3 className="text-xl font-bold text-gray-900">Historique des localisations IA</h3>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={fetchHistory}
+            disabled={loading}
+            className="h-8 w-8 p-0"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+          </Button>
+        </div>
 
-        {historyItems.length === 0 ? (
+        {loading ? (
           <div className="py-12 text-center">
-            <p className="text-gray-500">Aucune localisation dans l'historique</p>
+            <RefreshCw className="mx-auto h-8 w-8 animate-spin text-purple-600" />
+            <p className="mt-2 text-sm text-gray-500">Chargement...</p>
+          </div>
+        ) : historyItems.length === 0 ? (
+          <div className="py-12 text-center">
+            <MapPin className="mx-auto h-12 w-12 text-gray-300" />
+            <p className="mt-4 text-gray-500">Aucune localisation validée</p>
+            <p className="mt-1 text-sm text-gray-400">
+              Les localisations validées apparaîtront ici
+            </p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -83,7 +140,7 @@ export function GeoAIHistory({ items = [] }: GeoAIHistoryProps) {
                         <p className="font-semibold text-gray-900">{item.address}</p>
                         <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
                           <Clock className="h-3 w-3" />
-                          <span>{item.timestamp.toLocaleDateString("fr-FR")}</span>
+                          <span>{formatDate(item.timestamp)}</span>
                         </div>
                       </div>
                       <Badge
@@ -101,7 +158,7 @@ export function GeoAIHistory({ items = [] }: GeoAIHistoryProps) {
 
                     <div className="flex items-center gap-2">
                       <Badge variant="outline" className="text-xs">
-                        {item.source === "EXIF" ? "GPS EXIF" : "Vision + OCR"}
+                        {getSourceLabel(item.source)}
                       </Badge>
                       {item.annonceId && (
                         <a
