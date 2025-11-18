@@ -302,11 +302,24 @@ export async function POST(
 
     if (addressCandidates.length === 0) {
       // ⚠️ NE PAS utiliser le contexte de l'annonce si on a détecté une ville différente dans l'image
-      // Vérifier si une ville a été détectée dans le texte Vision
+      // Vérifier si une ville a été détectée dans le texte Vision (détection générique)
       const visionText = visionResult.fullTextAnnotation?.text || ""
-      const detectedCities = visionText.match(
-        /\b(?:Bordeaux|Paris|Lyon|Marseille|Toulouse|Nice|Nantes|Strasbourg|Montpellier|Lille|Rennes|Reims|Saint-Étienne|Le Havre|Toulon|Grenoble|Dijon|Angers|Nîmes|Villeurbanne|Saint-Denis|Le Mans|Aix-en-Provence|Clermont-Ferrand|Brest|Limoges|Tours|Amiens|Perpignan|Metz|Besançon|Boulogne-Billancourt|Orléans|Mulhouse|Rouen|Caen|Nancy|Argenteuil|Montreuil|Saint-Paul|Roubaix|Tourcoing|Nanterre|Avignon|Créteil|Dunkirk|Poitiers|Asnières-sur-Seine|Versailles|Courbevoie|Vitry-sur-Seine|Colombes|Aulnay-sous-Bois|La Rochelle|Champigny-sur-Marne|Rueil-Malmaison|Antibes|Saint-Maur-des-Fossés|Cannes|Bourges|Drancy|Mérignac|Saint-Nazaire|Colmar|Issy-les-Moulineaux|Noisy-le-Grand|Évry|Cergy|Pessac|Valence|Antony|La Seyne-sur-Mer|Clichy|Troyes|Neuilly-sur-Seine|Villeneuve-d'Ascq|Pantin|Niort|Le Blanc-Mesnil|Haguenau|Bobigny|Lorient|Beauvais|Hyères|Épinay-sur-Seine|Sartrouville|Maisons-Alfort|Meaux|Chelles|Villejuif|Cholet|Évry-Courcouronnes|Fontenay-sous-Bois|Fréjus|Vannes|Bondy|Laval|Arles|Sète|Clamart|Bayonne|Sarcelles|Corbeil-Essonnes|Mantes-la-Jolie|Saint-Ouen|Saint-Quentin|Gennevilliers|Ivry-sur-Seine|Charleville-Mézières|Blois|Châlons-en-Champagne|Chambéry|Albi|Brive-la-Gaillarde|Châteauroux|Montbéliard|Tarbes|Angoulême)\b/gi
-      )
+      
+      // Détection générique de villes françaises (pas seulement une liste fixe)
+      const commonWords = new Set([
+        'rue', 'avenue', 'boulevard', 'place', 'chemin', 'impasse', 'allée',
+        'route', 'passage', 'voie', 'cours', 'quai', 'esplanade', 'promenade',
+        'france', 'french', 'code', 'postal', 'numero', 'numéro', 'le', 'la', 'les',
+        'de', 'du', 'des', 'et', 'ou', 'sur', 'sous', 'dans', 'pour', 'avec', 'sans'
+      ])
+      
+      const cityPattern = /\b([A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞŸ][a-zàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]+(?:[-' ][A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞŸ][a-zàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]+)*)\b/g
+      
+      const matches = visionText.match(cityPattern) || []
+      const detectedCities = matches
+        .map(m => m.trim())
+        .filter(m => m.length >= 3 && !commonWords.has(m.toLowerCase()))
+        .filter((m, i, arr) => arr.indexOf(m) === i) // Dédupliquer
       
       const detectedCityName = detectedCities && detectedCities.length > 0 
         ? detectedCities[0].trim() 
@@ -481,11 +494,25 @@ export async function POST(
     // 9. Géocoding
     console.log("🗺️ [Localisation] Géocodage des adresses...")
     
-    // Détecter si une ville est présente dans les candidats OU dans le texte Vision complet
+    // Détecter si une ville est présente dans les candidats OU dans le texte Vision complet (détection générique)
     const visionText = visionResult.fullTextAnnotation?.text || ""
-    const detectedCities = visionText.match(
-      /\b(?:Bordeaux|Paris|Lyon|Marseille|Toulouse|Nice|Nantes|Strasbourg|Montpellier|Lille|Rennes|Reims|Saint-Étienne|Le Havre|Toulon|Grenoble|Dijon|Angers|Nîmes|Villeurbanne|Saint-Denis|Le Mans|Aix-en-Provence|Clermont-Ferrand|Brest|Limoges|Tours|Amiens|Perpignan|Metz|Besançon|Boulogne-Billancourt|Orléans|Mulhouse|Rouen|Caen|Nancy|Argenteuil|Montreuil|Saint-Paul|Roubaix|Tourcoing|Nanterre|Avignon|Créteil|Dunkirk|Poitiers|Asnières-sur-Seine|Versailles|Courbevoie|Vitry-sur-Seine|Colombes|Aulnay-sous-Bois|La Rochelle|Champigny-sur-Marne|Rueil-Malmaison|Antibes|Saint-Maur-des-Fossés|Cannes|Bourges|Drancy|Mérignac|Saint-Nazaire|Colmar|Issy-les-Moulineaux|Noisy-le-Grand|Évry|Cergy|Pessac|Valence|Antony|La Seyne-sur-Mer|Clichy|Troyes|Neuilly-sur-Seine|Villeneuve-d'Ascq|Pantin|Niort|Le Blanc-Mesnil|Haguenau|Bobigny|Lorient|Beauvais|Hyères|Épinay-sur-Seine|Sartrouville|Maisons-Alfort|Meaux|Chelles|Villejuif|Cholet|Évry-Courcouronnes|Fontenay-sous-Bois|Fréjus|Vannes|Bondy|Laval|Arles|Sète|Clamart|Bayonne|Sarcelles|Corbeil-Essonnes|Mantes-la-Jolie|Saint-Ouen|Saint-Quentin|Gennevilliers|Ivry-sur-Seine|Charleville-Mézières|Blois|Châlons-en-Champagne|Chambéry|Albi|Brive-la-Gaillarde|Châteauroux|Montbéliard|Tarbes|Angoulême)\b/gi
-    )
+    
+    // Détection générique de villes françaises
+    const commonWords = new Set([
+      'rue', 'avenue', 'boulevard', 'place', 'chemin', 'impasse', 'allée',
+      'route', 'passage', 'voie', 'cours', 'quai', 'esplanade', 'promenade',
+      'france', 'french', 'code', 'postal', 'numero', 'numéro', 'le', 'la', 'les',
+      'de', 'du', 'des', 'et', 'ou', 'sur', 'sous', 'dans', 'pour', 'avec', 'sans'
+    ])
+    
+    const cityPattern = /\b([A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞŸ][a-zàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]+(?:[-' ][A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞŸ][a-zàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]+)*)\b/g
+    
+    const matches = visionText.match(cityPattern) || []
+    const detectedCities = matches
+      .map(m => m.trim())
+      .filter(m => m.length >= 3 && !commonWords.has(m.toLowerCase()))
+      .filter((m, i, arr) => arr.indexOf(m) === i) // Dédupliquer
+    
     const detectedCityName = detectedCities && detectedCities.length > 0 
       ? detectedCities[0].trim() 
       : null

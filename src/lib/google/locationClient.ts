@@ -280,8 +280,34 @@ export function extractAddressCandidatesFromVision(
   // Dernier fallback : utiliser uniquement le contexte
   // ⚠️ ATTENTION : Ne pas utiliser ce fallback si on a détecté une ville dans le texte
   // qui est différente du contexte de l'annonce
+  
+  // Détection générique de villes françaises (pas seulement une liste fixe)
+  // Pattern pour détecter n'importe quelle ville française :
+  // - Mot commençant par majuscule, suivi de lettres minuscules
+  // - Peut contenir des tirets, apostrophes, espaces
+  // - Exclut les mots courts (< 3 caractères) et les mots communs
+  const commonWords = new Set([
+    'rue', 'avenue', 'boulevard', 'place', 'chemin', 'impasse', 'allée',
+    'route', 'passage', 'voie', 'cours', 'quai', 'esplanade', 'promenade',
+    'france', 'french', 'code', 'postal', 'numero', 'numéro', 'le', 'la', 'les',
+    'de', 'du', 'des', 'et', 'ou', 'sur', 'sous', 'dans', 'pour', 'avec', 'sans'
+  ])
+  
   const detectedCityInText = fullText
-    ? (fullText.match(/\b(?:Bordeaux|Paris|Lyon|Marseille|Toulouse|Nice|Nantes|Strasbourg|Montpellier|Lille|Rennes|Reims|Saint-Étienne|Le Havre|Toulon|Grenoble|Dijon|Angers|Nîmes|Villeurbanne|Saint-Denis|Le Mans|Aix-en-Provence|Clermont-Ferrand|Brest|Limoges|Tours|Amiens|Perpignan|Metz|Besançon|Boulogne-Billancourt|Orléans|Mulhouse|Rouen|Caen|Nancy|Argenteuil|Montreuil|Saint-Paul|Roubaix|Tourcoing|Nanterre|Avignon|Créteil|Dunkirk|Poitiers|Asnières-sur-Seine|Versailles|Courbevoie|Vitry-sur-Seine|Colombes|Aulnay-sous-Bois|La Rochelle|Champigny-sur-Marne|Rueil-Malmaison|Antibes|Saint-Maur-des-Fossés|Cannes|Bourges|Drancy|Mérignac|Saint-Nazaire|Colmar|Issy-les-Moulineaux|Noisy-le-Grand|Évry|Cergy|Pessac|Valence|Antony|La Seyne-sur-Mer|Clichy|Troyes|Neuilly-sur-Seine|Villeneuve-d'Ascq|Pantin|Niort|Le Blanc-Mesnil|Haguenau|Bobigny|Lorient|Beauvais|Hyères|Épinay-sur-Seine|Sartrouville|Maisons-Alfort|Meaux|Chelles|Villejuif|Cholet|Évry-Courcouronnes|Fontenay-sous-Bois|Fréjus|Vannes|Bondy|Laval|Arles|Sète|Clamart|Bayonne|Sarcelles|Corbeil-Essonnes|Mantes-la-Jolie|Saint-Ouen|Saint-Quentin|Gennevilliers|Ivry-sur-Seine|Charleville-Mézières|Blois|Châlons-en-Champagne|Chambéry|Albi|Brive-la-Gaillarde|Châteauroux|Montbéliard|Tarbes|Angoulême)\b/gi) || [])
+    ? (() => {
+        // Pattern pour détecter des noms de villes françaises
+        // Format typique : mot avec majuscule + lettres minuscules, éventuellement avec tirets/apostrophes
+        const cityPattern = /\b([A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞŸ][a-zàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]+(?:[-' ][A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞŸ][a-zàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]+)*)\b/g
+        
+        const matches = fullText.match(cityPattern) || []
+        // Filtrer les mots communs et les mots trop courts
+        const cities = matches
+          .map(m => m.trim())
+          .filter(m => m.length >= 3 && !commonWords.has(m.toLowerCase()))
+          .filter((m, i, arr) => arr.indexOf(m) === i) // Dédupliquer
+        
+        return cities
+      })()
     : []
 
   const detectedCityName = detectedCityInText.length > 0 
