@@ -8,8 +8,22 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
-import { Calculator, MapPin, Home, Ruler, DoorOpen, Filter, ChevronDown, ChevronUp } from "lucide-react"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { Separator } from "@/components/ui/separator"
+import { 
+  Calculator, 
+  MapPin, 
+  Home, 
+  Ruler, 
+  DoorOpen, 
+  Filter, 
+  Building2,
+  Wrench,
+  Sparkles,
+  Search,
+  Layers,
+  Shield,
+  Image as ImageIcon
+} from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 
 export default function EstimationPage() {
@@ -21,7 +35,6 @@ export default function EstimationPage() {
   const [photoUrl, setPhotoUrl] = useState("")
   
   // États pour les filtres avancés
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const [keywords, setKeywords] = useState("")
   const [condition, setCondition] = useState<string>("")
   const [floor, setFloor] = useState("")
@@ -147,7 +160,9 @@ export default function EstimationPage() {
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2">
-          <Calculator className="h-8 w-8 text-purple-600" />
+          <div className="p-2 bg-gradient-to-br from-purple-500 to-blue-500 rounded-xl">
+            <Calculator className="h-6 w-6 text-white" />
+          </div>
           <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
             Estimation immobilière
           </h1>
@@ -160,22 +175,24 @@ export default function EstimationPage() {
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Formulaire - Colonne gauche */}
         <div className="lg:col-span-1">
-          <Card className="sticky top-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Home className="h-5 w-5 text-purple-600" />
+          <Card className="sticky top-6 shadow-lg border-2 border-purple-100">
+            <CardHeader className="bg-gradient-to-r from-purple-50 to-blue-50 border-b">
+              <CardTitle className="flex items-center gap-2 text-xl">
+                <div className="p-2 bg-purple-600 rounded-lg">
+                  <Home className="h-5 w-5 text-white" />
+                </div>
                 Caractéristiques du bien
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-sm">
                 Renseignez les informations de votre bien
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-6">
               <form onSubmit={onSubmit} className="space-y-5">
                 {/* Localisation */}
                 <div className="space-y-2">
-                  <Label htmlFor="city" className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4" />
+                  <Label htmlFor="city" className="text-sm font-medium text-gray-700 flex items-center gap-1">
+                    <MapPin className="h-3.5 w-3.5 text-blue-600" />
                     Ville
                   </Label>
                   <Input
@@ -184,26 +201,27 @@ export default function EstimationPage() {
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
                     required
-                    className="h-11"
+                    className="h-10"
                   />
                 </div>
-
                 <div className="space-y-2">
-                  <Label htmlFor="postalCode">Code postal</Label>
+                  <Label htmlFor="postalCode" className="text-sm font-medium text-gray-700">
+                    Code postal
+                  </Label>
                   <Input
                     id="postalCode"
                     placeholder="Ex: 33000"
                     value={postalCode}
                     onChange={(e) => setPostalCode(e.target.value)}
                     required
-                    className="h-11"
+                    className="h-10"
                   />
                 </div>
 
                 {/* Caractéristiques */}
                 <div className="space-y-2">
-                  <Label htmlFor="surface" className="flex items-center gap-2">
-                    <Ruler className="h-4 w-4" />
+                  <Label htmlFor="surface" className="text-sm font-medium text-gray-700 flex items-center gap-1">
+                    <Ruler className="h-3.5 w-3.5 text-purple-600" />
                     Surface (m²)
                   </Label>
                   <Input
@@ -214,14 +232,13 @@ export default function EstimationPage() {
                     onChange={(e) => setSurface(e.target.value)}
                     required
                     min="1"
-                    className="h-11"
+                    className="h-10"
                   />
                 </div>
-
                 <div className="space-y-2">
-                  <Label htmlFor="rooms" className="flex items-center gap-2">
-                    <DoorOpen className="h-4 w-4" />
-                    Nombre de pièces
+                  <Label htmlFor="rooms" className="text-sm font-medium text-gray-700 flex items-center gap-1">
+                    <DoorOpen className="h-3.5 w-3.5 text-purple-600" />
+                    Pièces
                   </Label>
                   <Input
                     id="rooms"
@@ -231,14 +248,16 @@ export default function EstimationPage() {
                     onChange={(e) => setRooms(e.target.value)}
                     required
                     min="1"
-                    className="h-11"
+                    className="h-10"
                   />
                 </div>
-
                 <div className="space-y-2">
-                  <Label htmlFor="type">Type de bien</Label>
+                  <Label htmlFor="type" className="text-sm font-medium text-gray-700 flex items-center gap-1">
+                    <Building2 className="h-3.5 w-3.5 text-purple-600" />
+                    Type de bien
+                  </Label>
                   <Select value={type} onValueChange={setType}>
-                    <SelectTrigger id="type" className="h-11">
+                    <SelectTrigger id="type" className="h-10">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -248,244 +267,231 @@ export default function EstimationPage() {
                   </Select>
                 </div>
 
-                {/* Photo optionnelle */}
+                <Separator />
+
+                {/* État */}
                 <div className="space-y-2">
-                  <Label htmlFor="photo">Photo du bien (optionnel)</Label>
+                  <Label className="text-sm font-medium text-gray-700 flex items-center gap-1">
+                    <Wrench className="h-3.5 w-3.5 text-orange-600" />
+                    État du bien
+                  </Label>
+                  <Select value={condition} onValueChange={setCondition}>
+                    <SelectTrigger className="h-10 text-sm">
+                      <SelectValue placeholder="Sélectionner l'état" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="neuf">Neuf</SelectItem>
+                      <SelectItem value="rénové">Rénové</SelectItem>
+                      <SelectItem value="bon_état">Bon état</SelectItem>
+                      <SelectItem value="à_rafraîchir">À rafraîchir</SelectItem>
+                      <SelectItem value="à_rénover">À rénover</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Étage (pour appartement) */}
+                {type === "Appartement" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="floor" className="text-sm font-medium text-gray-700">
+                      Étage
+                    </Label>
+                    <Input
+                      id="floor"
+                      type="number"
+                      placeholder="Ex: 3 (0 = RDC)"
+                      min="0"
+                      value={floor}
+                      onChange={(e) => setFloor(e.target.value)}
+                      className="h-10 text-sm"
+                    />
+                  </div>
+                )}
+
+                <Separator />
+
+                {/* Équipements */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-gray-700 flex items-center gap-1">
+                    <Wrench className="h-3.5 w-3.5 text-orange-600" />
+                    Équipements
+                  </Label>
+                  <div className="grid grid-cols-2 gap-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="hasBalcon"
+                        checked={hasBalcon}
+                        onCheckedChange={(checked) => setHasBalcon(checked === true)}
+                      />
+                      <Label htmlFor="hasBalcon" className="text-xs cursor-pointer font-normal">
+                        Balcon
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="hasTerrasse"
+                        checked={hasTerrasse}
+                        onCheckedChange={(checked) => setHasTerrasse(checked === true)}
+                      />
+                      <Label htmlFor="hasTerrasse" className="text-xs cursor-pointer font-normal">
+                        Terrasse
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="hasParking"
+                        checked={hasParking}
+                        onCheckedChange={(checked) => setHasParking(checked === true)}
+                      />
+                      <Label htmlFor="hasParking" className="text-xs cursor-pointer font-normal">
+                        Parking
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="hasGarden"
+                        checked={hasGarden}
+                        onCheckedChange={(checked) => setHasGarden(checked === true)}
+                      />
+                      <Label htmlFor="hasGarden" className="text-xs cursor-pointer font-normal">
+                        Jardin
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="hasElevator"
+                        checked={hasElevator}
+                        onCheckedChange={(checked) => setHasElevator(checked === true)}
+                      />
+                      <Label htmlFor="hasElevator" className="text-xs cursor-pointer font-normal">
+                        Ascenseur
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="hasPool"
+                        checked={hasPool}
+                        onCheckedChange={(checked) => setHasPool(checked === true)}
+                      />
+                      <Label htmlFor="hasPool" className="text-xs cursor-pointer font-normal">
+                        Piscine
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="hasFireplace"
+                        checked={hasFireplace}
+                        onCheckedChange={(checked) => setHasFireplace(checked === true)}
+                      />
+                      <Label htmlFor="hasFireplace" className="text-xs cursor-pointer font-normal">
+                        Cheminée
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="hasCellar"
+                        checked={hasCellar}
+                        onCheckedChange={(checked) => setHasCellar(checked === true)}
+                      />
+                      <Label htmlFor="hasCellar" className="text-xs cursor-pointer font-normal">
+                        Cave
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="hasAttic"
+                        checked={hasAttic}
+                        onCheckedChange={(checked) => setHasAttic(checked === true)}
+                      />
+                      <Label htmlFor="hasAttic" className="text-xs cursor-pointer font-normal">
+                        Grenier
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="hasView"
+                        checked={hasView}
+                        onCheckedChange={(checked) => setHasView(checked === true)}
+                      />
+                      <Label htmlFor="hasView" className="text-xs cursor-pointer font-normal">
+                        Vue
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="hasDoubleGlazing"
+                        checked={hasDoubleGlazing}
+                        onCheckedChange={(checked) => setHasDoubleGlazing(checked === true)}
+                      />
+                      <Label htmlFor="hasDoubleGlazing" className="text-xs cursor-pointer font-normal">
+                        Double vitrage
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="hasAlarm"
+                        checked={hasAlarm}
+                        onCheckedChange={(checked) => setHasAlarm(checked === true)}
+                      />
+                      <Label htmlFor="hasAlarm" className="text-xs cursor-pointer font-normal">
+                        Alarme
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="hasIntercom"
+                        checked={hasIntercom}
+                        onCheckedChange={(checked) => setHasIntercom(checked === true)}
+                      />
+                      <Label htmlFor="hasIntercom" className="text-xs cursor-pointer font-normal">
+                        Digicode
+                      </Label>
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Mots-clés */}
+                <div className="space-y-2">
+                  <Label htmlFor="keywords" className="text-sm font-medium text-gray-700 flex items-center gap-1">
+                    <Search className="h-3.5 w-3.5 text-green-600" />
+                    Mots-clés (description)
+                  </Label>
+                  <Input
+                    id="keywords"
+                    placeholder="Ex: rénové, neuf..."
+                    value={keywords}
+                    onChange={(e) => setKeywords(e.target.value)}
+                    className="h-10 text-sm"
+                  />
+                  <p className="text-xs text-gray-500">
+                    Recherche dans la description et le titre
+                  </p>
+                </div>
+
+                {/* Photo */}
+                <div className="space-y-2">
+                  <Label htmlFor="photo" className="text-sm font-medium text-gray-700 flex items-center gap-1">
+                    <ImageIcon className="h-3.5 w-3.5 text-green-600" />
+                    Photo du bien (optionnel)
+                  </Label>
                   <Input
                     id="photo"
                     type="url"
                     placeholder="https://exemple.com/photo.jpg"
                     value={photoUrl}
                     onChange={(e) => setPhotoUrl(e.target.value)}
-                    className="h-11"
+                    className="h-10"
                   />
                   <p className="text-xs text-gray-500">
                     Ajoutez une URL d'image pour illustrer votre bien
                   </p>
                 </div>
 
-                {/* Filtres avancés */}
-                <Collapsible open={showAdvancedFilters} onOpenChange={setShowAdvancedFilters}>
-                  <CollapsibleTrigger className="w-full flex items-center justify-between p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
-                    <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                      <Filter className="h-4 w-4" />
-                      Filtres avancés
-                    </div>
-                    {showAdvancedFilters ? (
-                      <ChevronUp className="h-4 w-4 text-gray-500" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4 text-gray-500" />
-                    )}
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="space-y-4 pt-4">
-                    {/* État du bien */}
-                    <div className="space-y-3 p-3 bg-gray-50 rounded-lg">
-                      <Label className="text-sm font-semibold text-gray-700">État du bien</Label>
-                      <Select value={condition} onValueChange={setCondition}>
-                        <SelectTrigger className="h-9 text-sm">
-                          <SelectValue placeholder="Sélectionner l'état du bien" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="neuf">Neuf</SelectItem>
-                          <SelectItem value="rénové">Rénové</SelectItem>
-                          <SelectItem value="bon_état">Bon état</SelectItem>
-                          <SelectItem value="à_rafraîchir">À rafraîchir</SelectItem>
-                          <SelectItem value="à_rénover">À rénover</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-gray-500">
-                        État observé lors de la visite
-                      </p>
-                    </div>
-
-                    {/* Étage (pour appartement) */}
-                    {type === "Appartement" && (
-                      <div className="space-y-2">
-                        <Label htmlFor="floor" className="text-sm font-semibold text-gray-700">
-                          Étage
-                        </Label>
-                        <Input
-                          id="floor"
-                          type="number"
-                          placeholder="Ex: 3"
-                          min="0"
-                          value={floor}
-                          onChange={(e) => setFloor(e.target.value)}
-                          className="h-9 text-sm"
-                        />
-                        <p className="text-xs text-gray-500">
-                          Étage du bien (0 = rez-de-chaussée)
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Filtres par équipements */}
-                    <div className="space-y-3 p-3 bg-gray-50 rounded-lg">
-                      <Label className="text-sm font-semibold text-gray-700">Équipements</Label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="hasBalcon"
-                            checked={hasBalcon}
-                            onCheckedChange={(checked) => setHasBalcon(checked === true)}
-                          />
-                          <Label htmlFor="hasBalcon" className="text-xs cursor-pointer">
-                            Balcon
-                          </Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="hasTerrasse"
-                            checked={hasTerrasse}
-                            onCheckedChange={(checked) => setHasTerrasse(checked === true)}
-                          />
-                          <Label htmlFor="hasTerrasse" className="text-xs cursor-pointer">
-                            Terrasse
-                          </Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="hasParking"
-                            checked={hasParking}
-                            onCheckedChange={(checked) => setHasParking(checked === true)}
-                          />
-                          <Label htmlFor="hasParking" className="text-xs cursor-pointer">
-                            Parking / Garage
-                          </Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="hasGarden"
-                            checked={hasGarden}
-                            onCheckedChange={(checked) => setHasGarden(checked === true)}
-                          />
-                          <Label htmlFor="hasGarden" className="text-xs cursor-pointer">
-                            Jardin
-                          </Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="hasElevator"
-                            checked={hasElevator}
-                            onCheckedChange={(checked) => setHasElevator(checked === true)}
-                          />
-                          <Label htmlFor="hasElevator" className="text-xs cursor-pointer">
-                            Ascenseur
-                          </Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="hasPool"
-                            checked={hasPool}
-                            onCheckedChange={(checked) => setHasPool(checked === true)}
-                          />
-                          <Label htmlFor="hasPool" className="text-xs cursor-pointer">
-                            Piscine
-                          </Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="hasFireplace"
-                            checked={hasFireplace}
-                            onCheckedChange={(checked) => setHasFireplace(checked === true)}
-                          />
-                          <Label htmlFor="hasFireplace" className="text-xs cursor-pointer">
-                            Cheminée
-                          </Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="hasCellar"
-                            checked={hasCellar}
-                            onCheckedChange={(checked) => setHasCellar(checked === true)}
-                          />
-                          <Label htmlFor="hasCellar" className="text-xs cursor-pointer">
-                            Cave / Cellier
-                          </Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="hasAttic"
-                            checked={hasAttic}
-                            onCheckedChange={(checked) => setHasAttic(checked === true)}
-                          />
-                          <Label htmlFor="hasAttic" className="text-xs cursor-pointer">
-                            Grenier / Combles
-                          </Label>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Caractéristiques */}
-                    <div className="space-y-3 p-3 bg-gray-50 rounded-lg">
-                      <Label className="text-sm font-semibold text-gray-700">Caractéristiques</Label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="hasView"
-                            checked={hasView}
-                            onCheckedChange={(checked) => setHasView(checked === true)}
-                          />
-                          <Label htmlFor="hasView" className="text-xs cursor-pointer">
-                            Vue
-                          </Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="hasDoubleGlazing"
-                            checked={hasDoubleGlazing}
-                            onCheckedChange={(checked) => setHasDoubleGlazing(checked === true)}
-                          />
-                          <Label htmlFor="hasDoubleGlazing" className="text-xs cursor-pointer">
-                            Double vitrage
-                          </Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="hasAlarm"
-                            checked={hasAlarm}
-                            onCheckedChange={(checked) => setHasAlarm(checked === true)}
-                          />
-                          <Label htmlFor="hasAlarm" className="text-xs cursor-pointer">
-                            Alarme
-                          </Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="hasIntercom"
-                            checked={hasIntercom}
-                            onCheckedChange={(checked) => setHasIntercom(checked === true)}
-                          />
-                          <Label htmlFor="hasIntercom" className="text-xs cursor-pointer">
-                            Digicode / Interphone
-                          </Label>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Mots-clés */}
-                    <div className="space-y-2">
-                      <Label htmlFor="keywords" className="text-sm font-semibold text-gray-700">
-                        Mots-clés (description)
-                      </Label>
-                      <Input
-                        id="keywords"
-                        placeholder="Ex: rénové, neuf, vue mer..."
-                        value={keywords}
-                        onChange={(e) => setKeywords(e.target.value)}
-                        className="h-9 text-sm"
-                      />
-                      <p className="text-xs text-gray-500">
-                        Recherche dans la description et le titre
-                      </p>
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
-
                 <Button
                   type="submit"
                   disabled={loading}
-                  className="w-full h-12 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold shadow-lg"
+                  className="w-full h-12 bg-gradient-to-r from-purple-600 via-purple-700 to-blue-600 hover:from-purple-700 hover:via-purple-800 hover:to-blue-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
                 >
                   {loading ? (
                     <span className="flex items-center gap-2">
@@ -494,7 +500,7 @@ export default function EstimationPage() {
                     </span>
                   ) : (
                     <span className="flex items-center gap-2">
-                      <Calculator className="h-4 w-4" />
+                      <Calculator className="h-5 w-5" />
                       Estimer le bien
                     </span>
                   )}
