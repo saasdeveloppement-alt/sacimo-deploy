@@ -68,17 +68,49 @@ export async function callVisionForImage(
 
   if (!response.ok) {
     const errorText = await response.text()
-    throw new Error(
-      `Google Vision API error: ${response.status} - ${errorText}`,
-    )
+    let errorMessage = `Google Vision API error: ${response.status} - ${errorText}`
+    
+    // Détecter l'erreur de facturation et donner un message plus clair
+    if (response.status === 403 && errorText.includes("BILLING_DISABLED")) {
+      try {
+        const errorData = JSON.parse(errorText)
+        const projectId = errorData?.error?.details?.[0]?.metadata?.consumer?.replace("projects/", "") || "VOTRE_PROJECT_ID"
+        errorMessage = `⚠️ Facturation Google Cloud requise\n\n` +
+          `L'API Google Vision nécessite que la facturation soit activée sur votre projet Google Cloud.\n\n` +
+          `🔧 Solution :\n` +
+          `1. Activez la facturation : https://console.developers.google.com/billing/enable?project=${projectId}\n` +
+          `2. Attendez 2-3 minutes\n` +
+          `3. Réessayez\n\n` +
+          `💡 Ne vous inquiétez pas : Google offre $300 de crédit gratuit et les quotas gratuits sont généreux.\n\n` +
+          `📚 Guide complet : voir GUIDE_API_KEYS_LOCALISATION.md`
+      } catch {
+        // Si le parsing échoue, garder le message original
+      }
+    }
+    
+    throw new Error(errorMessage)
   }
 
   const data = await response.json()
 
   if (data.responses?.[0]?.error) {
-    throw new Error(
-      `Google Vision API error: ${data.responses[0].error.message}`,
-    )
+    const error = data.responses[0].error
+    let errorMessage = `Google Vision API error: ${error.message}`
+    
+    // Détecter l'erreur de facturation dans la réponse JSON
+    if (error.status === "PERMISSION_DENIED" && error.details?.[0]?.reason === "BILLING_DISABLED") {
+      const projectId = error.details?.[0]?.metadata?.consumer?.replace("projects/", "") || "VOTRE_PROJECT_ID"
+      errorMessage = `⚠️ Facturation Google Cloud requise\n\n` +
+        `L'API Google Vision nécessite que la facturation soit activée sur votre projet Google Cloud.\n\n` +
+        `🔧 Solution :\n` +
+        `1. Activez la facturation : https://console.developers.google.com/billing/enable?project=${projectId}\n` +
+        `2. Attendez 2-3 minutes\n` +
+        `3. Réessayez\n\n` +
+        `💡 Ne vous inquiétez pas : Google offre $300 de crédit gratuit et les quotas gratuits sont généreux.\n\n` +
+        `📚 Guide complet : voir GUIDE_API_KEYS_LOCALISATION.md`
+    }
+    
+    throw new Error(errorMessage)
   }
 
   return data.responses[0] || {}
