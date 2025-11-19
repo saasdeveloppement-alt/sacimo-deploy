@@ -79,11 +79,8 @@ export async function callVisionForImage(
           `L'API Google Vision nécessite que la facturation soit activée sur votre projet Google Cloud.\n\n` +
           `🔧 Solution :\n` +
           `1. Activez la facturation : https://console.developers.google.com/billing/enable?project=${projectId}\n` +
-          `2. Si vous voyez "Paiement suspect détecté" :\n` +
-          `   - Attendez 24-48h pour la vérification automatique\n` +
-          `   - Ou contactez le support Google Cloud\n` +
-          `   - Vérifiez que votre compte Google est bien vérifié\n` +
-          `3. Une fois activé, attendez 2-3 minutes puis réessayez\n\n` +
+          `2. Attendez 2-3 minutes\n` +
+          `3. Réessayez\n\n` +
           `💡 Ne vous inquiétez pas : Google offre $300 de crédit gratuit et les quotas gratuits sont généreux.\n\n` +
           `📚 Guide complet : voir GUIDE_API_KEYS_LOCALISATION.md`
       } catch {
@@ -107,11 +104,8 @@ export async function callVisionForImage(
         `L'API Google Vision nécessite que la facturation soit activée sur votre projet Google Cloud.\n\n` +
         `🔧 Solution :\n` +
         `1. Activez la facturation : https://console.developers.google.com/billing/enable?project=${projectId}\n` +
-        `2. Si vous voyez "Paiement suspect détecté" :\n` +
-        `   - Attendez 24-48h pour la vérification automatique\n` +
-        `   - Ou contactez le support Google Cloud\n` +
-        `   - Vérifiez que votre compte Google est bien vérifié\n` +
-        `3. Une fois activé, attendez 2-3 minutes puis réessayez\n\n` +
+        `2. Attendez 2-3 minutes\n` +
+        `3. Réessayez\n\n` +
         `💡 Ne vous inquiétez pas : Google offre $300 de crédit gratuit et les quotas gratuits sont généreux.\n\n` +
         `📚 Guide complet : voir GUIDE_API_KEYS_LOCALISATION.md`
     }

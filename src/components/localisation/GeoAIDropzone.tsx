@@ -19,6 +19,11 @@ import { Progress } from "@/components/ui/progress"
 import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { ChevronDown } from "lucide-react"
 import { useGeoAI } from "@/hooks/useGeoAI"
 import type { LocationFromImageResult } from "@/types/location"
 import { SimpleMap } from "@/components/localisation/SimpleMap"
@@ -137,45 +142,129 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null)
   const [selectedDepartment, setSelectedDepartment] = useState<string>("")
-  const { state, result, error, progress, uploadImage, validateLocation, reset, isLoading } =
+  const [city, setCity] = useState<string>("")
+  const [postalCode, setPostalCode] = useState<string>("")
+  const [contextCategories, setContextCategories] = useState<string[]>([])
+  const [contextNotes, setContextNotes] = useState<string>("")
+  const [multiImageMode, setMultiImageMode] = useState<boolean>(false)
+  const [filtersOpen, setFiltersOpen] = useState<boolean>(false)
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const [imagePreviews, setImagePreviews] = useState<string[]>([])
+  const { state, result, error, progress, uploadImage, uploadMultipleImages, validateLocation, reset, isLoading } =
     useGeoAI({
       annonceId,
       onSuccess: () => {
         // Success handled by hook
+        // Réinitialiser les fichiers sélectionnés après succès
+        setSelectedFiles([])
+        setImagePreviews([])
       },
     })
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
+    const files = Array.from(event.target.files || [])
+    if (files.length === 0) return
     
     if (!selectedDepartment) {
       alert("Veuillez sélectionner un département pour aider à la localisation")
       return
     }
+
+    // Mode simple : une seule image, upload immédiat
+    if (!multiImageMode) {
+      const file = files[0]
+      const imageUrl = URL.createObjectURL(file)
+      setUploadedImageUrl(imageUrl)
+      await uploadImage(file, selectedDepartment, annonceId, {
+        city: city || undefined,
+        postalCode: postalCode || undefined,
+        categories: contextCategories.length > 0 ? contextCategories : undefined,
+        notes: contextNotes || undefined,
+      })
+      return
+    }
+
+    // Mode multi-images : ajout incrémental
+    const currentCount = selectedFiles.length
+    const remainingSlots = 6 - currentCount
+    const newFiles = files.slice(0, remainingSlots)
     
-    // Créer une URL pour l'image uploadée
-    const imageUrl = URL.createObjectURL(file)
-    setUploadedImageUrl(imageUrl)
-    
-    await uploadImage(file, selectedDepartment)
+    if (newFiles.length === 0) {
+      alert("Vous avez déjà sélectionné le maximum de 6 images")
+      return
+    }
+
+    // Ajouter les nouvelles images aux images déjà sélectionnées
+    const updatedFiles = [...selectedFiles, ...newFiles]
+    setSelectedFiles(updatedFiles)
+
+    // Créer les previews pour les nouvelles images
+    const newPreviews = await Promise.all(
+      newFiles.map((file) => {
+        return new Promise<string>((resolve) => {
+          const reader = new FileReader()
+          reader.onload = (e) => resolve(e.target?.result as string)
+          reader.readAsDataURL(file)
+        })
+      }),
+    )
+    setImagePreviews([...imagePreviews, ...newPreviews])
+
+    // Réinitialiser l'input pour permettre de sélectionner à nouveau
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
+    }
   }
 
   const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault()
-    const file = e.dataTransfer.files[0]
-    if (file) {
-      if (!selectedDepartment) {
-        alert("Veuillez sélectionner un département pour aider à la localisation")
-        return
-      }
-      
-      // Créer une URL pour l'image uploadée
+    const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith("image/"))
+    if (files.length === 0) return
+    
+    if (!selectedDepartment) {
+      alert("Veuillez sélectionner un département pour aider à la localisation")
+      return
+    }
+
+    // Mode simple : une seule image, upload immédiat
+    if (!multiImageMode) {
+      const file = files[0]
       const imageUrl = URL.createObjectURL(file)
       setUploadedImageUrl(imageUrl)
-      
-      await uploadImage(file, selectedDepartment)
+      await uploadImage(file, selectedDepartment, annonceId, {
+        city: city || undefined,
+        postalCode: postalCode || undefined,
+        categories: contextCategories.length > 0 ? contextCategories : undefined,
+        notes: contextNotes || undefined,
+      })
+      return
     }
+
+    // Mode multi-images : ajout incrémental
+    const currentCount = selectedFiles.length
+    const remainingSlots = 6 - currentCount
+    const newFiles = files.slice(0, remainingSlots)
+    
+    if (newFiles.length === 0) {
+      alert("Vous avez déjà sélectionné le maximum de 6 images")
+      return
+    }
+
+    // Ajouter les nouvelles images aux images déjà sélectionnées
+    const updatedFiles = [...selectedFiles, ...newFiles]
+    setSelectedFiles(updatedFiles)
+
+    // Créer les previews pour les nouvelles images
+    const newPreviews = await Promise.all(
+      newFiles.map((file) => {
+        return new Promise<string>((resolve) => {
+          const reader = new FileReader()
+          reader.onload = (e) => resolve(e.target?.result as string)
+          reader.readAsDataURL(file)
+        })
+      }),
+    )
+    setImagePreviews([...imagePreviews, ...newPreviews])
   }
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
@@ -252,6 +341,158 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
                 </p>
               </div>
 
+              {/* Filtres optionnels dans un menu déroulant */}
+              <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
+                <CollapsibleTrigger className="w-full flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-700">
+                      Filtres optionnels pour améliorer la précision
+                    </span>
+                    <Badge variant="outline" className="text-xs">
+                      Optionnel
+                    </Badge>
+                  </div>
+                  <ChevronDown
+                    className={`h-4 w-4 text-gray-500 transition-transform ${
+                      filtersOpen ? "transform rotate-180" : ""
+                    }`}
+                  />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-4 pt-4">
+                  {/* Ville (optionnelle) */}
+                  <div className="space-y-2">
+                    <Label htmlFor="city" className="text-sm font-medium text-gray-700">
+                      Ville <span className="text-gray-400 text-xs">(facultatif)</span>
+                    </Label>
+                    <Input
+                      id="city"
+                      type="text"
+                      placeholder="Ex: Paris, Lyon, Marseille..."
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      className="w-full bg-white border-purple-200 focus:border-purple-400"
+                    />
+                    <p className="text-xs text-gray-500">
+                      Indiquez la ville pour améliorer la précision dans les zones urbaines
+                    </p>
+                  </div>
+
+                  {/* Code postal (optionnel) */}
+                  <div className="space-y-2">
+                    <Label htmlFor="postalCode" className="text-sm font-medium text-gray-700">
+                      Code postal <span className="text-gray-400 text-xs">(facultatif)</span>
+                    </Label>
+                    <Input
+                      id="postalCode"
+                      type="text"
+                      placeholder="Ex: 75001, 69001..."
+                      value={postalCode}
+                      onChange={(e) => {
+                        // Ne garder que les chiffres
+                        const value = e.target.value.replace(/\D/g, "").slice(0, 5)
+                        setPostalCode(value)
+                      }}
+                      className="w-full bg-white border-purple-200 focus:border-purple-400"
+                    />
+                    <p className="text-xs text-gray-500">
+                      Le code postal permet d'affiner la localisation dans les grandes villes
+                    </p>
+                  </div>
+
+                  {/* Filtres contextuels */}
+                  <div className="space-y-3 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                    <Label className="text-sm font-medium text-gray-700">
+                      Contexte supplémentaire <span className="text-gray-400 text-xs">(facultatif)</span>
+                    </Label>
+                    
+                    {/* Type d'endroit */}
+                    <div className="space-y-2">
+                      <Label className="text-xs font-medium text-gray-600">Type d'endroit</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          "Village",
+                          "Petite ville",
+                          "Zone rurale",
+                          "Ruelle étroite",
+                          "Place centrale",
+                          "Zone pavillonnaire",
+                          "Quartier résidentiel",
+                          "Zone commerciale",
+                          "Bord de route",
+                          "Centre-ville",
+                        ].map((category) => (
+                          <button
+                            key={category}
+                            type="button"
+                            onClick={() => {
+                              setContextCategories((prev) =>
+                                prev.includes(category)
+                                  ? prev.filter((c) => c !== category)
+                                  : [...prev, category]
+                              )
+                            }}
+                            className={`px-3 py-1.5 text-xs rounded-full border transition-colors ${
+                              contextCategories.includes(category)
+                                ? "bg-purple-100 border-purple-400 text-purple-700"
+                                : "bg-white border-gray-300 text-gray-700 hover:border-purple-300"
+                            }`}
+                          >
+                            {category}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Notes utilisateur */}
+                    <div className="space-y-2">
+                      <Label htmlFor="contextNotes" className="text-xs font-medium text-gray-600">
+                        Notes supplémentaires
+                      </Label>
+                      <Textarea
+                        id="contextNotes"
+                        placeholder="Ex: Près d'une église, en haut d'une colline, près d'une rivière..."
+                        value={contextNotes}
+                        onChange={(e) => setContextNotes(e.target.value)}
+                        className="w-full bg-white border-gray-300 focus:border-purple-400 min-h-[80px] text-sm"
+                        rows={3}
+                      />
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+
+              {/* Checkbox pour activer le mode multi-images */}
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="multi-image-mode"
+                    checked={multiImageMode}
+                    onCheckedChange={(checked) => {
+                      setMultiImageMode(checked === true)
+                      // Si on désactive le mode multi, réinitialiser les images
+                      if (!checked && selectedFiles.length > 1) {
+                        setSelectedFiles([])
+                        setImagePreviews([])
+                      }
+                    }}
+                  />
+                  <Label
+                    htmlFor="multi-image-mode"
+                    className="text-sm font-medium text-gray-700 cursor-pointer flex-1"
+                  >
+                    Activer le mode multi-images pour améliorer la précision
+                  </Label>
+                  <Badge variant="outline" className="text-xs">
+                    Optionnel
+                  </Badge>
+                </div>
+                <p className="text-xs text-gray-500 mt-2 ml-6">
+                  {multiImageMode
+                    ? "Vous pourrez ajouter jusqu'à 6 images. Plus vous en ajoutez, plus l'IA pourra affiner la localisation."
+                    : "Mode simple : une seule image sera analysée. Cochez la case ci-dessus pour activer le mode multi-images."}
+                </p>
+              </div>
+
               <div
                 className="relative cursor-pointer rounded-2xl border-2 border-dashed border-purple-300 bg-gradient-to-br from-purple-50/50 to-blue-50/50 p-12 transition-all hover:border-purple-400 hover:bg-purple-50/70"
                 onDrop={handleDrop}
@@ -263,6 +504,7 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
                   type="file"
                   accept="image/jpeg,image/jpg,image/png,image/webp"
                   onChange={handleFileSelect}
+                  multiple={multiImageMode}
                   className="hidden"
                 />
 
@@ -293,9 +535,127 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
                 </Button>
 
                 <p className="mt-4 text-xs text-gray-500">
-                  Formats supportés : JPG, PNG, WebP (max 10MB)
+                  {multiImageMode
+                    ? "Jusqu'à 6 images — JPG, PNG, WebP (max 10MB)"
+                    : "Formats supportés : JPG, PNG, WebP (max 10MB)"}
                 </p>
               </div>
+
+              {/* Miniatures des images sélectionnées (mode multi-images) */}
+              {multiImageMode && selectedFiles.length > 0 && (
+                <div className="space-y-3 rounded-xl border border-purple-200 bg-white p-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium text-gray-700">
+                      {selectedFiles.length} image{selectedFiles.length > 1 ? "s" : ""} sélectionnée{selectedFiles.length > 1 ? "s" : ""}
+                    </p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedFiles([])
+                        setImagePreviews([])
+                      }}
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Tout supprimer
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {imagePreviews.map((preview, index) => (
+                      <div key={index} className="relative group">
+                        <div className="aspect-square rounded-lg overflow-hidden border-2 border-gray-200 group-hover:border-purple-400 transition-colors">
+                          <img
+                            src={preview}
+                            alt={`Preview ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setSelectedFiles((prev) => prev.filter((_, i) => i !== index))
+                            setImagePreviews((prev) => prev.filter((_, i) => i !== index))
+                          }}
+                          className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white rounded-full p-1.5 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Supprimer cette image"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                        <div className="absolute bottom-1 left-1 bg-black/70 text-white text-xs font-medium px-2 py-1 rounded">
+                          {index + 1}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {selectedFiles.length > 0 && (
+                    <Button
+                      onClick={async () => {
+                        if (!selectedDepartment) {
+                          alert("Veuillez sélectionner un département")
+                          return
+                        }
+
+                        // Toujours utiliser uploadImage pour une seule image, même en mode multi-images
+                        const contextData = {
+                          city: city || undefined,
+                          postalCode: postalCode || undefined,
+                          categories: contextCategories.length > 0 ? contextCategories : undefined,
+                          notes: contextNotes || undefined,
+                        }
+
+                        if (selectedFiles.length === 1) {
+                          const file = selectedFiles[0]
+                          const imageUrl = URL.createObjectURL(file)
+                          setUploadedImageUrl(imageUrl)
+                          await uploadImage(file, selectedDepartment, annonceId, contextData)
+                        } else if (selectedFiles.length > 1) {
+                          // Utiliser la première image pour l'affichage
+                          if (selectedFiles.length > 0) {
+                            const imageUrl = URL.createObjectURL(selectedFiles[0])
+                            setUploadedImageUrl(imageUrl)
+                          }
+                          // Upload multi-images via le hook
+                          await uploadMultipleImages(selectedFiles, selectedDepartment, annonceId, contextData)
+                        }
+                      }}
+                      disabled={isLoading || !selectedDepartment}
+                      className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white disabled:opacity-50"
+                    >
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          {selectedFiles.length > 1
+                            ? `Analyse IA multi-images en cours... (${selectedFiles.length} images)`
+                            : "Analyse de l'image en cours..."}
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4 mr-2" />
+                          {selectedFiles.length > 1
+                            ? `Analyser toutes les images (${selectedFiles.length})`
+                            : "Analyser l'image"}
+                        </>
+                      )}
+                    </Button>
+                  )}
+                  {selectedFiles.length < 6 && (
+                    <div
+                      className="border-2 border-dashed border-purple-300 rounded-lg p-4 text-center hover:border-purple-400 hover:bg-purple-50/50 transition-colors cursor-pointer"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <div className="flex items-center justify-center gap-2 text-purple-600">
+                        <Upload className="h-5 w-5" />
+                        <span className="text-sm font-medium">
+                          Ajouter d'autres images ({selectedFiles.length}/6)
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Glissez-déposez ou cliquez pour ajouter jusqu'à {6 - selectedFiles.length} image{6 - selectedFiles.length > 1 ? "s" : ""} supplémentaire{6 - selectedFiles.length > 1 ? "s" : ""}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
             </motion.div>
           )}
 

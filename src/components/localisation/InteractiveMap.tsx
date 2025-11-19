@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState, useEffect } from "react"
-import { GoogleMap, Marker, useLoadScript } from "@react-google-maps/api"
+import { GoogleMap, Marker, Circle, useLoadScript } from "@react-google-maps/api"
 import { Loader2 } from "lucide-react"
 
 interface InteractiveMapProps {
@@ -10,6 +10,8 @@ interface InteractiveMapProps {
   address?: string
   height?: string
   zoom?: number
+  showUncertaintyCircle?: boolean
+  uncertaintyRadiusMeters?: number // Rayon du cercle d'incertitude en mètres (300-800m par défaut)
 }
 
 const libraries: ("places" | "drawing" | "geometry" | "visualization")[] = ["places"]
@@ -20,6 +22,8 @@ export function InteractiveMap({
   address,
   height = "400px",
   zoom = 17,
+  showUncertaintyCircle = false,
+  uncertaintyRadiusMeters = 500, // Rayon par défaut de 500m
 }: InteractiveMapProps) {
   const [mounted, setMounted] = useState(false)
 
@@ -115,6 +119,19 @@ export function InteractiveMap({
           position={center}
           title={address || `Localisation: ${latitude}, ${longitude}`}
         />
+        {showUncertaintyCircle && (
+          <Circle
+            center={center}
+            radius={uncertaintyRadiusMeters}
+            options={{
+              fillColor: "#9333ea",
+              fillOpacity: 0.15,
+              strokeColor: "#9333ea",
+              strokeOpacity: 0.5,
+              strokeWeight: 2,
+            }}
+          />
+        )}
       </GoogleMap>
       {address && (
         <div className="absolute bottom-2 left-2 right-2 rounded-lg bg-white/95 px-3 py-2 shadow-md backdrop-blur-sm">

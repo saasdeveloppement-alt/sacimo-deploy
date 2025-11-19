@@ -61,9 +61,45 @@ export type ExifData = {
   lng?: number
 }
 
+export type LLMLocationGuess = {
+  city: string | null
+  area: string | null
+  latitude: number | null
+  longitude: number | null
+  confidence: number // 0-1
+}
+
+export type LLMLocationContext = {
+  departementCode: string
+  departementName: string
+  city?: string | null
+  postalCode?: string | null
+  categories?: string[]
+  notes?: string | null
+}
+
+export type MultiImageRawResult = {
+  imageIndex: number
+  source: string // EXIF, VISION_LANDMARK, VISION_GEOCODING, VISION_CONTEXT_FALLBACK, AI_GEOGUESSR
+  latitude: number | null
+  longitude: number | null
+  confidence: number
+  address?: string
+}
+
+export type ConsolidatedLocalization = {
+  latitude: number | null
+  longitude: number | null
+  confidence: number // 0-1
+  source: "MULTI_IMAGE_CONSOLIDATED"
+  address: string
+  individualResults?: MultiImageRawResult[]
+  warning?: string
+}
+
 export type LocationFromImageResult = {
   status: "ok" | "error"
-  source?: "EXIF" | "VISION_GEOCODING" | "VISION_LANDMARK" | "VISION_CONTEXT_FALLBACK" | "MANUAL"
+  source?: "EXIF" | "VISION_GEOCODING" | "VISION_LANDMARK" | "VISION_CONTEXT_FALLBACK" | "AI_GEOGUESSR" | "MANUAL" | "MULTI_IMAGE_CONSOLIDATED"
   error?: string
   warning?: string
   autoLocation?: {
@@ -74,4 +110,5 @@ export type LocationFromImageResult = {
     streetViewUrl?: string
   }
   candidates?: GeocodedCandidate[]
+  individualResults?: MultiImageRawResult[] // Pour multi-images
 }
