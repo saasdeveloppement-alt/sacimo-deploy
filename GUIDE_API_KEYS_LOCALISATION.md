@@ -30,6 +30,33 @@ Les APIs Google Cloud Vision et Google Maps **nécessitent que la facturation so
 
 **Lien direct** : https://console.developers.google.com/billing/enable?project=VOTRE_PROJECT_ID
 
+#### ⚠️ Problème : "Paiement suspect détecté" / "En attente de vérification"
+
+Si Google Cloud détecte une activité suspecte, votre compte peut être mis en attente de vérification. **C'est normal et temporaire.**
+
+**Solutions :**
+
+1. **Attendre la vérification automatique** (24-48h)
+   - Google vérifie généralement automatiquement dans les 24-48h
+   - Vérifiez régulièrement votre email et la console Google Cloud
+
+2. **Contacter le support Google Cloud**
+   - Allez dans [Google Cloud Support](https://cloud.google.com/support)
+   - Créez un ticket de support
+   - Expliquez que vous souhaitez activer la facturation pour utiliser les APIs Vision et Maps
+   - Fournissez les informations demandées (nom, entreprise, etc.)
+
+3. **Vérifier votre compte Google**
+   - Assurez-vous que votre compte Google est vérifié (email, téléphone)
+   - Utilisez un compte Google professionnel si possible
+   - Évitez les comptes récemment créés
+
+4. **Solution temporaire : Utiliser un autre compte Google Cloud**
+   - Créez un nouveau projet avec un autre compte Google (si disponible)
+   - Ou demandez à un collègue d'activer la facturation sur son compte
+
+**Note** : Une fois la vérification approuvée, la facturation sera activée et vous pourrez utiliser les APIs.
+
 ### 3. Activer les APIs nécessaires
 
 Activez ces APIs dans votre projet :
