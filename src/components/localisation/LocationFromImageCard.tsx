@@ -212,6 +212,18 @@ export function LocationFromImageCard({
         },
       )
 
+      if (!response.ok) {
+        const errorText = await response.text()
+        let errorMessage = `Erreur ${response.status}: ${response.statusText}`
+        try {
+          const errorData = JSON.parse(errorText)
+          errorMessage = errorData.error || errorData.message || errorMessage
+        } catch {
+          errorMessage = errorText || errorMessage
+        }
+        throw new Error(errorMessage)
+      }
+
       const data: LocationFromImageResult = await response.json()
 
       if (data.status === "error") {
@@ -257,6 +269,18 @@ export function LocationFromImageCard({
           body: formData,
         },
       )
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        let errorMessage = `Erreur ${response.status}: ${response.statusText}`
+        try {
+          const errorData = JSON.parse(errorText)
+          errorMessage = errorData.error || errorData.message || errorMessage
+        } catch {
+          errorMessage = errorText || errorMessage
+        }
+        throw new Error(errorMessage)
+      }
 
       const data: LocationFromImageResult = await response.json()
 

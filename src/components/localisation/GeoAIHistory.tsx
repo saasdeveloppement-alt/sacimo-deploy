@@ -32,6 +32,13 @@ export function GeoAIHistory({ refreshTrigger = 0 }: GeoAIHistoryProps) {
     try {
       setLoading(true)
       const response = await fetch("/api/annonces/localisation/history")
+      
+      if (!response.ok) {
+        console.error(`Erreur ${response.status}: ${response.statusText}`)
+        setHistoryItems([])
+        return
+      }
+      
       const data = await response.json()
 
       if (data.success && data.history) {
