@@ -12,6 +12,8 @@ import type {
   AddressCandidate,
   GeocodedCandidate,
   ExifData,
+  LLMLocationGuess,
+  LLMLocationContext,
 } from "@/types/location"
 
 const GOOGLE_VISION_API_KEY = process.env.GOOGLE_CLOUD_VISION_API_KEY
@@ -428,33 +430,46 @@ export async function geocodeAddressCandidates(
       // Construire la requête de géocodage
       let addressQuery = candidate.rawText
       
-      // Ne PAS ajouter le contexte de l'annonce si l'adresse détectée contient déjà une ville ou un code postal
-      // Cela évite de forcer une mauvaise ville (ex: forcer Paris alors que c'est Bordeaux)
-      
-      // Détecter si l'adresse contient déjà une ville française (mot commençant par majuscule suivi de lettres)
-      // ou un code postal français (5 chiffres)
-      const hasPostalCode = /\d{5}/.test(addressQuery)
-      const hasCityPattern = /[A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞŸ][a-zàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]+(?:\s+[A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞŸ][a-zàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]+)*/.test(addressQuery)
-      
-      // Si l'adresse contient déjà un code postal OU semble contenir une ville, ne pas ajouter le contexte
-      if (context && (hasPostalCode || hasCityPattern)) {
-        // Ajouter uniquement le pays si nécessaire
-        if (context.country && !addressQuery.toLowerCase().includes("france")) {
-          addressQuery = `${addressQuery}, ${context.country}`
+      // HARD LOCK: Si un département est fourni dans le contexte, le forcer dans la requête
+      if (context?.department) {
+        // Ajouter le département à la requête pour forcer le géocodage dans cette zone
+        // Format: "adresse, département, France"
+        if (!addressQuery.toLowerCase().includes(context.department.toLowerCase())) {
+          // Trouver le nom du département depuis le code (simplifié)
+          addressQuery = `${addressQuery}, ${context.department}, France`
+        } else if (!addressQuery.toLowerCase().includes("france")) {
+          addressQuery = `${addressQuery}, France`
         }
-      } else if (context) {
-        // Si pas de ville/code postal détecté, on peut utiliser le contexte mais avec précaution
-        // Ne pas forcer la ville si l'adresse semble complète
-        const addressLength = addressQuery.trim().length
-        if (addressLength > 20) {
-          // Adresse assez longue, probablement complète, ne pas ajouter le contexte
+      } else {
+        // Logique originale si pas de département forcé
+        // Ne PAS ajouter le contexte de l'annonce si l'adresse détectée contient déjà une ville ou un code postal
+        // Cela évite de forcer une mauvaise ville (ex: forcer Paris alors que c'est Bordeaux)
+        
+        // Détecter si l'adresse contient déjà une ville française (mot commençant par majuscule suivi de lettres)
+        // ou un code postal français (5 chiffres)
+        const hasPostalCode = /\d{5}/.test(addressQuery)
+        const hasCityPattern = /[A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞŸ][a-zàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]+(?:\s+[A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞŸ][a-zàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]+)*/.test(addressQuery)
+        
+        // Si l'adresse contient déjà un code postal OU semble contenir une ville, ne pas ajouter le contexte
+        if (context && (hasPostalCode || hasCityPattern)) {
+          // Ajouter uniquement le pays si nécessaire
           if (context.country && !addressQuery.toLowerCase().includes("france")) {
             addressQuery = `${addressQuery}, ${context.country}`
           }
-        } else {
-          // Adresse courte, on peut ajouter le contexte mais seulement le pays
-          if (context.country && !addressQuery.toLowerCase().includes("france")) {
-            addressQuery = `${addressQuery}, ${context.country}`
+        } else if (context) {
+          // Si pas de ville/code postal détecté, on peut utiliser le contexte mais avec précaution
+          // Ne pas forcer la ville si l'adresse semble complète
+          const addressLength = addressQuery.trim().length
+          if (addressLength > 20) {
+            // Adresse assez longue, probablement complète, ne pas ajouter le contexte
+            if (context.country && !addressQuery.toLowerCase().includes("france")) {
+              addressQuery = `${addressQuery}, ${context.country}`
+            }
+          } else {
+            // Adresse courte, on peut ajouter le contexte mais seulement le pays
+            if (context.country && !addressQuery.toLowerCase().includes("france")) {
+              addressQuery = `${addressQuery}, ${context.country}`
+            }
           }
         }
       }
@@ -478,29 +493,53 @@ export async function geocodeAddressCandidates(
         const result = data.results[0]
         const location = result.geometry.location
 
-        // Calculer un score de géocodage basé sur la précision
-        let geocodingScore = 0.7 // Base
-
-        // Bonus selon le type de résultat
+        // Calculer un score de géocodage basé sur la précision de l'adresse
+        const geocodedAddress = result.formatted_address
+        const addressComponents = result.address_components || []
+        
+        // Vérifier la précision de l'adresse
+        const hasStreetNumber = addressComponents.some(c => c.types.includes("street_number"))
+        const hasRoute = addressComponents.some(c => c.types.includes("route"))
+        const hasPostalCode = addressComponents.some(c => c.types.includes("postal_code"))
+        const hasLocality = addressComponents.some(c => c.types.includes("locality"))
+        
+        // Score basé sur la précision de l'adresse (selon les règles demandées)
+        let geocodingScore = 0.5 // Base (ville seulement)
+        
+        if (hasStreetNumber && hasRoute && hasPostalCode) {
+          geocodingScore = 0.95 // Adresse complète avec numéro + rue + code postal
+        } else if (hasRoute && hasPostalCode) {
+          geocodingScore = 0.85 // Rue + code postal (pas de numéro)
+        } else if (hasPostalCode && hasLocality) {
+          geocodingScore = 0.70 // Code postal + ville (quartier/arrondissement)
+        } else if (hasLocality) {
+          geocodingScore = 0.50 // Ville seulement
+        }
+        
+        // Ajuster selon le type de résultat Google
         const locationType = result.geometry.location_type
         if (locationType === "ROOFTOP") {
-          geocodingScore = 0.98 // Très précis
+          // Si ROOFTOP, on peut augmenter le score si on a déjà une bonne adresse
+          if (geocodingScore < 0.90) geocodingScore = Math.min(0.98, geocodingScore + 0.1)
         } else if (locationType === "RANGE_INTERPOLATED") {
-          geocodingScore = 0.88
+          // Légèrement réduire si interpolation
+          geocodingScore = Math.max(0.70, geocodingScore - 0.05)
         } else if (locationType === "GEOMETRIC_CENTER") {
-          geocodingScore = 0.78
+          // Réduire si centre géométrique
+          geocodingScore = Math.max(0.60, geocodingScore - 0.10)
         } else if (locationType === "APPROXIMATE") {
-          geocodingScore = 0.68
+          // Réduire si approximatif
+          geocodingScore = Math.max(0.50, geocodingScore - 0.15)
         }
 
         // Vérifier si l'adresse géocodée correspond au contexte
         if (context) {
-          const geocodedAddress = result.formatted_address.toLowerCase()
-          if (context.postalCode && geocodedAddress.includes(context.postalCode)) {
-            geocodingScore += 0.05 // Bonus si code postal correspond
+          const geocodedAddressLower = geocodedAddress.toLowerCase()
+          if (context.postalCode && geocodedAddressLower.includes(context.postalCode)) {
+            geocodingScore += 0.03 // Bonus si code postal correspond
           }
-          if (context.city && geocodedAddress.includes(context.city.toLowerCase())) {
-            geocodingScore += 0.05 // Bonus si ville correspond
+          if (context.city && geocodedAddressLower.includes(context.city.toLowerCase())) {
+            geocodingScore += 0.02 // Bonus si ville correspond
           }
           geocodingScore = Math.min(1, geocodingScore) // Cap à 1
         }
@@ -544,6 +583,10 @@ export async function geocodeAddressCandidates(
 
 /**
  * Reverse geocoding : convertit des coordonnées GPS en adresse
+ * Retourne l'adresse la plus précise possible (rue + numéro si disponible)
+ * 
+ * Exemple avec 48.878917, 2.364535 :
+ * Attendu: "Place de la République, 75003 Paris, France"
  */
 export async function reverseGeocode(
   lat: number,
@@ -554,28 +597,119 @@ export async function reverseGeocode(
   }
 
   try {
+    // Appel direct à l'API Google Geocoding Reverse
     const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${GOOGLE_MAPS_API_KEY}&language=fr&region=fr`
 
+    console.log(`🔍 [reverseGeocode] Appel API pour ${lat}, ${lng}`)
+    
     const response = await fetch(url)
 
     if (!response.ok) {
-      console.warn(`Erreur reverse geocoding: ${response.status}`)
+      console.warn(`❌ [reverseGeocode] Erreur HTTP: ${response.status}`)
       return null
     }
 
     const data = await response.json()
+    
+    console.log(`📊 [reverseGeocode] Statut API: ${data.status}`)
+    console.log(`📊 [reverseGeocode] Nombre de résultats: ${data.results?.length || 0}`)
 
     if (data.status === "OK" && data.results && data.results.length > 0) {
-      const result = data.results[0]
+      // Chercher le résultat le plus précis
+      // Priorité: street_address > route > premise > subpremise > locality
+      let bestResult = data.results[0]
+      let bestPriority = 999
+      
+      for (const result of data.results) {
+        const types = result.types || []
+        let priority = 999
+        
+        if (types.includes("street_address")) {
+          priority = 1 // Meilleure précision
+        } else if (types.includes("route")) {
+          priority = 2 // Bonne précision (ex: "Place de la République")
+        } else if (types.includes("premise")) {
+          priority = 3
+        } else if (types.includes("subpremise")) {
+          priority = 4
+        } else if (types.includes("locality")) {
+          priority = 5 // Moins précis
+        }
+        
+        if (priority < bestPriority) {
+          bestResult = result
+          bestPriority = priority
+        }
+      }
+      
+      console.log(`✅ [reverseGeocode] Meilleur résultat:`, {
+        formatted_address: bestResult.formatted_address,
+        types: bestResult.types,
+        priority: bestPriority
+      })
+      
+      // Extraire les composants pour construire l'adresse complète
+      const components = bestResult.address_components || []
+      const streetNumber = components.find(c => c.types.includes("street_number"))?.long_name
+      const route = components.find(c => c.types.includes("route"))?.long_name
+      const postalCode = components.find(c => c.types.includes("postal_code"))?.long_name
+      const locality = components.find(c => c.types.includes("locality"))?.long_name
+      const sublocality = components.find(c => c.types.includes("sublocality") || c.types.includes("sublocality_level_1"))?.long_name
+      const city = locality || sublocality || components.find(c => c.types.includes("administrative_area_level_2"))?.long_name
+      
+      console.log(`📋 [reverseGeocode] Composants extraits:`, {
+        streetNumber,
+        route,
+        postalCode,
+        city,
+        locality,
+        sublocality
+      })
+      
+      // Construire l'adresse complète selon les composants disponibles
+      let fullAddress = bestResult.formatted_address // Par défaut, utiliser l'adresse formatée de Google
+      
+      // Si on a une route (place, rue, avenue, etc.) avec code postal et ville, construire manuellement
+      if (route && postalCode && city) {
+        if (streetNumber) {
+          // Adresse complète avec numéro : "45 Rue de la Paix, 75001 Paris, France"
+          fullAddress = `${streetNumber} ${route}, ${postalCode} ${city}, France`
+        } else {
+          // Route sans numéro : "Place de la République, 75003 Paris, France"
+          fullAddress = `${route}, ${postalCode} ${city}, France`
+        }
+        console.log(`✅ [reverseGeocode] Adresse construite: ${fullAddress}`)
+      } else if (postalCode && city) {
+        // Si on n'a que code postal et ville : "75003 Paris, France"
+        fullAddress = `${postalCode} ${city}, France`
+        console.log(`⚠️ [reverseGeocode] Adresse partielle (pas de rue): ${fullAddress}`)
+      }
+      
+      // Si l'adresse formatée de Google est déjà complète et contient une rue, l'utiliser
+      // (parfois Google formate mieux que notre construction manuelle)
+      if (bestResult.formatted_address && 
+          (bestResult.formatted_address.includes("rue") || 
+           bestResult.formatted_address.includes("avenue") || 
+           bestResult.formatted_address.includes("boulevard") ||
+           bestResult.formatted_address.includes("place") ||
+           bestResult.formatted_address.includes("Place"))) {
+        // Vérifier que l'adresse formatée contient un code postal
+        if (/\d{5}/.test(bestResult.formatted_address)) {
+          fullAddress = bestResult.formatted_address
+          console.log(`✅ [reverseGeocode] Utilisation de l'adresse formatée Google: ${fullAddress}`)
+        }
+      }
+      
       return {
-        address: result.formatted_address,
-        formattedAddress: result.formatted_address,
+        address: fullAddress,
+        formattedAddress: bestResult.formatted_address,
       }
     }
 
+    console.warn(`⚠️ [reverseGeocode] Aucun résultat pour ${lat}, ${lng} (statut: ${data.status})`)
     return null
   } catch (error) {
-    console.error("Erreur lors du reverse geocoding:", error)
+    console.error("❌ [reverseGeocode] Erreur:", error)
     return null
   }
 }
@@ -587,12 +721,32 @@ export function fetchStreetViewPreview(
   lat: number,
   lng: number,
   size: string = "400x300",
+  heading: number = 0,
+  pitch: number = 0,
+  fov: number = 90,
 ): string {
   if (!GOOGLE_MAPS_API_KEY) {
     return ""
   }
 
-  return `https://maps.googleapis.com/maps/api/streetview?size=${size}&location=${lat},${lng}&key=${GOOGLE_MAPS_API_KEY}&heading=0&pitch=0&fov=90`
+  return `https://maps.googleapis.com/maps/api/streetview?size=${size}&location=${lat},${lng}&heading=${heading}&pitch=${pitch}&fov=${fov}&key=${GOOGLE_MAPS_API_KEY}`
+}
+
+/**
+ * Génère une URL Street View Embed (iframe interactive)
+ */
+export function fetchStreetViewEmbedUrl(
+  lat: number,
+  lng: number,
+  heading: number = 0,
+  pitch: number = 0,
+  fov: number = 90,
+): string {
+  if (!GOOGLE_MAPS_API_KEY) {
+    return ""
+  }
+
+  return `https://www.google.com/maps/embed/v1/streetview?location=${lat},${lng}&heading=${heading}&pitch=${pitch}&fov=${fov}&key=${GOOGLE_MAPS_API_KEY}`
 }
 
 /**
@@ -626,5 +780,202 @@ export async function readExifFromImage(
   } catch (error) {
     console.warn("Erreur lors de la lecture EXIF:", error)
     return {}
+  }
+}
+
+/**
+ * Utilise GPT-4o-mini Vision pour deviner la localisation depuis une image
+ * Dernier recours si toutes les autres méthodes échouent
+ */
+export async function guessLocationWithLLM(
+  imageUrl: string,
+  context?: LLMLocationContext,
+): Promise<LLMLocationGuess | null> {
+  const OPENAI_API_KEY = process.env.OPENAI_API_KEY
+
+  if (!OPENAI_API_KEY) {
+    console.warn("⚠️ [guessLocationWithLLM] OPENAI_API_KEY non configurée")
+    return null
+  }
+
+  try {
+    const hasContext = context && context.departementCode && context.departementName
+    const isStreetViewMode = context?.streetViewMode === true
+
+    let prompt = isStreetViewMode
+      ? `Tu es un expert en localisation Street View.
+
+Tu dois retrouver l'emplacement EXACT de cette image Street View.
+
+Analyse en détail :
+- trottoirs (matériaux, largeur, style)
+- mobilier urbain (lampadaires, bancs, panneaux)
+- façades des bâtiments (architecture, matériaux, couleurs)
+- types d'arbres et végétation
+- matériaux des murs et sols
+- style des voitures (modèles, plaques)
+- pavés / marquage au sol
+- enseignes et panneaux commerciaux
+- profondeur de champ StreetView (caractéristique)
+- architecture hyper locale
+- style des fenêtres et portes
+- éclairage public
+- signalisation routière
+
+Tu dois retrouver l'adresse précise même si l'UI Google Maps n'est pas visible.
+
+${hasContext ? `\n⚠️ CONTRAINTE ABSOLUE : Le résultat DOIT être localisé dans le département ${context.departementCode} (${context.departementName}).` : ""}
+
+Réponds STRICTEMENT en JSON :
+{
+  "city": string|null,
+  "area": string|null, // rue ou quartier précis
+  "latitude": number|null,
+  "longitude": number|null,
+  "confidence": number // entre 0 et 1
+}
+Ne fais AUCUN texte en dehors du JSON.`
+      : `Tu es un modèle spécialisé en géolocalisation d'images en France.
+
+Analyse l'image en détail :
+- architecture locale (immeubles, maisons, toits, matériaux),
+- densité urbaine,
+- végétation (arbres, plantes, climat),
+- type de route (marquages, panneaux, trottoirs),
+- style des bâtiments,
+- tout élément lisible (panneaux, noms, numéros),
+- ambiance générale,
+- pente du terrain,
+- hauteur des bâtiments,
+- style des fenêtres,
+- indices régionaux,
+et propose la localisation la plus probable en France.
+
+Réponds STRICTEMENT en JSON :
+{
+  "city": string|null, // commune ou arrondissement le plus probable
+  "area": string|null, // quartier / zone / rue la plus probable
+  "latitude": number|null, // estimation de latitude
+  "longitude": number|null, // estimation de longitude
+  "confidence": number // entre 0 et 1
+}
+Ne fais AUCUN texte en dehors du JSON.`
+
+    if (hasContext) {
+      const additionalInfo: string[] = []
+      if (context.city) additionalInfo.push(`- Ville : ${context.city}`)
+      if (context.postalCode) additionalInfo.push(`- Code postal : ${context.postalCode}`)
+      if (context.categories && context.categories.length > 0) {
+        additionalInfo.push(`- Types d'endroit : ${context.categories.join(", ")}`)
+      }
+      if (context.notes) additionalInfo.push(`- Notes utilisateur : ${context.notes}`)
+
+      const additionalInfoText = additionalInfo.length > 0
+        ? `\n\nInformations supplémentaires (facultatives) pour affiner la recherche :\n${additionalInfo.join("\n")}`
+        : ""
+
+      prompt = `Tu es un modèle spécialisé en géolocalisation d'images en France.
+
+🚨 CONTRAINTE ABSOLUE ET OBLIGATOIRE - DÉPARTEMENT VERROUILLÉ 🚨
+
+Le bien se trouve OBLIGATOIREMENT et EXCLUSIVEMENT dans :
+- Code département : ${context.departementCode}
+- Nom département : ${context.departementName}${additionalInfoText}
+
+⚠️ RÈGLES STRICTES À RESPECTER (AUCUNE EXCEPTION) :
+1. Le lieu DOIT être dans CE département UNIQUEMENT. Aucune exception, jamais.
+2. Même si l'image ressemble fortement à un endroit d'un autre pays (Barcelone, Londres, New York, etc.), d'une autre région ou d'un autre département, tu DOIS OBLIGATOIREMENT proposer le lieu le plus similaire VISUELLEMENT DANS ce département uniquement.
+3. Ne propose JAMAIS un lieu situé hors de ces limites géographiques. Si tu proposes des coordonnées, elles DOIVENT être géographiquement dans ce département.
+4. Si l'image est manifestement hors département, donne l'endroit du département qui ressemble le plus visuellement.
+5. Si tu ne peux pas déterminer un lieu dans ce département, retourne confidence: 0.3 ou moins.
+6. Tu n'as PAS LE DROIT de sortir du département sélectionné. C'est une contrainte HARD, non négociable.
+
+${context.city ? `- Si la ville "${context.city}" est fournie, favorise les correspondances visuelles liées à cette commune DANS ce département.` : ""}
+${context.postalCode ? `- Si le code postal "${context.postalCode}" est fourni, oriente ta localisation dans la zone correspondante DANS ce département.` : ""}
+${context.categories && context.categories.length > 0 ? `- Utilise les catégories (${context.categories.join(", ")}) pour affiner ton analyse DANS ce département.` : ""}
+${context.notes ? `- Prends en compte ces notes : "${context.notes}"` : ""}
+
+Analyse l'image en détail :
+- architecture locale (immeubles, maisons, toits, matériaux),
+- densité urbaine,
+- végétation (arbres, plantes, climat),
+- type de route (marquages, panneaux, trottoirs),
+- style des bâtiments,
+- tout élément lisible (panneaux, noms, numéros),
+- ambiance générale,
+- pente du terrain,
+- hauteur des bâtiments,
+- style des fenêtres,
+- indices régionaux,
+et propose la localisation la plus probable AU SEIN de ce département UNIQUEMENT.
+
+Réponds STRICTEMENT en JSON :
+{
+  "city": string|null, // commune ou arrondissement le plus probable DANS ce département
+  "area": string|null, // quartier / zone / rue la plus probable DANS ce département
+  "latitude": number|null, // estimation de latitude dans ce département (coordonnées valides pour ${context.departementCode})
+  "longitude": number|null, // estimation de longitude dans ce département (coordonnées valides pour ${context.departementCode})
+  "confidence": number // entre 0 et 1 (réduire si incertain dans ce département)
+}
+Ne fais AUCUN texte en dehors du JSON.`
+    }
+
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              { type: "image_url", image_url: { url: imageUrl } },
+            ],
+          },
+        ],
+        max_tokens: 500,
+        temperature: 0.3,
+      }),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`❌ [guessLocationWithLLM] Erreur OpenAI: ${response.status} - ${errorText}`)
+      return null
+    }
+
+    const data = await response.json()
+    const content = data.choices?.[0]?.message?.content
+
+    if (!content) {
+      console.warn("⚠️ [guessLocationWithLLM] Réponse OpenAI vide")
+      return null
+    }
+
+    // Parser le JSON de la réponse
+    try {
+      // Extraire le JSON de la réponse (peut contenir du markdown)
+      const jsonMatch = content.match(/\{[\s\S]*\}/)
+      const jsonText = jsonMatch ? jsonMatch[0] : content
+      const parsed = JSON.parse(jsonText)
+
+      return {
+        city: parsed.city || null,
+        area: parsed.area || null,
+        latitude: parsed.latitude || null,
+        longitude: parsed.longitude || null,
+        confidence: Math.max(0, Math.min(1, parsed.confidence || 0.5)),
+      }
+    } catch (parseError) {
+      console.error("❌ [guessLocationWithLLM] Erreur parsing JSON:", parseError, "Contenu:", content)
+      return null
+    }
+  } catch (error: any) {
+    console.error("❌ [guessLocationWithLLM] Erreur:", error)
+    return null
   }
 }

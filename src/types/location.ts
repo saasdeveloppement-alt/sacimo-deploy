@@ -76,6 +76,7 @@ export type LLMLocationContext = {
   postalCode?: string | null
   categories?: string[]
   notes?: string | null
+  streetViewMode?: boolean // Mode spécialisé pour Street View
 }
 
 export type MultiImageRawResult = {
@@ -99,7 +100,7 @@ export type ConsolidatedLocalization = {
 
 export type LocationFromImageResult = {
   status: "ok" | "error"
-  source?: "EXIF" | "VISION_GEOCODING" | "VISION_LANDMARK" | "VISION_CONTEXT_FALLBACK" | "AI_GEOGUESSR" | "MANUAL" | "MULTI_IMAGE_CONSOLIDATED"
+  source?: "MAPS_SCREENSHOT" | "EXIF" | "VISION_LANDMARK" | "STREETVIEW_VISUAL_MATCH" | "VISION_GEOCODING" | "VISION_CONTEXT_FALLBACK" | "AI_GEOGUESSR" | "MANUAL" | "MULTI_IMAGE_CONSOLIDATED" | "OCR_GEOCODING"
   error?: string
   warning?: string
   autoLocation?: {
@@ -107,8 +108,47 @@ export type LocationFromImageResult = {
     latitude: number
     longitude: number
     confidence: number
-    streetViewUrl?: string
+    streetViewUrl?: string // Image statique
+    streetViewEmbedUrl?: string // Iframe interactive
+    heading?: number // Angle de vue en degrés (0-360)
   }
   candidates?: GeocodedCandidate[]
   individualResults?: MultiImageRawResult[] // Pour multi-images
+  needsManualCorrection?: boolean // Si score < 70%
+  explanation?: LocationExplanation // Explication de la localisation
+}
+
+export type LocationResult = {
+  source: string
+  latitude: number | null
+  longitude: number | null
+  address: string | null
+  confidence: number
+  streetViewUrl?: string // Image statique
+  streetViewEmbedUrl?: string // Iframe interactive
+  heading?: number // Angle de vue en degrés (0-360)
+  method?: string
+  evidences?: EvidenceItem[] // Indices utilisés pour cette localisation
+}
+
+export type EvidenceItem = {
+  type:
+    | "OCR_TEXT"
+    | "LANDMARK"
+    | "STREETVIEW_MATCH"
+    | "GOOGLE_MAPS_SCREENSHOT"
+    | "ARCHITECTURE_STYLE"
+    | "ROAD_MARKING"
+    | "SHOP_SIGN"
+    | "LLM_REASONING"
+    | "DEPARTMENT_LOCK"
+    | "EXIF_GPS"
+  label: string // ex: "Enseigne SEPHORA détectée"
+  detail: string // ex: "Texte OCR : 'SEPHORA'"
+  weight: number // 0–1 importance relative
+}
+
+export type LocationExplanation = {
+  summary: string // phrase courte récapitulative
+  evidences: EvidenceItem[] // liste des indices utilisés
 }

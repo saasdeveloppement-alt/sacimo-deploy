@@ -12,6 +12,12 @@ import {
   X,
   ExternalLink,
   Map,
+  Eye,
+  Building,
+  MapPinned,
+  Camera,
+  FileText,
+  Lock,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -27,6 +33,8 @@ import { ChevronDown } from "lucide-react"
 import { useGeoAI } from "@/hooks/useGeoAI"
 import type { LocationFromImageResult } from "@/types/location"
 import { SimpleMap } from "@/components/localisation/SimpleMap"
+import { Slider } from "@/components/ui/slider"
+import { toast } from "sonner"
 
 interface GeoAIDropzoneProps {
   annonceId?: string
@@ -150,6 +158,8 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
   const [filtersOpen, setFiltersOpen] = useState<boolean>(false)
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [imagePreviews, setImagePreviews] = useState<string[]>([])
+  const [streetViewHeading, setStreetViewHeading] = useState<number>(0) // Angle de vue Street View (0-360)
+  const [autoFilledFields, setAutoFilledFields] = useState<Set<string>>(new Set()) // Champs auto-remplis
   const { state, result, error, progress, uploadImage, uploadMultipleImages, validateLocation, reset, isLoading } =
     useGeoAI({
       annonceId,
@@ -288,11 +298,146 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
 
   const handleReset = () => {
     reset()
+    setStreetViewHeading(0)
+    setAutoFilledFields(new Set()) // Réinitialiser les champs auto-remplis
     if (uploadedImageUrl) {
       URL.revokeObjectURL(uploadedImageUrl)
       setUploadedImageUrl(null)
     }
   }
+
+  // Initialiser le heading depuis le résultat
+  useEffect(() => {
+    if (result?.autoLocation?.heading !== undefined) {
+      setStreetViewHeading(result.autoLocation.heading)
+    }
+  }, [result?.autoLocation?.heading])
+
+  // Fonction pour parser l'adresse et extraire les composants
+  const parseAddress = (address: string) => {
+    const components: {
+      street?: string
+      postalCode?: string
+      city?: string
+      department?: string
+    } = {}
+
+    // Extraire le code postal (5 chiffres)
+    const postalCodeMatch = address.match(/\b(\d{5})\b/)
+    if (postalCodeMatch) {
+      components.postalCode = postalCodeMatch[1]
+      // Extraire le département (2 premiers chiffres)
+      components.department = postalCodeMatch[1].substring(0, 2)
+    }
+
+    // Extraire la ville (après le code postal)
+    // Patterns : "Rue, 75008 Paris" ou "75008 Paris" ou "Place de la République, 75003 Paris, France"
+    const cityWithPostalPattern = /(\d{5})\s+([A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞŸ][a-zàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ\s-]+?)(?:,|$)/i
+    const cityMatch = address.match(cityWithPostalPattern)
+    if (cityMatch && cityMatch[2]) {
+      const cityCandidate = cityMatch[2].trim()
+      if (cityCandidate && cityCandidate.toLowerCase() !== "france") {
+        components.city = cityCandidate
+      }
+    } else {
+      // Fallback : chercher une ville sans code postal (avant "France")
+      const cityWithoutPostalPattern = /,\s*([A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞŸ][a-zàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ\s-]+?)(?:,\s*France|$)/i
+      const cityMatch2 = address.match(cityWithoutPostalPattern)
+      if (cityMatch2 && cityMatch2[1]) {
+        const cityCandidate = cityMatch2[1].trim()
+        if (cityCandidate && cityCandidate.toLowerCase() !== "france") {
+          components.city = cityCandidate
+        }
+      }
+    }
+
+    // Extraire la rue (tout avant le code postal ou la ville)
+    // Patterns : "45 Rue de la Paix, 75001 Paris" ou "Place de la République, 75003 Paris"
+    if (components.postalCode) {
+      // Si on a un code postal, la rue est tout ce qui précède ", 750XX" ou " 750XX"
+      const streetPattern = /^(.+?)(?:,\s*|\s+)(\d{5})/
+      const streetMatch = address.match(streetPattern)
+      if (streetMatch && streetMatch[1]) {
+        const streetCandidate = streetMatch[1].trim()
+        // Vérifier que ce n'est pas juste un numéro
+        if (streetCandidate && !/^\d+$/.test(streetCandidate)) {
+          components.street = streetCandidate
+        }
+      }
+    } else if (components.city) {
+      // Si pas de code postal mais une ville, la rue est avant la ville
+      const streetPattern = new RegExp(`^(.+?)(?:,\\s*|\\s+)${components.city.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i')
+      const streetMatch = address.match(streetPattern)
+      if (streetMatch && streetMatch[1]) {
+        const streetCandidate = streetMatch[1].trim()
+        if (streetCandidate && !/^\d+$/.test(streetCandidate)) {
+          components.street = streetCandidate
+        }
+      }
+    }
+
+    // Fallback : si pas de rue trouvée, prendre la partie avant la première virgule
+    if (!components.street && address.includes(",")) {
+      const parts = address.split(",")
+      const firstPart = parts[0].trim()
+      // Vérifier que ce n'est pas un code postal ou une ville seule
+      if (firstPart && !/^\d{5}$/.test(firstPart) && firstPart !== components.city) {
+        components.street = firstPart
+      }
+    }
+
+    return components
+  }
+
+  // Auto-remplir les champs du formulaire après détection réussie
+  useEffect(() => {
+    if (state === "success" && result?.autoLocation?.address) {
+      const address = result.autoLocation.address
+      const components = parseAddress(address)
+      let hasAutoFilled = false
+
+      const newAutoFilledFields = new Set<string>()
+
+      // Auto-remplir uniquement si les champs sont vides (pour ne pas écraser une saisie manuelle)
+      if (components.postalCode && !postalCode) {
+        setPostalCode(components.postalCode)
+        newAutoFilledFields.add("postalCode")
+        hasAutoFilled = true
+      }
+
+      if (components.city && !city) {
+        setCity(components.city)
+        newAutoFilledFields.add("city")
+        hasAutoFilled = true
+      }
+
+      // Mettre la rue dans les notes si elle existe et que les notes sont vides
+      if (components.street && !contextNotes) {
+        setContextNotes(components.street)
+        newAutoFilledFields.add("notes")
+        hasAutoFilled = true
+      }
+
+      if (hasAutoFilled) {
+        setAutoFilledFields(newAutoFilledFields)
+      }
+
+      // Afficher une notification de confirmation seulement si on a auto-rempli quelque chose
+      if (hasAutoFilled) {
+        toast.success("📍 Formulaire auto-rempli", {
+          description: `Ville: ${components.city || "N/A"}, Code postal: ${components.postalCode || "N/A"}`,
+          duration: 5000,
+        })
+      } else {
+        // Sinon, juste confirmer la détection
+        toast.success("📍 Localisation détectée", {
+          description: address,
+          duration: 5000,
+        })
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, result?.autoLocation?.address])
 
   // Cleanup des URLs d'objets lors du démontage
   useEffect(() => {
@@ -318,9 +463,16 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
             >
               {/* Sélection du département */}
               <div className="space-y-2">
-                <Label htmlFor="department" className="text-sm font-medium text-gray-700">
-                  Département ou secteur <span className="text-red-500">*</span>
-                </Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="department" className="text-sm font-medium text-gray-700">
+                    Département ou secteur <span className="text-red-500">*</span>
+                  </Label>
+                  {selectedDepartment && (
+                    <Badge className="bg-green-100 text-green-800 border-green-300">
+                      🔒 Département verrouillé ({selectedDepartment})
+                    </Badge>
+                  )}
+                </div>
                 <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
                   <SelectTrigger
                     id="department"
@@ -337,7 +489,9 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-gray-500">
-                  Cette information aide l'IA à orienter la recherche de localisation
+                  {selectedDepartment
+                    ? "🔒 La localisation sera strictement limitée à ce département. Aucune sortie extérieure n'est possible."
+                    : "Cette information aide l'IA à orienter la recherche de localisation"}
                 </p>
               </div>
 
@@ -361,16 +515,35 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
                 <CollapsibleContent className="space-y-4 pt-4">
                   {/* Ville (optionnelle) */}
                   <div className="space-y-2">
-                    <Label htmlFor="city" className="text-sm font-medium text-gray-700">
-                      Ville <span className="text-gray-400 text-xs">(facultatif)</span>
-                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="city" className="text-sm font-medium text-gray-700">
+                        Ville <span className="text-gray-400 text-xs">(facultatif)</span>
+                      </Label>
+                      {autoFilledFields.has("city") && (
+                        <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-300">
+                          Auto-détecté
+                        </Badge>
+                      )}
+                    </div>
                     <Input
                       id="city"
                       type="text"
                       placeholder="Ex: Paris, Lyon, Marseille..."
                       value={city}
-                      onChange={(e) => setCity(e.target.value)}
-                      className="w-full bg-white border-purple-200 focus:border-purple-400"
+                      onChange={(e) => {
+                        setCity(e.target.value)
+                        // Retirer du set si l'utilisateur modifie
+                        if (autoFilledFields.has("city")) {
+                          setAutoFilledFields((prev) => {
+                            const newSet = new Set(prev)
+                            newSet.delete("city")
+                            return newSet
+                          })
+                        }
+                      }}
+                      className={`w-full bg-white border-purple-200 focus:border-purple-400 ${
+                        autoFilledFields.has("city") ? "border-green-300 bg-green-50/30" : ""
+                      }`}
                     />
                     <p className="text-xs text-gray-500">
                       Indiquez la ville pour améliorer la précision dans les zones urbaines
@@ -379,9 +552,16 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
 
                   {/* Code postal (optionnel) */}
                   <div className="space-y-2">
-                    <Label htmlFor="postalCode" className="text-sm font-medium text-gray-700">
-                      Code postal <span className="text-gray-400 text-xs">(facultatif)</span>
-                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="postalCode" className="text-sm font-medium text-gray-700">
+                        Code postal <span className="text-gray-400 text-xs">(facultatif)</span>
+                      </Label>
+                      {autoFilledFields.has("postalCode") && (
+                        <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-300">
+                          Auto-détecté
+                        </Badge>
+                      )}
+                    </div>
                     <Input
                       id="postalCode"
                       type="text"
@@ -391,8 +571,18 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
                         // Ne garder que les chiffres
                         const value = e.target.value.replace(/\D/g, "").slice(0, 5)
                         setPostalCode(value)
+                        // Retirer du set si l'utilisateur modifie
+                        if (autoFilledFields.has("postalCode")) {
+                          setAutoFilledFields((prev) => {
+                            const newSet = new Set(prev)
+                            newSet.delete("postalCode")
+                            return newSet
+                          })
+                        }
                       }}
-                      className="w-full bg-white border-purple-200 focus:border-purple-400"
+                      className={`w-full bg-white border-purple-200 focus:border-purple-400 ${
+                        autoFilledFields.has("postalCode") ? "border-green-300 bg-green-50/30" : ""
+                      }`}
                     />
                     <p className="text-xs text-gray-500">
                       Le code postal permet d'affiner la localisation dans les grandes villes
@@ -445,15 +635,34 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
 
                     {/* Notes utilisateur */}
                     <div className="space-y-2">
-                      <Label htmlFor="contextNotes" className="text-xs font-medium text-gray-600">
-                        Notes supplémentaires
-                      </Label>
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="contextNotes" className="text-xs font-medium text-gray-600">
+                          Notes supplémentaires
+                        </Label>
+                        {autoFilledFields.has("notes") && (
+                          <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-300">
+                            Auto-détecté
+                          </Badge>
+                        )}
+                      </div>
                       <Textarea
                         id="contextNotes"
                         placeholder="Ex: Près d'une église, en haut d'une colline, près d'une rivière..."
                         value={contextNotes}
-                        onChange={(e) => setContextNotes(e.target.value)}
-                        className="w-full bg-white border-gray-300 focus:border-purple-400 min-h-[80px] text-sm"
+                        onChange={(e) => {
+                          setContextNotes(e.target.value)
+                          // Retirer du set si l'utilisateur modifie
+                          if (autoFilledFields.has("notes")) {
+                            setAutoFilledFields((prev) => {
+                              const newSet = new Set(prev)
+                              newSet.delete("notes")
+                              return newSet
+                            })
+                          }
+                        }}
+                        className={`w-full bg-white border-gray-300 focus:border-purple-400 min-h-[80px] text-sm ${
+                          autoFilledFields.has("notes") ? "border-green-300 bg-green-50/30" : ""
+                        }`}
                         rows={3}
                       />
                     </div>
@@ -721,14 +930,29 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
                     />
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-gray-900">Localisation détectée</h3>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="text-xl font-bold text-gray-900">Localisation détectée</h3>
+                      {selectedDepartment && (
+                        <Badge className="bg-green-100 text-green-800 border-green-300 text-xs">
+                          🔒 {selectedDepartment}
+                        </Badge>
+                      )}
+                    </div>
                     <p className="text-sm text-gray-600">
                       Source :{" "}
                       {result.source === "EXIF"
                         ? "GPS EXIF"
-                        : result.source === "VISION_CONTEXT_FALLBACK"
-                          ? "Contexte de l'annonce"
-                          : "Vision + Géocodage"}
+                        : result.source === "MAPS_SCREENSHOT"
+                          ? "Screenshot Google Maps"
+                          : result.source === "VISION_LANDMARK"
+                            ? "Landmark détecté"
+                            : result.source === "STREETVIEW_VISUAL_MATCH"
+                              ? "StreetView Visual Match"
+                              : result.source === "AI_GEOGUESSR"
+                                ? "IA GPT-4o-mini"
+                                : result.source === "VISION_CONTEXT_FALLBACK"
+                                  ? "Contexte de l'annonce"
+                                  : "Vision + Géocodage"}
                     </p>
                   </div>
                 </div>
@@ -753,10 +977,54 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
                       </div>
                     </div>
 
-                    {/* Street View */}
+                    {/* Street View - Iframe interactive */}
                     <div>
-                      <p className="mb-2 text-sm font-medium text-gray-700">Vue Street View</p>
-                      {result.autoLocation.streetViewUrl ? (
+                      <div className="mb-2 flex items-center justify-between">
+                        <p className="text-sm font-medium text-gray-700">Vue Street View</p>
+                        {result.autoLocation.streetViewEmbedUrl && (
+                          <span className="text-xs text-gray-500">
+                            {streetViewHeading}° {streetViewHeading === 0 ? "(Nord)" : streetViewHeading === 90 ? "(Est)" : streetViewHeading === 180 ? "(Sud)" : streetViewHeading === 270 ? "(Ouest)" : ""}
+                          </span>
+                        )}
+                      </div>
+                      {result.autoLocation.streetViewEmbedUrl ? (
+                        <div className="space-y-2">
+                          <div className="relative overflow-hidden rounded-lg border border-gray-200 bg-gray-100">
+                            <iframe
+                              src={result.autoLocation.streetViewEmbedUrl.replace(/heading=\d+/, `heading=${streetViewHeading}`)}
+                              width="100%"
+                              height="300"
+                              style={{ border: 0 }}
+                              allowFullScreen
+                              className="h-64 w-full"
+                              loading="lazy"
+                              referrerPolicy="no-referrer-when-downgrade"
+                            />
+                          </div>
+                          {/* Slider pour ajuster l'angle */}
+                          <div className="space-y-1">
+                            <Label htmlFor="heading-slider" className="text-xs text-gray-600">
+                              Ajuster l'angle de vue (0° = Nord, 90° = Est, 180° = Sud, 270° = Ouest)
+                            </Label>
+                            <Slider
+                              id="heading-slider"
+                              min={0}
+                              max={360}
+                              step={15}
+                              value={[streetViewHeading]}
+                              onValueChange={(value) => setStreetViewHeading(value[0])}
+                              className="w-full"
+                            />
+                            <div className="flex justify-between text-xs text-gray-500">
+                              <span>0° (N)</span>
+                              <span>90° (E)</span>
+                              <span>180° (S)</span>
+                              <span>270° (O)</span>
+                              <span>360°</span>
+                            </div>
+                          </div>
+                        </div>
+                      ) : result.autoLocation.streetViewUrl ? (
                         <div className="relative overflow-hidden rounded-lg border border-gray-200">
                           <img
                             src={result.autoLocation.streetViewUrl}
@@ -865,10 +1133,151 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
                 </div>
               </div>
 
+              {/* Bloc d'explication */}
+              {result.explanation && (
+                <div className="rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50/50 to-blue-50/50 p-6">
+                  <div className="mb-4 flex items-center gap-2">
+                    <Eye className="h-5 w-5 text-purple-600" />
+                    <h4 className="text-lg font-semibold text-gray-900">
+                      Comment l'IA a trouvé cette localisation ?
+                    </h4>
+                  </div>
+                  
+                  {/* Résumé */}
+                  <p className="mb-4 text-sm text-gray-700 leading-relaxed">
+                    {result.explanation.summary}
+                  </p>
+                  
+                  {/* Liste des evidences */}
+                  {result.explanation.evidences && result.explanation.evidences.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-gray-600 uppercase tracking-wide mb-3">
+                        Indices utilisés
+                      </p>
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        {result.explanation.evidences.map((evidence, index) => {
+                          // Icône selon le type
+                          const getIcon = () => {
+                            switch (evidence.type) {
+                              case "SHOP_SIGN":
+                                return <Building className="h-4 w-4" />
+                              case "ROAD_MARKING":
+                              case "OCR_TEXT":
+                                return <FileText className="h-4 w-4" />
+                              case "LANDMARK":
+                                return <MapPinned className="h-4 w-4" />
+                              case "STREETVIEW_MATCH":
+                                return <Camera className="h-4 w-4" />
+                              case "GOOGLE_MAPS_SCREENSHOT":
+                                return <Map className="h-4 w-4" />
+                              case "EXIF_GPS":
+                                return <MapPin className="h-4 w-4" />
+                              case "DEPARTMENT_LOCK":
+                                return <Lock className="h-4 w-4" />
+                              case "ARCHITECTURE_STYLE":
+                                return <Building className="h-4 w-4" />
+                              case "LLM_REASONING":
+                                return <Eye className="h-4 w-4" />
+                              default:
+                                return <MapPin className="h-4 w-4" />
+                            }
+                          }
+                          
+                          // Couleur selon le type
+                          const getColorClasses = () => {
+                            switch (evidence.type) {
+                              case "SHOP_SIGN":
+                                return "bg-blue-50 border-blue-200 text-blue-700"
+                              case "ROAD_MARKING":
+                              case "OCR_TEXT":
+                                return "bg-purple-50 border-purple-200 text-purple-700"
+                              case "LANDMARK":
+                                return "bg-green-50 border-green-200 text-green-700"
+                              case "STREETVIEW_MATCH":
+                                return "bg-orange-50 border-orange-200 text-orange-700"
+                              case "GOOGLE_MAPS_SCREENSHOT":
+                                return "bg-indigo-50 border-indigo-200 text-indigo-700"
+                              case "EXIF_GPS":
+                                return "bg-emerald-50 border-emerald-200 text-emerald-700"
+                              case "DEPARTMENT_LOCK":
+                                return "bg-red-50 border-red-200 text-red-700"
+                              case "ARCHITECTURE_STYLE":
+                                return "bg-amber-50 border-amber-200 text-amber-700"
+                              case "LLM_REASONING":
+                                return "bg-violet-50 border-violet-200 text-violet-700"
+                              default:
+                                return "bg-gray-50 border-gray-200 text-gray-700"
+                            }
+                          }
+                          
+                          return (
+                            <div
+                              key={index}
+                              className={`flex items-start gap-2 rounded-lg border p-3 ${getColorClasses()}`}
+                            >
+                              <div className="mt-0.5 flex-shrink-0">
+                                {getIcon()}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium leading-tight">
+                                  {evidence.label}
+                                </p>
+                                {evidence.detail && (
+                                  <p className="mt-1 text-xs text-gray-600 leading-relaxed">
+                                    {evidence.detail}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Warning si fallback */}
               {result.warning && (
                 <div className="rounded-lg border border-orange-200 bg-orange-50 p-3">
                   <p className="text-sm text-orange-800">{result.warning}</p>
+                </div>
+              )}
+
+              {/* Correction manuelle si score < 70% */}
+              {result.needsManualCorrection && (
+                <div className="rounded-lg border border-orange-300 bg-orange-50/80 p-4">
+                  <div className="mb-3 flex items-center gap-2">
+                    <AlertCircle className="h-5 w-5 text-orange-600" />
+                    <h4 className="font-semibold text-orange-900">
+                      Localisation imprécise ({Math.round((result.autoLocation?.confidence || 0) * 100)}%)
+                    </h4>
+                  </div>
+                  <p className="mb-3 text-sm text-orange-800">
+                    Adresse détectée : <strong>{result.autoLocation?.address}</strong>
+                  </p>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Checkbox id="accept-location" defaultChecked />
+                      <Label htmlFor="accept-location" className="text-sm text-orange-900 cursor-pointer">
+                        Accepter cette localisation
+                      </Label>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="manual-address" className="text-sm font-medium text-orange-900">
+                        Corriger manuellement
+                      </Label>
+                      <Input
+                        id="manual-address"
+                        type="text"
+                        placeholder="Ex: 45 Bd Raspail, 75006 Paris"
+                        className="w-full bg-white border-orange-300 focus:border-orange-500"
+                      />
+                      <p className="text-xs text-orange-700">
+                        Saisissez l'adresse complète pour améliorer la précision
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
 

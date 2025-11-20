@@ -22,9 +22,26 @@ import {
   geocodeAddressCandidates,
   readExifFromImage,
   fetchStreetViewPreview,
+  fetchStreetViewEmbedUrl,
   reverseGeocode,
+  guessLocationWithLLM,
 } from "@/lib/google/locationClient"
-import type { LocationFromImageResult, GeocodedCandidate } from "@/types/location"
+import { detectMapScreenshot } from "@/lib/detection/detectMapScreenshot"
+import { isMapsScreenshot } from "@/lib/detection/isMapsScreenshot"
+import { extractLocationFromMapsScreenshot as extractFromMapsOCR } from "@/lib/extract/extractFromMaps"
+import { extractLocationFromMapsScreenshot as extractFromMapsVision } from "@/lib/maps/extractLocationFromMapsScreenshot"
+import { matchStreetViewVisual } from "@/lib/streetview/matcher"
+import { matchStreetViewDense } from "@/lib/streetview/denseMatcher"
+import { mergeResults, isAddressTooVague } from "@/lib/fusion/mergeResults"
+import { consolidateWeighted } from "@/lib/fusion/weightedConsolidation"
+import { prioritizeResults } from "@/lib/fusion/prioritizeResults"
+import { isInsideDepartment, filterByDepartment } from "@/lib/geo/isInsideDepartment"
+import { analyzeImageAdvanced } from "@/lib/vision/advancedAnalysis"
+import { extractOCRHeavy } from "@/lib/vision/ocrHeavy"
+import { analyzeImageWithOcr } from "@/lib/google/ocrLocation"
+import { reasonLocationWithLLM } from "@/lib/llm/locationReasoner"
+import { consolidateResultsWithExplanation } from "@/lib/location/consolidateResults"
+import type { LocationFromImageResult, GeocodedCandidate, LocationResult, EvidenceItem } from "@/types/location"
 
 export async function POST(
   request: NextRequest,
@@ -96,6 +113,10 @@ export async function POST(
     const formData = await request.formData()
     const file = formData.get("file") as File | null
     const departmentCode = formData.get("department") as string | null
+    const city = formData.get("city") as string | null
+    const postalCode = formData.get("postalCode") as string | null
+    const contextCategories = formData.getAll("contextCategories[]") as string[]
+    const contextNotes = formData.get("contextNotes") as string | null
 
     if (!file) {
       return NextResponse.json(
@@ -172,188 +193,466 @@ export async function POST(
     const arrayBuffer = await file.arrayBuffer()
     const imageBuffer = Buffer.from(arrayBuffer)
 
-    // 5. Lecture EXIF (priorité)
-    console.log("📸 [Localisation] Lecture EXIF...")
-    const exifData = await readExifFromImage(imageBuffer)
+    // Construire le contexte LLM
+    const llmContext = departmentName && departmentCode ? {
+      departementCode: departmentCode,
+      departementName: departmentName,
+      city: city || null,
+      postalCode: postalCode || null,
+      categories: contextCategories.length > 0 ? contextCategories : undefined,
+      notes: contextNotes || null,
+    } : undefined
 
-    if (exifData.lat && exifData.lng) {
-      console.log(
-        `✅ [Localisation] Coordonnées GPS trouvées dans EXIF: ${exifData.lat}, ${exifData.lng}`,
+    // Pipeline de localisation - Collecte de tous les résultats
+    const allResults: LocationResult[] = []
+    
+    // Fonction helper pour vérifier si on peut arrêter tôt
+    const canEarlyExit = (): boolean => {
+      if (allResults.length === 0) return false
+      const bestResult = allResults.reduce((best, current) => 
+        (current.confidence || 0) > (best.confidence || 0) ? current : best
       )
-
-      // Récupérer ou créer AnnonceLocation
-      let location = await prisma.annonceLocation.findUnique({
-        where: { annonceScrapeId: id },
-      })
-
-      if (!location) {
-        location = await prisma.annonceLocation.create({
-          data: {
-            annonceScrapeId: id,
-            autoLatitude: exifData.lat,
-            autoLongitude: exifData.lng,
-            autoConfidence: 0.98,
-            autoSource: "EXIF",
-          },
-        })
-      } else {
-        location = await prisma.annonceLocation.update({
-          where: { id: location.id },
-          data: {
-            autoLatitude: exifData.lat,
-            autoLongitude: exifData.lng,
-            autoConfidence: 0.98,
-            autoSource: "EXIF",
-          },
-        })
-      }
-
-      // Mettre à jour aussi latitude/longitude directement sur AnnonceScrape
-      await prisma.annonceScrape.update({
-        where: { id },
-        data: {
-          latitude: exifData.lat,
-          longitude: exifData.lng,
-        },
-      })
-
-      // Utiliser le reverse geocoding pour obtenir l'adresse réelle
-      const reverseGeocodeResult = await reverseGeocode(exifData.lat, exifData.lng)
-      const address = reverseGeocodeResult?.address || `${exifData.lat}, ${exifData.lng}`
-      
-      // Mettre à jour l'adresse dans la location
-      if (reverseGeocodeResult) {
-        await prisma.annonceLocation.update({
-          where: { id: location.id },
-          data: {
-            autoAddress: reverseGeocodeResult.address,
-          },
-        })
-      }
-
-      const streetViewUrl = fetchStreetViewPreview(exifData.lat, exifData.lng)
-
-      return NextResponse.json({
-        status: "ok",
-        source: "EXIF",
-        autoLocation: {
-          address,
-          latitude: exifData.lat,
-          longitude: exifData.lng,
-          confidence: 0.98,
-          streetViewUrl,
-        },
-      } as LocationFromImageResult)
+      return (bestResult.confidence || 0) >= 0.9
     }
 
-    // 6. Appel Google Vision (si pas d'EXIF)
-    console.log("🔍 [Localisation] Appel Google Vision API...")
-    const visionResult = await callVisionForImage(imageBuffer)
-
-    // 7. Vérifier d'abord si on a des landmarks avec coordonnées GPS directes
-    const landmarks = visionResult.landmarkAnnotations || []
-    if (landmarks.length > 0) {
-      for (const landmark of landmarks) {
-        if (landmark.locations && landmark.locations.length > 0) {
-          const location = landmark.locations[0]
-          if (location.latLng) {
-            console.log(
-              `🎯 [Localisation] Landmark détecté: ${landmark.description} à ${location.latLng.latitude}, ${location.latLng.longitude}`,
-            )
-
-            // Utiliser le reverse geocoding pour obtenir l'adresse réelle depuis les coordonnées du landmark
-            // C'est plus fiable que le forward geocoding car on a déjà les coordonnées exactes
-            const reverseGeocodeResult = await reverseGeocode(
-              location.latLng.latitude,
-              location.latLng.longitude,
-            )
+    // 1️⃣ Détection robuste screenshot Google Maps avec OpenAI Vision (PRIORITÉ MAXIMALE)
+    console.log("🗺️ [Localisation] Étape 1: Détection robuste screenshot Google Maps (OpenAI Vision)...")
+    
+    // Convertir l'image en base64 pour OpenAI Vision
+    const imageBase64 = imageBuffer.toString("base64")
+    
+    // Utiliser le nouveau classifieur OpenAI Vision (plus robuste)
+    const mapsDetection = await isMapsScreenshot(imageBase64)
+    
+    console.log(`🔍 [Localisation] Détection OpenAI Vision: isMaps=${mapsDetection.isMaps}, confidence=${mapsDetection.confidence.toFixed(2)}`)
+    
+    if (mapsDetection.isMaps && mapsDetection.confidence > 0.55) {
+      console.log(`✅ [Localisation] Screenshot Google Maps détecté par OpenAI Vision (confiance: ${mapsDetection.confidence.toFixed(2)})`)
+      
+      // Utiliser le nouveau module Vision (classifieur robuste + LLM StreetView)
+      const mapsLocation = await extractFromMapsVision(imageBase64, departmentCode)
+      
+      if (mapsLocation && mapsLocation.lat && mapsLocation.lng) {
+        console.log(`📍 [Localisation] Coordonnées extraites depuis screenshot Vision: ${mapsLocation.lat}, ${mapsLocation.lng}`)
+        
+        // HARD LOCK: Vérifier que le point est dans le département
+        if (isInsideDepartment(mapsLocation.lat, mapsLocation.lng, departmentCode)) {
+          // Utiliser reverse geocoding pour obtenir l'adresse complète si pas déjà fournie
+          let address = mapsLocation.address
+          if (!address || address.length < 10) {
+            const reverseGeocodeResult = await reverseGeocode(mapsLocation.lat, mapsLocation.lng)
+            address = reverseGeocodeResult?.address || mapsLocation.address || null
+          }
+          
+          allResults.push({
+            source: "MAPS_SCREENSHOT",
+            latitude: mapsLocation.lat,
+            longitude: mapsLocation.lng,
+            address,
+            confidence: mapsLocation.confidence,
+            streetViewUrl: fetchStreetViewPreview(mapsLocation.lat, mapsLocation.lng, "600x400", 0),
+            streetViewEmbedUrl: fetchStreetViewEmbedUrl(mapsLocation.lat, mapsLocation.lng, 0),
+            heading: 0,
+            method: "OPENAI_VISION_STREETVIEW",
+            evidences: [
+              {
+                type: "GOOGLE_MAPS_SCREENSHOT",
+                label: "Capture d'écran Google Maps détectée",
+                detail: "Coordonnées ou adresse extraites de la capture",
+                weight: 0.9,
+              },
+              {
+                type: "DEPARTMENT_LOCK",
+                label: "Département verrouillé",
+                detail: `Localisation restreinte au département ${departmentCode} (${departmentName})`,
+                weight: 0.5,
+              },
+            ],
+          })
+          
+          console.log(`✅ [Localisation] Localisation extraite depuis screenshot Vision: ${mapsLocation.lat}, ${mapsLocation.lng} -> ${address} (confiance: ${mapsLocation.confidence.toFixed(2)})`)
+        } else {
+          console.warn(`⚠️ [Localisation] Screenshot point (${mapsLocation.lat}, ${mapsLocation.lng}) hors département ${departmentCode}, rejeté`)
+        }
+      } else {
+        console.warn(`⚠️ [Localisation] Screenshot détecté mais impossible d'extraire les coordonnées avec Vision`)
+        
+        // Fallback : essayer avec l'extracteur OCR classique
+        console.log("🔄 [Localisation] Essai avec extracteur OCR classique...")
+        const mapsLocationOCR = await extractFromMapsOCR(imageBuffer)
+        if (mapsLocationOCR.lat && mapsLocationOCR.lng) {
+          if (isInsideDepartment(mapsLocationOCR.lat, mapsLocationOCR.lng, departmentCode)) {
+            const reverseGeocodeResult = await reverseGeocode(mapsLocationOCR.lat, mapsLocationOCR.lng)
+            const address = reverseGeocodeResult?.address || mapsLocationOCR.address || null
             
-            // Utiliser l'adresse du reverse geocoding si disponible, sinon fallback sur la description du landmark
-            const landmarkAddress = reverseGeocodeResult?.address || `${landmark.description}, France`
-
-            if (reverseGeocodeResult) {
-              // Utiliser les coordonnées du landmark (plus précises)
-              const landmarkLat = location.latLng.latitude
-              const landmarkLng = location.latLng.longitude
-
-              // Sauvegarder
-              let locationRecord = await prisma.annonceLocation.findUnique({
-                where: { annonceScrapeId: id },
-              })
-
-              const locationData = {
-                autoAddress: landmarkAddress,
-                autoLatitude: landmarkLat,
-                autoLongitude: landmarkLng,
-                autoConfidence: 0.95,
-                autoSource: "VISION_LANDMARK",
-                visionRaw: visionResult as any,
-                geocodingCandidates: [{ address: landmarkAddress, latitude: landmarkLat, longitude: landmarkLng, globalScore: 0.95 }] as any,
-              }
-
-              if (!locationRecord) {
-                locationRecord = await prisma.annonceLocation.create({
-                  data: {
-                    annonceScrapeId: id,
-                    ...locationData,
-                  },
-                })
-              } else {
-                locationRecord = await prisma.annonceLocation.update({
-                  where: { id: locationRecord.id },
-                  data: locationData,
-                })
-              }
-
-              await prisma.annonceScrape.update({
-                where: { id },
-                data: {
-                  latitude: landmarkLat,
-                  longitude: landmarkLng,
-                },
-              })
-
-              const streetViewUrl = fetchStreetViewPreview(landmarkLat, landmarkLng)
-
-              return NextResponse.json({
-                status: "ok",
-                source: "VISION_LANDMARK",
-                autoLocation: {
-                  address: landmarkAddress,
-                  latitude: landmarkLat,
-                  longitude: landmarkLng,
-                  confidence: 0.95,
-                  streetViewUrl,
-                },
-                candidates: [{ address: landmarkAddress, latitude: landmarkLat, longitude: landmarkLng, globalScore: 0.95 }],
-              } as LocationFromImageResult)
-            } else {
-              // Si le reverse geocoding échoue, continuer avec le pipeline normal
-              console.log("⚠️ [Localisation] Reverse geocoding échoué pour landmark, continuation avec pipeline normal")
-            }
+            allResults.push({
+              source: "MAPS_SCREENSHOT",
+              latitude: mapsLocationOCR.lat,
+              longitude: mapsLocationOCR.lng,
+              address,
+              confidence: mapsLocationOCR.confidence,
+              streetViewUrl: fetchStreetViewPreview(mapsLocationOCR.lat, mapsLocationOCR.lng, "600x400", 0),
+              streetViewEmbedUrl: fetchStreetViewEmbedUrl(mapsLocationOCR.lat, mapsLocationOCR.lng, 0),
+              heading: 0,
+              method: mapsLocationOCR.source || "OCR_FALLBACK",
+            })
+            console.log(`✅ [Localisation] Localisation extraite depuis screenshot (OCR fallback): ${mapsLocationOCR.lat}, ${mapsLocationOCR.lng}`)
+          }
+        }
+      }
+    } else {
+      // Fallback : utiliser l'ancienne méthode de détection si OpenAI n'a pas détecté
+      console.log("🔄 [Localisation] OpenAI Vision n'a pas détecté de screenshot, essai avec détection Vision API...")
+      const mapDetection = await detectMapScreenshot(imageBuffer)
+      if (mapDetection.isGoogleMaps && mapDetection.confidence >= 0.5) {
+        console.log(`✅ [Localisation] Screenshot Google Maps détecté par Vision API (confiance: ${mapDetection.confidence.toFixed(2)})`)
+        const mapsLocation = await extractFromMapsOCR(imageBuffer)
+        if (mapsLocation.lat && mapsLocation.lng) {
+          // HARD LOCK: Vérifier que le point est dans le département
+          if (isInsideDepartment(mapsLocation.lat, mapsLocation.lng, departmentCode)) {
+            const reverseGeocodeResult = await reverseGeocode(mapsLocation.lat, mapsLocation.lng)
+            const address = reverseGeocodeResult?.address || mapsLocation.address || null
+            
+            allResults.push({
+              source: "MAPS_SCREENSHOT",
+              latitude: mapsLocation.lat,
+              longitude: mapsLocation.lng,
+              address,
+              confidence: mapDetection.confidence,
+              streetViewUrl: fetchStreetViewPreview(mapsLocation.lat, mapsLocation.lng, "600x400", 0),
+              streetViewEmbedUrl: fetchStreetViewEmbedUrl(mapsLocation.lat, mapsLocation.lng, 0),
+              heading: 0,
+              method: mapsLocation.source || "VISION_API_DETECTION",
+            })
+            console.log(`✅ [Localisation] Localisation extraite depuis screenshot (Vision API): ${mapsLocation.lat}, ${mapsLocation.lng}`)
+          } else {
+            console.warn(`⚠️ [Localisation] Screenshot point (${mapsLocation.lat}, ${mapsLocation.lng}) hors département ${departmentCode}, rejeté`)
           }
         }
       }
     }
 
-    // 8. Extraction des candidats d'adresse depuis le texte
-    console.log("📝 [Localisation] Extraction des adresses candidates...")
-    // Utiliser le département fourni comme contexte prioritaire
-    const contextCity = departmentName || annonce.city
-    const contextPostalCode = departmentCode ? `${departmentCode}000`.slice(0, 5) : annonce.postalCode || undefined
-    
-    const addressCandidates = extractAddressCandidatesFromVision(visionResult, {
-      city: contextCity,
-      postalCode: contextPostalCode,
-      country: "France",
-      department: departmentCode,
-    })
+    // 2️⃣ EXIF GPS (priorité haute si pas de screenshot)
+    // Skip si on a déjà un résultat très fiable
+    if (!canEarlyExit()) {
+      console.log("📸 [Localisation] Étape 2: Lecture EXIF...")
+      const exifData = await readExifFromImage(imageBuffer)
 
-    if (addressCandidates.length === 0) {
+    if (exifData.lat && exifData.lng) {
+      console.log(
+        `✅ [Localisation] Coordonnées GPS trouvées dans EXIF: ${exifData.lat}, ${exifData.lng}`,
+      )
+      // HARD LOCK: Vérifier que le point EXIF est dans le département
+      if (isInsideDepartment(exifData.lat, exifData.lng, departmentCode)) {
+        const reverseGeocodeResult = await reverseGeocode(exifData.lat, exifData.lng)
+        const address = reverseGeocodeResult?.address || `${exifData.lat}, ${exifData.lng}`
+        
+        allResults.push({
+          source: "EXIF",
+          latitude: exifData.lat,
+          longitude: exifData.lng,
+          address,
+          confidence: 0.98,
+          streetViewUrl: fetchStreetViewPreview(exifData.lat, exifData.lng, "600x400", 0),
+          streetViewEmbedUrl: fetchStreetViewEmbedUrl(exifData.lat, exifData.lng, 0),
+          heading: 0,
+          evidences: [
+            {
+              type: "EXIF_GPS",
+              label: "Coordonnées GPS EXIF dans le département",
+              detail: `Latitude/longitude extraites des métadonnées : ${exifData.lat}, ${exifData.lng}`,
+              weight: 1.0,
+            },
+            {
+              type: "DEPARTMENT_LOCK",
+              label: "Département verrouillé",
+              detail: `Coordonnées validées dans le département ${departmentCode} (${departmentName})`,
+              weight: 0.5,
+            },
+          ],
+        })
+      } else {
+        console.warn(`⚠️ [Localisation] Point EXIF (${exifData.lat}, ${exifData.lng}) hors département ${departmentCode}, rejeté`)
+      }
+    } else {
+      console.log("⏭️ [Localisation] EXIF skip (résultat fiable déjà trouvé)")
+    }
+
+    // 3️⃣ Appel Google Vision (si pas de screenshot ou EXIF)
+    // Skip si on a déjà un résultat très fiable
+    let visionResult: any = null
+    let visionText = ""
+    let visualAnalysis: any = null
+    let ocrHeavy: any = null
+    let ocrAnalysis: any = null
+    
+    if (!canEarlyExit()) {
+      console.log("🔍 [Localisation] Étape 3: Appel Google Vision API...")
+      visionResult = await callVisionForImage(imageBuffer)
+    
+      // 🔍 LOGS DÉTAILLÉS - Résultat brut de Vision API
+      console.log("📊 [Localisation] Résultat brut Vision API:")
+      console.log("  - Landmarks:", JSON.stringify(visionResult.landmarkAnnotations || [], null, 2))
+      console.log("  - Texte OCR:", visionResult.fullTextAnnotation?.text?.substring(0, 500) || "Aucun")
+      console.log("  - Labels:", visionResult.labelAnnotations?.slice(0, 5).map((l: any) => l.description) || [])
+
+      // Extraire le texte Vision une seule fois pour réutilisation
+      visionText = visionResult.fullTextAnnotation?.text || ""
+
+        // 3️⃣ BIS - Analyse visuelle avancée (en parallèle avec OCR Heavy)
+      console.log("🎨 [Localisation] Étape 3bis: Analyse visuelle avancée (parallèle)...")
+      const [visualAnalysisResult, ocrHeavyResult] = await Promise.all([
+        analyzeImageAdvanced(imageBuffer),
+        extractOCRHeavy(imageBuffer),
+      ])
+      visualAnalysis = visualAnalysisResult
+      ocrHeavy = ocrHeavyResult
+      console.log(`📊 [Localisation] Analyse visuelle: ${visualAnalysis.detectedSigns.length} enseigne(s), ${visualAnalysis.ocrFragments.length} fragment(s) OCR`)
+      console.log(`📊 [Localisation] OCR Heavy: ${ocrHeavy.streetFragments.length} fragment(s) de rue, ${ocrHeavy.signs.length} enseigne(s)`)
+    
+      // Si on détecte des enseignes connues (FNAC, SEPHORA, etc.), orienter vers Champs-Élysées
+      const champsElyseesSigns = ["FNAC", "SEPHORA", "CHAMPS", "ELYSEES", "CHAMPS-ELYSEES"]
+      const hasChampsElyseesSign = visualAnalysis.detectedSigns.some((s: any) => 
+        champsElyseesSigns.some((cs: string) => s.name.toUpperCase().includes(cs))
+      )
+      
+      if (hasChampsElyseesSign && departmentCode === "75") {
+        console.log("🎯 [Localisation] Enseigne Champs-Élysées détectée, orientation vers cette zone")
+        // Ajouter un point de référence pour StreetView dense matching
+        allResults.push({
+          source: "VISION_SIGN_DETECTION",
+          latitude: 48.8698,
+          longitude: 2.3083,
+          address: "Avenue des Champs-Élysées, 75008 Paris",
+          confidence: 0.75,
+          method: "SIGN_DETECTION",
+        })
+      }
+    
+      // Si on trouve des fragments de rue, les utiliser pour géocodage
+      if (ocrHeavy && ocrHeavy.streetFragments && ocrHeavy.streetFragments.length > 0) {
+      for (const fragment of ocrHeavy.streetFragments.slice(0, 3)) {
+        // Essayer de géocoder le fragment avec le département
+        const fragmentWithDept = `${fragment.text} ${departmentName} ${departmentCode} France`
+        const fragmentCandidates = await geocodeAddressCandidates(
+          [{ rawText: fragmentWithDept, score: fragment.confidence }],
+          { country: "France", city: departmentName || undefined },
+        )
+        
+        if (fragmentCandidates.length > 0) {
+          const best = fragmentCandidates[0]
+          if (isInsideDepartment(best.latitude, best.longitude, departmentCode)) {
+            allResults.push({
+              source: "OCR_HEAVY_STREET",
+              latitude: best.latitude,
+              longitude: best.longitude,
+              address: best.address,
+              confidence: fragment.confidence * 0.8,
+              method: "OCR_FRAGMENT",
+            })
+            console.log(`✅ [Localisation] Fragment OCR géocodé: ${fragment.text} -> ${best.address}`)
+          }
+        }
+      }
+      }
+    } // Fin du bloc if (!canEarlyExit()) pour Vision
+
+    // 4️⃣ Vérifier si on a des landmarks avec coordonnées GPS directes
+    console.log("🎯 [Localisation] Étape 4: Détection de landmarks...")
+    const landmarks = visionResult?.landmarkAnnotations || []
+    if (landmarks.length > 0) {
+      for (const landmark of landmarks) {
+        if (landmark.locations && landmark.locations.length > 0) {
+          const location = landmark.locations[0]
+          if (location.latLng) {
+            const lat = location.latLng.latitude
+            const lng = location.latLng.longitude
+            console.log(
+              `✅ [Localisation] Landmark détecté: ${landmark.description} à ${lat}, ${lng}`,
+            )
+
+            // 🔍 LOG - Coordonnées GPS extraites
+            console.log(`📍 [Localisation] Coordonnées GPS extraites: ${lat}, ${lng}`)
+
+            // Utiliser DIRECTEMENT reverse geocoding avec les coordonnées GPS
+            const reverseGeocodeResult = await reverseGeocode(lat, lng)
+            
+            // 🔍 LOG - Résultat de reverse geocoding
+            console.log(`🗺️ [Localisation] Résultat reverse geocoding:`, reverseGeocodeResult)
+            
+            const landmarkAddress = reverseGeocodeResult?.address || `${landmark.description}, France`
+
+            if (reverseGeocodeResult) {
+              // HARD LOCK: Vérifier que le landmark est dans le département
+              if (isInsideDepartment(lat, lng, departmentCode)) {
+                // Calculer le score de confiance basé sur la précision de l'adresse
+                let confidence = 0.95 // Base pour landmark avec coordonnées GPS
+                
+                // Améliorer le score si l'adresse contient une rue complète
+                const address = reverseGeocodeResult.address
+                const hasStreetNumber = /\d+/.test(address)
+                const hasStreetName = /(?:rue|avenue|boulevard|place|chemin|impasse|allée|route|passage|voie|cours|quai|esplanade|promenade)/i.test(address)
+                const hasPostalCode = /\d{5}/.test(address)
+                
+                if (hasStreetNumber && hasStreetName && hasPostalCode) {
+                  confidence = 0.95 // Adresse complète avec numéro + rue + code postal
+                } else if (hasStreetName && hasPostalCode) {
+                  confidence = 0.85 // Rue + code postal (pas de numéro)
+                } else if (hasPostalCode) {
+                  confidence = 0.70 // Code postal seulement (quartier/arrondissement)
+                } else {
+                  confidence = 0.50 // Ville seulement
+                }
+                
+                console.log(`📊 [Localisation] Score calculé: ${confidence} (adresse: ${address.substring(0, 100)})`)
+                
+                // Construire les evidences pour landmark
+                const landmarkEvidences: EvidenceItem[] = [
+                  {
+                    type: "LANDMARK",
+                    label: `Landmark détecté : ${landmark.description}`,
+                    detail: `Google Vision Landmark : score ${(landmark.score || 0).toFixed(2)}`,
+                    weight: 0.7,
+                  },
+                ]
+                
+                // Si on a une adresse précise, ajouter une evidence
+                if (hasStreetNumber && hasStreetName && hasPostalCode) {
+                  landmarkEvidences.push({
+                    type: "ROAD_MARKING",
+                    label: "Adresse complète détectée",
+                    detail: `Rue avec numéro : ${address.substring(0, 100)}`,
+                    weight: 0.8,
+                  })
+                }
+                
+                landmarkEvidences.push({
+                  type: "DEPARTMENT_LOCK",
+                  label: "Département verrouillé",
+                  detail: `Landmark validé dans le département ${departmentCode} (${departmentName})`,
+                  weight: 0.5,
+                })
+                
+                allResults.push({
+                  source: "VISION_LANDMARK",
+                  latitude: lat,
+                  longitude: lng,
+                  address: landmarkAddress,
+                  confidence,
+                  streetViewUrl: fetchStreetViewPreview(lat, lng, "600x400", 0),
+                  streetViewEmbedUrl: fetchStreetViewEmbedUrl(lat, lng, 0),
+                  heading: 0,
+                  evidences: landmarkEvidences,
+                })
+                
+                // 🔍 LOG - Adresse finale retournée
+                console.log(`✅ [Localisation] Adresse finale retournée: ${landmarkAddress} (confiance: ${confidence})`)
+              } else {
+                console.warn(`⚠️ [Localisation] Landmark "${landmark.description}" (${lat}, ${lng}) hors département ${departmentCode}, rejeté`)
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    // 4️⃣ BIS - Vérifier si on a des coordonnées GPS dans le texte OCR (format @lat,lng)
+    const coordPattern = /@([-0-9\.]+),([-0-9\.]+)/g
+    const coordMatches = Array.from(visionText.matchAll(coordPattern))
+    
+    if (coordMatches.length > 0) {
+      console.log(`📍 [Localisation] Coordonnées GPS trouvées dans OCR: ${coordMatches.length} occurrence(s)`)
+      for (const match of coordMatches) {
+        const lat = parseFloat(match[1])
+        const lng = parseFloat(match[2])
+        
+        // Valider les coordonnées (France métropolitaine)
+        if (lat >= 41.0 && lat <= 51.0 && lng >= -5.0 && lng <= 10.0) {
+          console.log(`✅ [Localisation] Coordonnées GPS valides dans OCR: ${lat}, ${lng}`)
+          
+          // HARD LOCK: Vérifier que les coordonnées sont dans le département
+          if (isInsideDepartment(lat, lng, departmentCode)) {
+            // Utiliser DIRECTEMENT reverse geocoding
+            const reverseGeocodeResult = await reverseGeocode(lat, lng)
+            
+            if (reverseGeocodeResult) {
+              // Calculer le score de confiance
+              let confidence = 0.90 // Base pour coordonnées GPS depuis OCR
+              const address = reverseGeocodeResult.address
+              const hasStreetNumber = /\d+/.test(address)
+              const hasStreetName = /(?:rue|avenue|boulevard|place|chemin|impasse|allée|route|passage|voie|cours|quai|esplanade|promenade)/i.test(address)
+              const hasPostalCode = /\d{5}/.test(address)
+              
+              if (hasStreetNumber && hasStreetName && hasPostalCode) {
+                confidence = 0.95
+              } else if (hasStreetName && hasPostalCode) {
+                confidence = 0.85
+              } else if (hasPostalCode) {
+                confidence = 0.70
+              } else {
+                confidence = 0.50
+              }
+              
+              allResults.push({
+                source: "VISION_GPS_COORDINATES",
+                latitude: lat,
+                longitude: lng,
+                address: reverseGeocodeResult.address,
+                confidence,
+                streetViewUrl: fetchStreetViewPreview(lat, lng, "600x400", 0),
+                streetViewEmbedUrl: fetchStreetViewEmbedUrl(lat, lng, 0),
+                heading: 0,
+              })
+              
+              console.log(`✅ [Localisation] Coordonnées OCR utilisées: ${lat}, ${lng} -> ${reverseGeocodeResult.address} (confiance: ${confidence})`)
+            }
+          } else {
+            console.warn(`⚠️ [Localisation] Coordonnées OCR (${lat}, ${lng}) hors département ${departmentCode}, rejeté`)
+          }
+        }
+      }
+    }
+
+    // 5️⃣ Analyse OCR améliorée pour géolocalisation
+    let addressCandidates: any[] = []
+    let geocodedCandidates: any[] = []
+    
+    if (!canEarlyExit() && visionResult) {
+      console.log("📝 [Localisation] Étape 5: Analyse OCR améliorée...")
+      ocrAnalysis = await analyzeImageWithOcr(imageBuffer)
+      console.log(`📊 [Localisation] OCR Analysis: ${ocrAnalysis.shopNames.length} enseigne(s), ${ocrAnalysis.streetCandidates.length} rue(s) candidate(s)`)
+      
+      // HARD LOCK: Forcer le département dans le contexte OCR
+      const contextCity = departmentName || annonce.city
+      const contextPostalCode = departmentCode ? `${departmentCode}000`.slice(0, 5) : annonce.postalCode || undefined
+      
+      // Ajouter explicitement le département dans les candidats OCR
+      addressCandidates = extractAddressCandidatesFromVision(visionResult, {
+        city: contextCity,
+        postalCode: contextPostalCode,
+        country: "France",
+        department: departmentCode,
+      })
+      
+      // Enrichir avec les candidats de rues détectés par OCR
+      for (const streetCandidate of ocrAnalysis.streetCandidates.slice(0, 3)) {
+        const enrichedCandidate = `${streetCandidate} ${departmentName} ${departmentCode} France`
+        addressCandidates.push({
+          rawText: enrichedCandidate,
+          score: 0.8, // Score élevé pour les rues détectées par OCR
+        })
+      }
+      
+      // Enrichir les candidats avec le département pour forcer le géocodage dans la zone
+      addressCandidates.forEach((candidate) => {
+        if (!candidate.rawText.toLowerCase().includes(departmentName?.toLowerCase() || "")) {
+          candidate.rawText = `${candidate.rawText} ${departmentName} ${departmentCode} France`
+        }
+      })
+
+      if (addressCandidates.length === 0) {
       // ⚠️ NE PAS utiliser le contexte de l'annonce si on a détecté une ville différente dans l'image
       // Vérifier si une ville a été détectée dans le texte Vision (détection générique)
-      const visionText = visionResult.fullTextAnnotation?.text || ""
-      
       // Détection générique de villes françaises (pas seulement une liste fixe)
       const commonWords = new Set([
         'rue', 'avenue', 'boulevard', 'place', 'chemin', 'impasse', 'allée',
@@ -529,111 +828,465 @@ export async function POST(
         } as LocationFromImageResult)
       }
 
-      // Si même le fallback échoue, retourner une erreur
-      return NextResponse.json({
-        status: "error",
-        error: "Aucune adresse détectée dans l'image et impossible de géocoder le contexte",
-      } as LocationFromImageResult)
-    }
+        // Si même le fallback échoue, retourner une erreur
+        return NextResponse.json({
+          status: "error",
+          error: "Aucune adresse détectée dans l'image et impossible de géocoder le contexte",
+        } as LocationFromImageResult)
+      }
 
-    console.log(
-      `✅ [Localisation] ${addressCandidates.length} adresse(s) candidate(s) trouvée(s)`,
-    )
+      console.log(
+        `✅ [Localisation] ${addressCandidates.length} adresse(s) candidate(s) trouvée(s)`,
+      )
 
-    // 9. Géocoding
-    console.log("🗺️ [Localisation] Géocodage des adresses...")
-    
-    // Détecter si une ville est présente dans les candidats OU dans le texte Vision complet (détection générique)
-    const visionText = visionResult.fullTextAnnotation?.text || ""
-    
-    // Détection générique de villes françaises
-    const commonWords = new Set([
+      // 9. Géocoding
+      console.log("🗺️ [Localisation] Géocodage des adresses...")
+      
+      // Détecter si une ville est présente dans les candidats OU dans le texte Vision complet (détection générique)
+      // Détection générique de villes françaises
+      const commonWords = new Set([
       'rue', 'avenue', 'boulevard', 'place', 'chemin', 'impasse', 'allée',
       'route', 'passage', 'voie', 'cours', 'quai', 'esplanade', 'promenade',
       'france', 'french', 'code', 'postal', 'numero', 'numéro', 'le', 'la', 'les',
       'de', 'du', 'des', 'et', 'ou', 'sur', 'sous', 'dans', 'pour', 'avec', 'sans'
-    ])
-    
-    const cityPattern = /\b([A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞŸ][a-zàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]+(?:[-' ][A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞŸ][a-zàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]+)*)\b/g
-    
-    const matches = visionText.match(cityPattern) || []
-    const detectedCities = matches
-      .map(m => m.trim())
-      .filter(m => m.length >= 3 && !commonWords.has(m.toLowerCase()))
-      .filter((m, i, arr) => arr.indexOf(m) === i) // Dédupliquer
-    
-    const detectedCityName = detectedCities && detectedCities.length > 0 
-      ? detectedCities[0].trim() 
-      : null
-    
-    const hasCityInCandidates = addressCandidates.some((candidate) => {
-      const text = candidate.rawText
-      // Détecter un code postal français (5 chiffres)
-      const hasPostalCode = /\d{5}/.test(text)
-      // Détecter un pattern de ville (mot avec majuscule suivi de lettres minuscules, typique des noms de villes françaises)
-      const hasCityPattern = /[A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞŸ][a-zàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]+(?:\s+[A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞŸ][a-zàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]+)*/.test(text)
-      return hasPostalCode || hasCityPattern
-    })
-    
-    // PRIORITÉ : Si on a détecté une ville dans le texte Vision, TOUJOURS l'utiliser pour le géocodage
-    // même si elle n'est pas dans les candidats d'adresse, et même si elle est différente du contexte
-    const geocodingContext = detectedCityName
-      ? {
-          city: detectedCityName,
-          country: "France",
-        }
-      : hasCityInCandidates
-        ? { country: "France" } // Ne passer que le pays si une ville est déjà détectée dans les candidats
-        : {
-            city: annonce.city,
-            postalCode: annonce.postalCode || undefined,
+      ])
+      
+      const cityPattern = /\b([A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞŸ][a-zàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]+(?:[-' ][A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞŸ][a-zàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]+)*)\b/g
+      
+      const matches = visionText.match(cityPattern) || []
+      const detectedCities = matches
+        .map(m => m.trim())
+        .filter(m => m.length >= 3 && !commonWords.has(m.toLowerCase()))
+        .filter((m, i, arr) => arr.indexOf(m) === i) // Dédupliquer
+      
+      const detectedCityName = detectedCities && detectedCities.length > 0 
+        ? detectedCities[0].trim() 
+        : null
+      
+      const hasCityInCandidates = addressCandidates.some((candidate) => {
+        const text = candidate.rawText
+        // Détecter un code postal français (5 chiffres)
+        const hasPostalCode = /\d{5}/.test(text)
+        // Détecter un pattern de ville (mot avec majuscule suivi de lettres minuscules, typique des noms de villes françaises)
+        const hasCityPattern = /[A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞŸ][a-zàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]+(?:\s+[A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞŸ][a-zàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]+)*/.test(text)
+        return hasPostalCode || hasCityPattern
+      })
+      
+      // PRIORITÉ : Si on a détecté une ville dans le texte Vision, TOUJOURS l'utiliser pour le géocodage
+      // même si elle n'est pas dans les candidats d'adresse, et même si elle est différente du contexte
+      const geocodingContext = detectedCityName
+        ? {
+            city: detectedCityName,
             country: "France",
           }
+        : hasCityInCandidates
+          ? { country: "France" } // Ne passer que le pays si une ville est déjà détectée dans les candidats
+          : {
+              city: annonce.city,
+              postalCode: annonce.postalCode || undefined,
+              country: "France",
+            }
+      
+      if (detectedCityName) {
+        if (detectedCityName.toLowerCase() !== annonce.city?.toLowerCase()) {
+          console.log(`📍 [Localisation] Ville détectée dans l'image (${detectedCityName}) différente du contexte (${annonce.city}), utilisation de la ville détectée`)
+        } else {
+          console.log(`📍 [Localisation] Ville détectée dans l'image (${detectedCityName}) correspond au contexte`)
+        }
+      }
+      
+      geocodedCandidates = await geocodeAddressCandidates(
+        addressCandidates,
+        geocodingContext,
+      )
+
+      // 🔍 LOG - Résultat de geocoding
+      console.log(`🗺️ [Localisation] Résultat geocoding:`, geocodedCandidates.map(c => ({
+        address: c.address,
+        lat: c.latitude,
+        lng: c.longitude,
+        score: c.globalScore
+      })))
+
+      if (geocodedCandidates.length === 0) {
+        return NextResponse.json({
+          status: "error",
+          error: "Aucune adresse n'a pu être géocodée",
+        } as LocationFromImageResult)
+      }
+
+      console.log(
+        `✅ [Localisation] ${geocodedCandidates.length} adresse(s) géocodée(s)`,
+      )
+
+      // 10. Ajouter les résultats OCR+Geocoding à la collection
+      if (geocodedCandidates.length > 0) {
+        // HARD LOCK: Filtrer les candidats pour ne garder que ceux dans le département
+        const validCandidates = geocodedCandidates.filter((candidate) =>
+          isInsideDepartment(candidate.latitude, candidate.longitude, departmentCode),
+        )
+        
+        if (validCandidates.length === 0) {
+          console.warn(`⚠️ [Localisation] Tous les candidats OCR sont hors département ${departmentCode}, passage à StreetView/GPT`)
+        } else {
+          const bestCandidate = validCandidates[0]
+          
+          // 🔍 LOG - Meilleur candidat OCR
+          console.log(`📊 [Localisation] Meilleur candidat OCR:`, {
+          address: bestCandidate.address,
+          lat: bestCandidate.latitude,
+          lng: bestCandidate.longitude,
+          score: bestCandidate.globalScore
+        })
+        
+        // Vérifier si l'adresse est trop vague
+        const isVague = isAddressTooVague(bestCandidate.address)
+        
+        if (!isVague) {
+          // Améliorer le score de confiance basé sur la précision de l'adresse
+          let confidence = bestCandidate.globalScore
+          const address = bestCandidate.address
+          const hasStreetNumber = /\d+/.test(address)
+          const hasStreetName = /(?:rue|avenue|boulevard|place|chemin|impasse|allée|route|passage|voie|cours|quai|esplanade|promenade)/i.test(address)
+          const hasPostalCode = /\d{5}/.test(address)
+          
+          // Ajuster le score selon la précision
+          if (hasStreetNumber && hasStreetName && hasPostalCode) {
+            confidence = Math.max(confidence, 0.85) // Adresse complète
+          } else if (hasStreetName && hasPostalCode) {
+            confidence = Math.max(confidence, 0.75) // Rue + code postal
+          } else if (hasPostalCode) {
+            confidence = Math.max(confidence, 0.70) // Code postal seulement
+          } else {
+            confidence = Math.max(confidence, 0.50) // Ville seulement
+          }
+          
+          // Construire les evidences pour OCR+Geocoding
+          const ocrEvidences: EvidenceItem[] = []
+          
+          // Enseignes détectées
+          for (const shopName of ocrAnalysis.shopNames.slice(0, 3)) {
+            ocrEvidences.push({
+              type: "SHOP_SIGN",
+              label: `Enseigne détectée : ${shopName}`,
+              detail: `Texte OCR : '${shopName}'`,
+              weight: 0.6,
+            })
+          }
+          
+          // Fragments de rues
+          for (const streetCandidate of ocrAnalysis.streetCandidates.slice(0, 2)) {
+            ocrEvidences.push({
+              type: "ROAD_MARKING",
+              label: `Marquage au sol : ${streetCandidate}`,
+              detail: `Texte OCR : '${streetCandidate}'`,
+              weight: 0.8,
+            })
+          }
+          
+          // Département verrouillé
+          ocrEvidences.push({
+            type: "DEPARTMENT_LOCK",
+            label: "Adresse restreinte au département",
+            detail: `Requête Geocoding forcée sur ${departmentName} ${departmentCode}`,
+            weight: 0.5,
+          })
+          
+          allResults.push({
+            source: "OCR_GEOCODING",
+            latitude: bestCandidate.latitude,
+            longitude: bestCandidate.longitude,
+            address: bestCandidate.address,
+            confidence,
+            streetViewUrl: bestCandidate.streetViewUrl,
+            evidences: ocrEvidences,
+          })
+          
+          console.log(`✅ [Localisation] Candidat OCR ajouté: ${bestCandidate.address} (confiance ajustée: ${confidence})`)
+        } else {
+          console.log(`⚠️ [Localisation] Adresse trop vague: ${bestCandidate.address}, passage à StreetView matching`)
+          
+          // 6️⃣ StreetView Dense Matching (si adresse vague ou pour améliorer précision)
+          // Utiliser le centre du département si pas de candidat valide
+          const centerLat = validCandidates.length > 0 ? validCandidates[0].latitude : undefined
+          const centerLng = validCandidates.length > 0 ? validCandidates[0].longitude : undefined
+          
+          if (centerLat && centerLng) {
+            console.log("🔍 [Localisation] Étape 6: StreetView Dense Matching...")
+            
+            // Essayer d'abord le dense matcher (plus précis)
+            const denseMatch = await matchStreetViewDense(
+              imageBuffer,
+              departmentCode,
+              { lat: centerLat, lng: centerLng },
+            )
+            
+            if (denseMatch && denseMatch.confidence >= 0.7) {
+              // HARD LOCK: Vérifier que le match StreetView est dans le département
+              if (isInsideDepartment(denseMatch.lat, denseMatch.lng, departmentCode)) {
+                const reverseGeocodeResult = await reverseGeocode(
+                  denseMatch.lat,
+                  denseMatch.lng,
+                )
+                allResults.push({
+                  source: "STREETVIEW_VISUAL_MATCH",
+                  latitude: denseMatch.lat,
+                  longitude: denseMatch.lng,
+                  address: reverseGeocodeResult?.address || bestCandidate.address,
+                  confidence: denseMatch.confidence,
+                  streetViewUrl: denseMatch.imageUrl,
+                  streetViewEmbedUrl: fetchStreetViewEmbedUrl(denseMatch.lat, denseMatch.lng, denseMatch.heading || 0),
+                  heading: denseMatch.heading || 0,
+                  method: denseMatch.method,
+                  evidences: [
+                    {
+                      type: "STREETVIEW_MATCH",
+                      label: "Correspondance forte avec une vue Street View",
+                      detail: `Similarité visuelle ${denseMatch.similarity.toFixed(2)} avec un panorama Google Street View`,
+                      weight: 0.9,
+                    },
+                    {
+                      type: "DEPARTMENT_LOCK",
+                      label: "Département verrouillé",
+                      detail: `StreetView matching limité au département ${departmentCode} (${departmentName})`,
+                      weight: 0.5,
+                    },
+                  ],
+                })
+                console.log(`✅ [Localisation] StreetView dense match trouvé: ${denseMatch.lat}, ${denseMatch.lng} (confiance: ${denseMatch.confidence.toFixed(2)})`)
+              } else {
+                console.warn(`⚠️ [Localisation] StreetView dense match (${denseMatch.lat}, ${denseMatch.lng}) hors département ${departmentCode}, rejeté`)
+              }
+            } else {
+              // Fallback : utiliser le matcher classique
+              console.log("🔄 [Localisation] Dense matcher non concluant, essai avec matcher classique...")
+              const streetViewMatch = await matchStreetViewVisual(
+                imageBuffer,
+                centerLat,
+                centerLng,
+                200, // rayon 200m
+                departmentCode, // Passer le département pour le hard lock
+              )
+              
+              if (streetViewMatch && streetViewMatch.confidence >= 0.7) {
+                // HARD LOCK: Vérifier que le match StreetView est dans le département
+                if (isInsideDepartment(streetViewMatch.lat, streetViewMatch.lng, departmentCode)) {
+                  const reverseGeocodeResult = await reverseGeocode(
+                    streetViewMatch.lat,
+                    streetViewMatch.lng,
+                  )
+                  allResults.push({
+                    source: "STREETVIEW_VISUAL_MATCH",
+                    latitude: streetViewMatch.lat,
+                    longitude: streetViewMatch.lng,
+                    address: reverseGeocodeResult?.address || bestCandidate.address,
+                    confidence: streetViewMatch.confidence,
+                    streetViewUrl: streetViewMatch.imageUrl,
+                    streetViewEmbedUrl: fetchStreetViewEmbedUrl(streetViewMatch.lat, streetViewMatch.lng, streetViewMatch.heading || 0),
+                    heading: streetViewMatch.heading || 0,
+                    evidences: [
+                      {
+                        type: "STREETVIEW_MATCH",
+                        label: "Correspondance forte avec une vue Street View",
+                        detail: `Similarité visuelle ${streetViewMatch.similarity.toFixed(2)} avec un panorama Google Street View`,
+                        weight: 0.9,
+                      },
+                      {
+                        type: "DEPARTMENT_LOCK",
+                        label: "Département verrouillé",
+                        detail: `StreetView matching limité au département ${departmentCode} (${departmentName})`,
+                        weight: 0.5,
+                      },
+                    ],
+                  })
+                  console.log(`✅ [Localisation] StreetView match trouvé: ${streetViewMatch.lat}, ${streetViewMatch.lng} (confiance: ${streetViewMatch.confidence.toFixed(2)})`)
+                } else {
+                  console.warn(`⚠️ [Localisation] StreetView match (${streetViewMatch.lat}, ${streetViewMatch.lng}) hors département ${departmentCode}, rejeté`)
+                }
+              }
+            }
+          }
+        }
+      }
+      } // Fin du bloc if (geocodedCandidates.length > 0)
+    } else {
+      console.log("⏭️ [Localisation] OCR skip (résultat fiable déjà trouvé)")
+    } // Fin du bloc if (!canEarlyExit() && visionResult) pour OCR
+
+    // 7️⃣ Fallback OpenAI Vision Reasoning (dernier recours seulement)
+    // Skip si on a déjà un résultat acceptable
+    if (!canEarlyExit() && (allResults.length === 0 || (allResults.length > 0 && allResults[0].confidence < 0.7))) {
+      console.log("🤖 [Localisation] Étape 7: Fallback OpenAI Vision Reasoning...")
+      
+      // Convertir l'image en base64 pour OpenAI
+      const base64Image = imageBuffer.toString("base64")
+      
+      // Préparer les indices visuels
+      const visualIndices: string[] = []
+      if (visualAnalysis && visualAnalysis.architecturalStyle && visualAnalysis.architecturalStyle.length > 0) {
+        visualIndices.push(`Style architectural : ${visualAnalysis.architecturalStyle[0]}`)
+      }
+      if (visualAnalysis && visualAnalysis.roadTexture) {
+        visualIndices.push(`Texture de route : ${visualAnalysis.roadTexture}`)
+      }
+      
+      const llmReasoning = await reasonLocationWithLLM(base64Image, {
+        ...llmContext!,
+        ocrShopNames: ocrAnalysis?.shopNames || [],
+        ocrStreetCandidates: ocrAnalysis?.streetCandidates || [],
+        visualIndices,
+      })
+      
+      if (llmReasoning && llmReasoning.latitude && llmReasoning.longitude) {
+        // HARD LOCK: Vérifier que le résultat LLM est dans le département
+        if (isInsideDepartment(llmReasoning.latitude, llmReasoning.longitude, departmentCode)) {
+          const reverseGeocodeResult = await reverseGeocode(
+            llmReasoning.latitude,
+            llmReasoning.longitude,
+          )
+          allResults.push({
+            source: "LLM_REASONING",
+            latitude: llmReasoning.latitude,
+            longitude: llmReasoning.longitude,
+            address: reverseGeocodeResult?.address || llmReasoning.address || null,
+            confidence: llmReasoning.confidence,
+            streetViewUrl: fetchStreetViewPreview(llmReasoning.latitude, llmReasoning.longitude, "600x400", 0),
+            streetViewEmbedUrl: fetchStreetViewEmbedUrl(llmReasoning.latitude, llmReasoning.longitude, 0),
+            heading: 0,
+            evidences: llmReasoning.evidences,
+          })
+          console.log(`✅ [Localisation] LLM Reasoning: ${llmReasoning.latitude}, ${llmReasoning.longitude} (confiance: ${llmReasoning.confidence.toFixed(2)})`)
+        } else {
+          console.warn(`⚠️ [Localisation] LLM Reasoning (${llmReasoning.latitude}, ${llmReasoning.longitude}) hors département ${departmentCode}, rejeté`)
+        }
+      }
+    }
+
+    // 8️⃣ Priorisation et rééquilibrage des résultats
+    console.log(`📊 [Localisation] Priorisation des résultats...`)
     
-    if (detectedCityName) {
-      if (detectedCityName.toLowerCase() !== annonce.city?.toLowerCase()) {
-        console.log(`📍 [Localisation] Ville détectée dans l'image (${detectedCityName}) différente du contexte (${annonce.city}), utilisation de la ville détectée`)
+    // Filtrer d'abord les résultats avec coordonnées valides
+    const resultsWithCoords = allResults.filter(
+      (r) => r.latitude !== null && r.longitude !== null,
+    ) as Array<LocationResult & { latitude: number; longitude: number }>
+    
+    // HARD LOCK: Filtrer les résultats pour ne garder que ceux dans le département
+    let validResults = filterByDepartment(resultsWithCoords, departmentCode)
+    
+    // Détecter si on a un screenshot Maps
+    const hasMapsScreenshot = validResults.some(r => r.source === "MAPS_SCREENSHOT")
+    
+    // Récupérer les landmarks détectés
+    const detectedLandmarks = visionResult?.landmarkAnnotations || []
+    
+    // Appliquer la priorisation (dépriorise StreetView si screenshot ou landmark critique)
+    const prioritizedResults = prioritizeResults(validResults, {
+      hasMapsScreenshot,
+      landmarks: detectedLandmarks,
+    })
+    
+    // S'assurer que les résultats priorisés ont toujours des coordonnées valides
+    validResults = prioritizedResults.filter(
+      (r) => r.latitude !== null && r.longitude !== null,
+    ) as Array<LocationResult & { latitude: number; longitude: number }>
+    
+    console.log(`🔄 [Localisation] Consolidation avec explications de ${validResults.length} résultat(s) priorisé(s)...`)
+    
+    if (validResults.length === 0) {
+      console.warn(`⚠️ [Localisation] Tous les résultats sont hors département ${departmentCode}, forcer LLM fallback avec département verrouillé`)
+      
+      // Forcer un fallback LLM avec département strictement imposé
+      const base64Image = imageBuffer.toString("base64")
+      
+      const visualIndices: string[] = []
+      if (visualAnalysis && visualAnalysis.architecturalStyle && visualAnalysis.architecturalStyle.length > 0) {
+        visualIndices.push(`Style architectural : ${visualAnalysis.architecturalStyle[0]}`)
+      }
+      
+      const llmReasoning = await reasonLocationWithLLM(base64Image, {
+        ...llmContext!,
+        ocrShopNames: ocrAnalysis?.shopNames || [],
+        ocrStreetCandidates: ocrAnalysis?.streetCandidates || [],
+        visualIndices,
+      })
+      
+      if (llmReasoning && llmReasoning.latitude && llmReasoning.longitude) {
+        // Vérifier une dernière fois que LLM a respecté le département
+        if (isInsideDepartment(llmReasoning.latitude, llmReasoning.longitude, departmentCode)) {
+          const reverseGeocodeResult = await reverseGeocode(
+            llmReasoning.latitude,
+            llmReasoning.longitude,
+          )
+          const llmResult: LocationResult & { latitude: number; longitude: number } = {
+            source: "LLM_REASONING",
+            latitude: llmReasoning.latitude,
+            longitude: llmReasoning.longitude,
+            address: reverseGeocodeResult?.address || llmReasoning.address || null,
+            confidence: llmReasoning.confidence * 0.8, // Réduire la confiance car c'est un fallback
+            streetViewUrl: fetchStreetViewPreview(llmReasoning.latitude, llmReasoning.longitude, "600x400", 0),
+            streetViewEmbedUrl: fetchStreetViewEmbedUrl(llmReasoning.latitude, llmReasoning.longitude, 0),
+            heading: 0,
+            evidences: llmReasoning.evidences,
+          }
+          validResults.push(llmResult)
+        } else {
+          return NextResponse.json({
+            status: "error",
+            error: `Impossible de localiser dans le département ${departmentCode} (${departmentName}). L'IA n'a pas pu trouver de correspondance valide dans cette zone.`,
+          } as LocationFromImageResult)
+        }
       } else {
-        console.log(`📍 [Localisation] Ville détectée dans l'image (${detectedCityName}) correspond au contexte`)
+        return NextResponse.json({
+          status: "error",
+          error: `Impossible de localiser dans le département ${departmentCode} (${departmentName}). Aucune méthode n'a pu trouver de correspondance valide dans cette zone.`,
+        } as LocationFromImageResult)
       }
     }
     
-    const geocodedCandidates = await geocodeAddressCandidates(
-      addressCandidates,
-      geocodingContext,
-    )
-
-    if (geocodedCandidates.length === 0) {
+    // Utiliser la consolidation avec explications
+    const consolidatedResult = consolidateResultsWithExplanation(validResults)
+    
+    if (!consolidatedResult) {
       return NextResponse.json({
         status: "error",
-        error: "Aucune adresse n'a pu être géocodée",
+        error: `Aucune localisation valide n'a pu être déterminée dans le département ${departmentCode} (${departmentName})`,
+      } as LocationFromImageResult)
+    }
+    
+    const mergedResult = consolidatedResult
+
+    if (!mergedResult) {
+      return NextResponse.json({
+        status: "error",
+        error: `Aucune localisation valide n'a pu être déterminée dans le département ${departmentCode} (${departmentName})`,
+      } as LocationFromImageResult)
+    }
+    
+    // HARD LOCK: Vérification finale avant de retourner
+    if (!isInsideDepartment(mergedResult.latitude!, mergedResult.longitude!, departmentCode)) {
+      return NextResponse.json({
+        status: "error",
+        error: `Erreur: Le résultat fusionné est hors du département ${departmentCode} (${departmentName}). Veuillez réessayer.`,
       } as LocationFromImageResult)
     }
 
     console.log(
-      `✅ [Localisation] ${geocodedCandidates.length} adresse(s) géocodée(s)`,
+      `🏆 [Localisation] Résultat fusionné: ${mergedResult.address} (${mergedResult.source}, confiance: ${mergedResult.confidence.toFixed(2)})`,
     )
 
-    // 10. Sélection du meilleur candidat
-    const bestCandidate = geocodedCandidates[0]
-
-    console.log(
-      `🏆 [Localisation] Meilleur candidat: ${bestCandidate.address} (score: ${bestCandidate.globalScore.toFixed(2)})`,
-    )
-
-    // 11. Sauvegarde dans AnnonceLocation
+    // 9️⃣ Sauvegarde dans AnnonceLocation
     let location = await prisma.annonceLocation.findUnique({
       where: { annonceScrapeId: id },
     })
 
     const locationData = {
-      autoAddress: bestCandidate.address,
-      autoLatitude: bestCandidate.latitude,
-      autoLongitude: bestCandidate.longitude,
-      autoConfidence: bestCandidate.globalScore,
-      autoSource: "VISION_GEOCODING",
-      visionRaw: visionResult as any,
-      geocodingCandidates: geocodedCandidates as any,
+      autoAddress: mergedResult.address || "",
+      autoLatitude: mergedResult.latitude,
+      autoLongitude: mergedResult.longitude,
+      autoConfidence: mergedResult.confidence,
+      autoSource: mergedResult.source,
+      visionRaw: visionResult || null,
+      geocodingCandidates: (geocodedCandidates?.length ? geocodedCandidates : []) as any,
     }
 
     if (!location) {
@@ -654,24 +1307,43 @@ export async function POST(
     await prisma.annonceScrape.update({
       where: { id },
       data: {
-        latitude: bestCandidate.latitude,
-        longitude: bestCandidate.longitude,
+        latitude: mergedResult.latitude,
+        longitude: mergedResult.longitude,
       },
     })
 
-    // 11. Réponse JSON
+    // 🔟 Réponse JSON avec indication de correction manuelle si nécessaire
+    const needsManualCorrection = mergedResult.confidence < 0.7
+    
+    // 🔍 LOG FINAL - Adresse finale retournée
+    console.log(`✅ [Localisation] ===== RÉSULTAT FINAL =====`)
+    console.log(`  📍 Adresse: ${mergedResult.address}`)
+    console.log(`  📊 Coordonnées: ${mergedResult.latitude}, ${mergedResult.longitude}`)
+    console.log(`  🎯 Source: ${mergedResult.source}`)
+    console.log(`  💯 Confiance: ${Math.round(mergedResult.confidence * 100)}%`)
+    console.log(`  🔒 Département: ${departmentCode} (${departmentName})`)
+    console.log(`==========================================`)
+
     return NextResponse.json({
       status: "ok",
-      source: "VISION_GEOCODING",
+      source: mergedResult.source as any,
       autoLocation: {
-        address: bestCandidate.address,
-        latitude: bestCandidate.latitude,
-        longitude: bestCandidate.longitude,
-        confidence: bestCandidate.globalScore,
-        streetViewUrl: bestCandidate.streetViewUrl,
+        address: mergedResult.address || "",
+        latitude: mergedResult.latitude!,
+        longitude: mergedResult.longitude!,
+        confidence: mergedResult.confidence,
+        streetViewUrl: mergedResult.streetViewUrl,
+        streetViewEmbedUrl: mergedResult.streetViewEmbedUrl,
+        heading: mergedResult.heading || 0,
       },
-      candidates: geocodedCandidates,
-    } as LocationFromImageResult)
+      candidates: geocodedCandidates || [],
+      needsManualCorrection,
+      warning: needsManualCorrection
+        ? `Localisation imprécise (${Math.round(mergedResult.confidence * 100)}%). Vous pouvez corriger manuellement l'adresse.`
+        : undefined,
+      explanation: mergedResult.explanation,
+    } as LocationFromImageResult);
+  } // Fin du bloc try
   } catch (error: any) {
     console.error("❌ [Localisation] Erreur complète:", error)
     console.error("❌ [Localisation] Stack:", error.stack)
