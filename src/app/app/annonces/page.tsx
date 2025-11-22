@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
-import { Search, Loader2, AlertTriangle, ExternalLink, Sparkles, MapPin, Bell, Mail, Share2, TrendingUp, Heart, Zap } from "lucide-react"
+import { Search, Loader2, AlertTriangle, ExternalLink, Sparkles, MapPin, Bell, Mail, TrendingUp, Heart, Zap } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -1018,26 +1018,6 @@ export default function AnnoncesPage() {
             </div>
           </div>
 
-      {/* Floating Action Button */}
-      <motion.button
-        className="fixed bottom-8 right-8 p-4 bg-gradient-to-br from-primary-600 to-primary-700 text-white rounded-full shadow-2xl z-50"
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
-        animate={{
-          boxShadow: [
-            "0 0 20px rgba(124, 92, 219, 0.4)",
-            "0 0 30px rgba(124, 92, 219, 0.6)",
-            "0 0 20px rgba(124, 92, 219, 0.4)",
-          ],
-        }}
-        transition={{
-          duration: 2,
-          repeat: Infinity,
-          ease: "easeInOut",
-        }}
-      >
-        <Share2 className="w-6 h-6" strokeWidth={1.5} />
-      </motion.button>
         </div>
   )
 }
