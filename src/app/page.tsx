@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { SacimoLogo } from '@/components/SacimoLogo';
 import { 
   Search, 
   TrendingUp, 
@@ -17,490 +18,339 @@ import {
   ArrowRight,
   Check,
   Star,
-  ChevronDown
+  MessageCircle,
+  Zap,
+  Brain,
+  Home,
+  Twitter,
+  Github,
+  Linkedin
 } from 'lucide-react';
+
+const fadeInUp = {
+  initial: { opacity: 0, y: 30 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.6 }
+};
+
+const staggerChildren = {
+  animate: {
+    transition: {
+      staggerChildren: 0.1
+    }
+  }
+};
 
 export default function HomePage() {
   const pathname = usePathname();
 
   return (
     <>
-      {/* Navbar inline */}
-      <nav style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        height: '80px',
-        background: 'linear-gradient(to right, rgb(46, 16, 101), rgb(76, 29, 149), rgb(79, 70, 229))',
-        borderBottom: '1px solid rgba(255,255,255,0.1)',
-        zIndex: 9999
-      }}>
-        <div style={{
-          height: '100%',
-          maxWidth: '1280px',
-          margin: '0 auto',
-          padding: '0 24px',
-          display: 'flex',
-          alignItems: 'center',
-          position: 'relative'
-        }}>
-          <div style={{ flexShrink: 0 }}>
-            <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
-              <div style={{ 
-                width: '40px', 
-                height: '40px', 
-                background: 'white',
-                borderRadius: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 'bold',
-                color: 'rgb(76, 29, 149)'
-              }}>S</div>
-              <span style={{ fontSize: '20px', fontWeight: 'bold', color: 'white' }}>SACIMO</span>
-            </Link>
-          </div>
-          <div style={{
-            position: 'absolute',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            display: 'flex',
-            gap: '32px'
-          }}>
-            <Link href="/fonctionnalites" style={{ color: pathname === '/fonctionnalites' ? 'white' : 'rgba(255,255,255,0.7)', fontSize: '15px', textDecoration: 'none', fontWeight: pathname === '/fonctionnalites' ? '600' : '400' }}>
-              Fonctionnalités
-            </Link>
-            <Link href="/tarifs" style={{ color: pathname === '/tarifs' ? 'white' : 'rgba(255,255,255,0.7)', fontSize: '15px', textDecoration: 'none', fontWeight: pathname === '/tarifs' ? '600' : '400' }}>
-              Tarifs
-            </Link>
-            <Link href="/contact" style={{ color: pathname === '/contact' ? 'white' : 'rgba(255,255,255,0.7)', fontSize: '15px', textDecoration: 'none', fontWeight: pathname === '/contact' ? '600' : '400' }}>
-              Contact
-            </Link>
-            <Link href="/ressources" style={{ color: pathname === '/ressources' ? 'white' : 'rgba(255,255,255,0.7)', fontSize: '15px', textDecoration: 'none', fontWeight: pathname === '/ressources' ? '600' : '400' }}>
-              Ressources
-            </Link>
-            <Link href="/about" style={{ color: pathname === '/about' ? 'white' : 'rgba(255,255,255,0.7)', fontSize: '15px', textDecoration: 'none', fontWeight: pathname === '/about' ? '600' : '400' }}>
-              À propos
-            </Link>
-          </div>
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: '12px' }}>
-            <Link href="/auth/signin" style={{ padding: '10px 20px', color: 'rgba(255,255,255,0.8)', textDecoration: 'none' }}>Se connecter</Link>
-            <Link href="/auth/signup" style={{ padding: '12px 24px', background: 'white', color: 'rgb(76, 29, 149)', borderRadius: '12px', fontWeight: '600', textDecoration: 'none', display: 'inline-block' }}>Essai gratuit</Link>
+      {/* Navigation */}
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-xl border-b border-purple-100">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="flex items-center justify-between h-20">
+            {/* Logo */}
+            <motion.div 
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="flex items-center space-x-3"
+            >
+              <Link href="/" className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg">
+                  <SacimoLogo size={40} />
+                </div>
+                <span className="text-2xl font-bold text-gray-900">SACIMO</span>
+              </Link>
+            </motion.div>
+
+            {/* Menu */}
+            <div className="hidden md:flex items-center space-x-8">
+              <Link href="#fonctionnalites" className="text-gray-700 hover:text-primary-600 font-medium transition-colors">
+                Fonctionnalités
+              </Link>
+              <Link href="#tarifs" className="text-gray-700 hover:text-primary-600 font-medium transition-colors">
+                Tarifs
+              </Link>
+              <Link href="/ressources" className="text-gray-700 hover:text-primary-600 font-medium transition-colors">
+                Ressources
+              </Link>
+              <Link href="/contact" className="text-gray-700 hover:text-primary-600 font-medium transition-colors">
+                Contact
+              </Link>
+            </div>
+
+            {/* CTA */}
+            <div className="flex items-center space-x-4">
+              <Link href="/auth/signin">
+                <Button variant="ghost" className="text-gray-700 hover:text-primary-600">
+                  Se connecter
+                </Button>
+              </Link>
+              <Link href="/auth/signup">
+                <Button className="bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white">
+                  Essai gratuit
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </nav>
 
-      <div style={{paddingTop:'80px'}}>
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-violet-50/30 to-indigo-50/40">
-
-      {/* Hero Section avec animations complexes */}
-      <section className="relative pt-40 pb-32 px-6 overflow-hidden">
-        {/* Background avec gradient animé */}
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-violet-50/30 to-indigo-50/40" />
-        
-        {/* Animated gradient blobs en arrière-plan */}
+      {/* Hero Section */}
+      <section className="relative min-h-screen flex items-center overflow-hidden pt-20" style={{
+        backgroundImage: `
+          radial-gradient(circle at 20% 50%, rgba(124, 92, 219, 0.15) 0%, transparent 50%),
+          radial-gradient(circle at 80% 80%, rgba(94, 58, 155, 0.15) 0%, transparent 50%),
+          radial-gradient(circle at 40% 20%, rgba(139, 114, 231, 0.1) 0%, transparent 50%)
+        `
+      }}>
+        {/* Animated Background Elements */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <motion.div
+            className="absolute top-40 left-20 w-72 h-72 bg-primary-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20"
             animate={{
+              y: [0, -30, 0],
               scale: [1, 1.2, 1],
-            rotate: [0, 90, 0],
-            x: [0, 100, 0],
-            y: [0, 50, 0],
+              rotate: [0, 5, 0],
             }}
             transition={{
-            duration: 20,
-              repeat: Infinity,
-            ease: "easeInOut"
-            }}
-          className="absolute top-1/4 -left-48 w-96 h-96 bg-violet-400/20 rounded-full blur-3xl"
-          />
-          <motion.div
-            animate={{
-            scale: [1, 1.3, 1],
-            rotate: [0, -90, 0],
-            x: [0, -100, 0],
-            y: [0, -50, 0],
-            }}
-            transition={{
-            duration: 25,
+              duration: 6,
               repeat: Infinity,
               ease: "easeInOut",
-            delay: 2
-          }}
-          className="absolute top-1/3 -right-48 w-96 h-96 bg-indigo-400/20 rounded-full blur-3xl"
-        />
-        
-        {/* Container centré avec max-width */}
-        <div className="container mx-auto max-w-5xl relative z-10">
-          <div className="text-center relative">
-            
-                     {/* AVATARS ÉLÉGANTS - Version haut de gamme */}
-                     
-                     {/* Icône 1 - Top Left - Violet doux */}
+            }}
+          />
           <motion.div
-                       animate={{
-                         y: [0, -15, 0],
-                         rotate: [0, 3, 0],
-                       }}
-                       transition={{
-                         duration: 5,
-                         repeat: Infinity,
-                         ease: "easeInOut"
-                       }}
-                       style={{ position: 'absolute', top: '80px', left: '128px', width: '48px', height: '48px', backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 10px 25px rgba(124, 58, 237, 0.1)', border: '1px solid rgba(124, 58, 237, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)', zIndex: 0 }}
-                     >
-                       <Search style={{ width: '20px', height: '20px', color: 'rgb(124, 58, 237)' }} />
-                     </motion.div>
+            className="absolute top-60 right-20 w-96 h-96 bg-primary-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20"
+            animate={{
+              y: [0, 30, 0],
+              scale: [1, 1.3, 1],
+              rotate: [0, -5, 0],
+            }}
+            transition={{
+              duration: 8,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: 2,
+            }}
+          />
+          <motion.div
+            className="absolute bottom-20 left-1/3 w-80 h-80 bg-primary-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20"
+            animate={{
+              y: [0, -20, 0],
+              scale: [1, 1.15, 1],
+            }}
+            transition={{
+              duration: 7,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: 4,
+            }}
+          />
+        </div>
 
-                     {/* Icône 2 - Top Center - Emerald subtil */}
-                     <motion.div
-                       animate={{
-                         y: [0, 12, 0],
-                       }}
-                       transition={{
-                         duration: 6,
-                         repeat: Infinity,
-                         ease: "easeInOut",
-                         delay: 1
-                       }}
-                       style={{ position: 'absolute', top: '40px', left: '33%', width: '44px', height: '44px', backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 10px 25px rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)', zIndex: 0 }}
-                     >
-                       <TrendingUp style={{ width: '16px', height: '16px', color: 'rgb(16, 185, 129)' }} />
-                     </motion.div>
+        {/* Decorative Shapes */}
+        <motion.div
+          className="absolute top-32 right-32 w-20 h-20 border-2 border-primary-300 rounded-full opacity-40"
+          animate={{
+            y: [0, -20, 0],
+            rotate: [0, 180, 360],
+          }}
+          transition={{
+            duration: 6,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        />
+        <motion.div
+          className="absolute bottom-40 left-20 w-32 h-32 border-2 border-primary-300 rounded-lg opacity-40"
+          animate={{
+            y: [0, 20, 0],
+            rotate: [0, -90, 0],
+          }}
+          transition={{
+            duration: 8,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: 1,
+          }}
+        />
 
-                     {/* Icône 3 - Top Right - Orange doux */}
-                     <motion.div
-                       animate={{
-                         y: [0, -12, 0],
-                         rotate: [0, -3, 0],
-                       }}
-                       transition={{
-                         duration: 5.5,
-                         repeat: Infinity,
-                         ease: "easeInOut",
-                         delay: 1.5
-                       }}
-                       style={{ position: 'absolute', top: '64px', right: '160px', width: '48px', height: '48px', backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 10px 25px rgba(249, 115, 22, 0.1)', border: '1px solid rgba(249, 115, 22, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)', zIndex: 0 }}
-                     >
-                       <Bell style={{ width: '20px', height: '20px', color: 'rgb(249, 115, 22)' }} />
-                     </motion.div>
-
-                     {/* Icône 4 - Middle Left - Indigo */}
-                     <motion.div
-                       animate={{
-                         y: [0, 15, 0],
-                       }}
-                       transition={{
-                         duration: 6.5,
-                         repeat: Infinity,
-                         ease: "easeInOut",
-                         delay: 2
-                       }}
-                       style={{ position: 'absolute', top: '33%', left: '80px', width: '40px', height: '40px', backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 10px 25px rgba(99, 102, 241, 0.1)', border: '1px solid rgba(99, 102, 241, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)', zIndex: 0 }}
-                     >
-                       <FileText style={{ width: '16px', height: '16px', color: 'rgb(99, 102, 241)' }} />
-                     </motion.div>
-
-                     {/* Icône 5 - Middle Right - Bleu */}
-                     <motion.div
-                       animate={{
-                         y: [0, -18, 0],
-                       }}
-                       transition={{
-                         duration: 5.8,
-                         repeat: Infinity,
-                         ease: "easeInOut",
-                         delay: 2.5
-                       }}
-                       style={{ position: 'absolute', top: '33%', right: '112px', width: '44px', height: '44px', backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 10px 25px rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)', zIndex: 0 }}
-                     >
-                       <BarChart3 style={{ width: '20px', height: '20px', color: 'rgb(59, 130, 246)' }} />
-                     </motion.div>
-
-                     {/* Icône 6 - Bottom Left - Cyan */}
-                     <motion.div
-                       animate={{
-                         y: [0, 10, 0],
-                         rotate: [0, -2, 0],
-                       }}
-                       transition={{
-                         duration: 6.2,
-                         repeat: Infinity,
-                         ease: "easeInOut",
-                         delay: 3
-                       }}
-                       style={{ position: 'absolute', bottom: '128px', left: '160px', width: '40px', height: '40px', backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 10px 25px rgba(6, 182, 212, 0.1)', border: '1px solid rgba(6, 182, 212, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)', zIndex: 0 }}
-                     >
-                       <MapPin style={{ width: '16px', height: '16px', color: 'rgb(6, 182, 212)' }} />
-                     </motion.div>
-
-                     {/* Icône 7 - Bottom Right - Purple */}
-                     <motion.div
-                       animate={{
-                         y: [0, -10, 0],
-                       }}
-                       transition={{
-                         duration: 5.3,
-                         repeat: Infinity,
-                         ease: "easeInOut",
-                         delay: 3.5
-                       }}
-                       style={{ position: 'absolute', bottom: '160px', right: '192px', width: '48px', height: '48px', backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 10px 25px rgba(168, 85, 247, 0.1)', border: '1px solid rgba(168, 85, 247, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)', zIndex: 0 }}
-                     >
-                       <Users style={{ width: '20px', height: '20px', color: 'rgb(168, 85, 247)' }} />
-                     </motion.div>
-
-                     {/* Élément décoratif - Cercle violet subtil */}
-                     <motion.div
-                       animate={{
-                         scale: [1, 1.2, 1],
-                         opacity: [0.4, 0.6, 0.4],
-                       }}
-                       transition={{
-                         duration: 4,
-                         repeat: Infinity,
-                         ease: "easeInOut"
-                       }}
-                       style={{ position: 'absolute', top: '25%', right: '25%', width: '12px', height: '12px', backgroundColor: 'rgba(124, 58, 237, 0.4)', borderRadius: '50%', filter: 'blur(4px)', zIndex: 0 }}
-                     />
-
-                     {/* Élément décoratif - Petit carré */}
-                     <motion.div
-                       animate={{
-                         rotate: [0, 90, 0],
-                         opacity: [0.3, 0.5, 0.3],
-                       }}
-                       transition={{
-                         duration: 8,
-                         repeat: Infinity,
-                         ease: "linear"
-                       }}
-                       style={{ position: 'absolute', bottom: '25%', left: '25%', width: '8px', height: '8px', backgroundColor: 'rgba(99, 102, 241, 0.3)', borderRadius: '2px', zIndex: 0 }}
-                     />
-
-            {/* CONTENU PRINCIPAL (Badge, Titre, etc.) */}
-            
-            {/* Badge animé */}
+        <div className="max-w-7xl mx-auto px-6 relative z-10">
+          <div className="grid lg:grid-cols-2 gap-16 items-center">
+            {/* Left Content */}
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px', marginBottom: '32px', backgroundColor: 'rgba(255, 255, 255, 0.6)', backdropFilter: 'blur(24px)', border: '1px solid rgba(76, 29, 149, 0.2)', borderRadius: '999px', boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)', position: 'relative', zIndex: 10 }}
+              initial={{ opacity: 0, x: -50 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.8 }}
             >
+              {/* Badge */}
               <motion.div
-                animate={{ scale: [1, 1.2, 1] }}
-                transition={{ duration: 2, repeat: Infinity }}
-                style={{ width: '8px', height: '8px', backgroundColor: 'rgb(76, 29, 149)', borderRadius: '50%' }}
-              />
-              <span className="text-sm font-medium bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">
-                Déjà +500 agents immobiliers
-                </span>
-            </motion.div>
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="inline-flex items-center space-x-2 px-4 py-2 bg-primary-100 rounded-full mb-6"
+              >
+                <motion.div
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className="w-2 h-2 bg-primary-600 rounded-full"
+                />
+                <span className="text-sm font-semibold text-primary-700">Plus de 500 agents immobiliers</span>
+              </motion.div>
 
-            {/* Titre avec animation lettre par lettre */}
-            <motion.h1 
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.2 }}
-              className="text-6xl md:text-7xl mb-6 leading-tight tracking-tight relative z-10"
-            >
-              <span className="block font-light text-slate-900 mb-2">
-                Connectez avec les meilleures
-              </span>
-              <span className="block font-normal text-slate-900">
-                opportunités immobilières{' '}
-                <motion.span 
-                  animate={{ 
-                    backgroundPosition: ['0% 50%', '100% 50%', '0% 50%']
+              {/* Title */}
+              <motion.h1
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3, duration: 0.8 }}
+                className="text-6xl md:text-7xl font-bold mb-6"
+              >
+                Connectez avec les meilleures opportunités immobilières{' '}
+                <motion.span
+                  className="bg-gradient-to-r from-primary-600 via-primary-700 to-primary-800 bg-clip-text text-transparent"
+                  animate={{
+                    backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'],
                   }}
-                  transition={{ duration: 5, repeat: Infinity }}
-                  style={{ background: 'linear-gradient(to right, rgb(76, 29, 149), rgb(79, 70, 229), rgb(88, 28, 135))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', backgroundSize: '200% auto', fontStyle: 'italic', fontWeight: '300' }}
+                  transition={{
+                    duration: 5,
+                    repeat: Infinity,
+                  }}
+                  style={{
+                    backgroundSize: '200% auto',
+                  }}
                 >
                   IA & automatisation
                 </motion.span>
-              </span>
-            </motion.h1>
+              </motion.h1>
 
-            {/* Sous-titre animé */}
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.4 }}
-              className="text-lg text-slate-600 mb-12 max-w-2xl mx-auto font-light leading-relaxed relative z-10"
-            >
-              Découvrez SACIMO : un suivi humain et des talents triés sur le volet pour 
-              trouver rapidement les profils qui vous correspondent.
-            </motion.p>
+              {/* Description */}
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5, duration: 0.8 }}
+                className="text-xl text-gray-600 mb-8 leading-relaxed"
+              >
+                Découvrez SACIMO, un suivi humain et des talents triés sur le volet pour trouver rapidement les profils qui vous correspondent.
+              </motion.p>
 
-            {/* CTA avec gradient VIOLET (pas orange) */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.6 }}
-              className="flex items-center justify-center mb-16 relative z-10"
-            >
+              {/* CTAs */}
               <motion.div
-                whileHover={{ scale: 1.05, boxShadow: "0 20px 60px rgba(76, 29, 149, 0.4)" }}
-                whileTap={{ scale: 0.95 }}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6, duration: 0.8 }}
+                className="flex items-center space-x-4 mb-12"
               >
-                <Button 
-                  size="lg" 
-                  style={{ position: 'relative', background: 'linear-gradient(to right, rgb(76, 29, 149), rgb(79, 70, 229))', color: 'white', fontWeight: '500', padding: '24px 40px', fontSize: '16px', borderRadius: '12px', boxShadow: '0 25px 50px rgba(76, 29, 149, 0.3)', overflow: 'hidden' }}
-                  asChild
-                >
-                  <Link href="/auth/signup">
-                    <motion.span
-                      className="absolute inset-0 bg-white/10"
-                      initial={{ x: '-100%' }}
-                      whileHover={{ x: '100%' }}
-                      transition={{ duration: 0.5 }}
-                    />
-                    <span className="relative">Commencer gratuitement</span>
-                  </Link>
-              </Button>
-            </motion.div>
-            </motion.div>
-          </div>
-
-          {/* Dashboard Preview avec animations */}
-            <motion.div
-            initial={{ opacity: 0, y: 60 }}
-              animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1, delay: 0.8 }}
-            className="mt-20 relative"
-          >
-            {/* Glow animé */}
-            <motion.div
-              animate={{
-                scale: [1, 1.1, 1],
-                opacity: [0.3, 0.6, 0.3],
-              }}
-              transition={{
-                duration: 4,
-                repeat: Infinity,
-                ease: "easeInOut"
-              }}
-              style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, rgba(76, 29, 149, 0.2), rgba(79, 70, 229, 0.2))', filter: 'blur(64px)' }}
-            />
-            
-            {/* Container principal */}
-            <motion.div
-              whileHover={{ y: -10 }}
-              transition={{ duration: 0.3 }}
-              style={{ position: 'relative', backgroundColor: 'rgba(255, 255, 255, 0.8)', backdropFilter: 'blur(24px)', borderRadius: '24px', boxShadow: '0 25px 50px rgba(0, 0, 0, 0.15)', border: '1px solid rgba(76, 29, 149, 0.1)', overflow: 'hidden' }}
-            >
-              <img 
-                src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1600&q=90" 
-                alt="SACIMO Dashboard"
-                className="w-full"
-              />
-              
-              {/* Card flottante animée 1 */}
-          <motion.div
-            initial={{ opacity: 0, x: 50 }}
-                animate={{ 
-                  opacity: 1, 
-                  x: 0,
-                  y: [0, -10, 0],
-                }}
-                transition={{ 
-                  delay: 1.2, 
-                  duration: 0.6,
-                  y: {
-                    duration: 3,
-                    repeat: Infinity,
-                    ease: "easeInOut"
-                  }
-                }}
-                whileHover={{ scale: 1.05 }}
-                className="absolute top-8 right-8 bg-white/95 backdrop-blur-xl rounded-2xl p-5 shadow-2xl border border-violet-100/50"
-              >
-                <div className="flex items-center gap-4">
-                  <motion.div 
-                    whileHover={{ rotate: 360 }}
-                    transition={{ duration: 0.6 }}
-                    className="w-12 h-12 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg"
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Button
+                    size="lg"
+                    className="px-8 py-4 bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white rounded-xl shadow-lg hover:shadow-2xl transition-all font-semibold text-lg"
+                    asChild
                   >
+                    <Link href="/auth/signup">
+                      Commencer gratuitement
+                      <ArrowRight className="ml-2 h-5 w-5" />
+                    </Link>
+                  </Button>
+                </motion.div>
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="px-8 py-4 bg-white border-2 border-gray-300 text-gray-700 rounded-xl hover:border-primary-300 transition-all font-semibold text-lg"
+                  >
+                    Voir la démo
+                  </Button>
+                </motion.div>
+              </motion.div>
+
+              {/* Trust Badges */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.7, duration: 0.8 }}
+                className="flex items-center space-x-6 flex-wrap"
+              >
+                {[
+                  'Essai gratuit 14 jours',
+                  'Sans carte bancaire',
+                  'Configuration en 2 min'
+                ].map((badge, i) => (
+                  <div key={i} className="flex items-center space-x-2">
+                    <Check className="w-5 h-5 text-green-500" />
+                    <span className="text-sm text-gray-600">{badge}</span>
+                  </div>
+                ))}
+              </motion.div>
+            </motion.div>
+
+            {/* Right Content - Dashboard Mockup */}
+            <motion.div
+              initial={{ opacity: 0, x: 50 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.4, duration: 0.8 }}
+              className="relative"
+            >
+              {/* Floating Badges */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.8 }}
+                whileHover={{ scale: 1.05, y: -5 }}
+                className="absolute -top-8 -left-8 bg-white/95 backdrop-blur-xl rounded-2xl p-4 shadow-xl z-10 border border-primary-100"
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-emerald-500 rounded-xl flex items-center justify-center">
                     <TrendingUp className="h-6 w-6 text-white" />
-                  </motion.div>
+                  </div>
                   <div>
-                    <div className="text-xs text-slate-500 mb-1">Nouvelles annonces</div>
-                    <motion.div 
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="text-2xl font-semibold text-slate-900"
-                    >
-                      +23
-                    </motion.div>
-                    <motion.div 
-                      initial={{ width: 0 }}
-                      animate={{ width: "100%" }}
-                      transition={{ duration: 1, delay: 1.5 }}
-                      className="text-xs text-emerald-600 mt-1"
-                    >
-                      +15% cette semaine
-                    </motion.div>
+                    <p className="text-xs text-gray-500">Nouvelles annonces</p>
+                    <p className="text-lg font-bold text-gray-900">+23</p>
+                    <p className="text-xs text-green-600">+5% cette semaine</p>
                   </div>
                 </div>
               </motion.div>
 
-              {/* Card flottante animée 2 */}
               <motion.div
-                initial={{ opacity: 0, x: -50 }}
-                animate={{ 
-                  opacity: 1, 
-                  x: 0,
-                  y: [0, 10, 0],
-                }}
-                transition={{ 
-                  delay: 1.4, 
-                  duration: 0.6,
-                  y: {
-                    duration: 4,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                    delay: 1
-                  }
-                }}
-                whileHover={{ scale: 1.05 }}
-                className="absolute bottom-8 left-8 bg-white/95 backdrop-blur-xl rounded-2xl p-5 shadow-2xl border border-indigo-100/50"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1 }}
+                whileHover={{ scale: 1.05, y: 5 }}
+                className="absolute -bottom-8 -left-8 bg-white/95 backdrop-blur-xl rounded-2xl p-4 shadow-xl z-10 border border-primary-100"
               >
-                <div className="flex items-center gap-4">
-                  <motion.div 
-                    whileHover={{ rotate: -360 }}
-                    transition={{ duration: 0.6 }}
-                            style={{ width: '48px', height: '48px', background: 'linear-gradient(to bottom right, rgb(76, 29, 149), rgb(79, 70, 229))', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 10px 25px rgba(76, 29, 149, 0.3)' }}
-                  >
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-primary-400 to-primary-600 rounded-xl flex items-center justify-center">
                     <Bell className="h-6 w-6 text-white" />
-                  </motion.div>
-                      <div>
-                    <div className="text-xs text-slate-500 mb-1">Alertes actives</div>
-                    <motion.div 
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      transition={{ delay: 1.6, type: "spring" }}
-                      className="text-2xl font-semibold text-slate-900"
-                    >
-                      12
-                    </motion.div>
                   </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Alertes IA</p>
+                    <p className="text-lg font-bold text-gray-900">12</p>
                   </div>
+                </div>
+              </motion.div>
+
+              {/* Dashboard Preview */}
+              <motion.div
+                whileHover={{ y: -10, scale: 1.02 }}
+                transition={{ duration: 0.3 }}
+                className="bg-white/95 backdrop-blur-xl rounded-3xl p-6 shadow-2xl border border-primary-100"
+              >
+                <div className="rounded-2xl overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200 h-96 flex items-center justify-center">
+                  <div className="text-center">
+                    <Home className="h-24 w-24 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-500">Dashboard Preview</p>
+                  </div>
+                </div>
+              </motion.div>
             </motion.div>
-            </motion.div>
-          </motion.div>
-                  </div>
+          </div>
+        </div>
       </section>
 
-      {/* Stats Section avec animations au scroll */}
-      <motion.section 
-        initial={{ opacity: 0 }}
-        whileInView={{ opacity: 1 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.8 }}
-        style={{ padding: '96px 24px', background: 'linear-gradient(to bottom right, rgba(76, 29, 149, 0.05), rgba(79, 70, 229, 0.05))' }}
-      >
-        <div className="container mx-auto max-w-5xl">
-          <div className="grid md:grid-cols-4 gap-12">
+      {/* Stats Section */}
+      <section className="py-20 bg-gradient-to-br from-primary-50 to-blue-50">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {[
               { number: '500+', label: 'Agents immobiliers' },
               { number: '10k+', label: 'Annonces analysées' },
@@ -514,157 +364,146 @@ export default function HomePage() {
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1, duration: 0.6 }}
                 whileHover={{ scale: 1.05, y: -5 }}
-                className="text-center group"
+                className="text-center"
               >
-                <motion.div 
+                <motion.div
                   initial={{ scale: 0 }}
                   whileInView={{ scale: 1 }}
                   viewport={{ once: true }}
                   transition={{ delay: i * 0.1 + 0.3, type: "spring" }}
-                        style={{ fontSize: '48px', fontWeight: '300', background: 'linear-gradient(to right, rgb(76, 29, 149), rgb(79, 70, 229))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', marginBottom: '8px' }}
+                  className="text-5xl font-bold bg-gradient-to-r from-primary-600 to-primary-700 bg-clip-text text-transparent mb-2"
                 >
                   {stat.number}
                 </motion.div>
-                <div className="text-sm text-slate-600">{stat.label}</div>
+                <div className="text-gray-600 font-medium">{stat.label}</div>
               </motion.div>
             ))}
-                  </div>
-                </div>
-      </motion.section>
+          </div>
+        </div>
+      </section>
 
-      {/* How it works */}
-      <motion.section 
-        initial={{ opacity: 0 }}
-        whileInView={{ opacity: 1 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.8 }}
-        className="py-24 px-6 bg-white"
-      >
-        <div className="container mx-auto max-w-5xl">
-            <motion.div
+      {/* How It Works */}
+      <section className="py-24 bg-white" id="fonctionnalites">
+        <div className="max-w-7xl mx-auto px-6">
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-center mb-20"
+            className="text-center mb-16"
           >
-            <h2 className="text-4xl font-light text-slate-900 mb-4">
-              Comment ça marche ?
-            </h2>
-            <p className="text-lg text-slate-600 font-light max-w-2xl mx-auto">
+            <h2 className="text-5xl font-bold text-gray-900 mb-4">Comment ça marche ?</h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
               Commencez à utiliser SACIMO en 3 étapes simples
             </p>
-            </motion.div>
+          </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-12">
+          <div className="grid md:grid-cols-3 gap-8">
             {[
               {
-                step: '01',
+                step: '1',
                 title: 'Configurez vos critères',
                 description: 'Définissez vos zones de recherche, types de biens et budget',
                 icon: Search,
-                gradient: 'linear-gradient(to bottom right, rgb(76, 29, 149), rgb(79, 70, 229))'
+                gradient: 'from-primary-500 to-primary-600'
               },
               {
-                step: '02',
+                step: '2',
                 title: 'Analysez les données',
-                description: 'Notre IA analyse le marché et vous alerte des opportunités',
+                description: 'Notre IA analyse le marché et vous livre des opportunités',
                 icon: BarChart3,
-                gradient: 'linear-gradient(to bottom right, rgb(76, 29, 149), rgb(79, 70, 229))'
+                gradient: 'from-blue-500 to-cyan-500'
               },
               {
-                step: '03',
+                step: '3',
                 title: 'Générez des rapports',
                 description: 'Créez des rapports professionnels en quelques clics',
                 icon: FileText,
-                gradient: 'linear-gradient(to bottom right, rgb(76, 29, 149), rgb(79, 70, 229))'
+                gradient: 'from-cyan-500 to-emerald-500'
               }
             ].map((item, index) => (
-            <motion.div
+              <motion.div
                 key={index}
                 initial={{ opacity: 0, y: 40 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.2, duration: 0.6 }}
                 whileHover={{ y: -10, scale: 1.02 }}
-                className="text-center group"
+                className="relative group"
               >
-                <motion.div 
-                  whileHover={{ rotate: 360, scale: 1.1 }}
-                  transition={{ duration: 0.6 }}
-                  style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '64px', height: '64px', background: item.gradient, borderRadius: '16px', marginBottom: '24px', boxShadow: '0 10px 25px rgba(76, 29, 149, 0.3)' }}
-                >
-                  <item.icon className="h-7 w-7 text-white" />
-            </motion.div>
-                <div style={{ fontSize: '14px', fontWeight: '500', color: 'rgb(76, 29, 149)', marginBottom: '8px' }}>ÉTAPE {item.step}</div>
-                <h3 className="text-lg font-medium text-slate-900 mb-3">{item.title}</h3>
-                <p className="text-slate-600 font-light leading-relaxed text-[15px]">{item.description}</p>
-          </motion.div>
+                <Card className="glass rounded-3xl p-8 text-center h-full hover:shadow-xl transition-all">
+                  <div className="relative inline-block mb-6">
+                    <motion.div
+                      whileHover={{ rotate: 360, scale: 1.1 }}
+                      transition={{ duration: 0.6 }}
+                      className={`w-20 h-20 bg-gradient-to-br ${item.gradient} rounded-2xl flex items-center justify-center mx-auto shadow-lg`}
+                    >
+                      <item.icon className="w-10 h-10 text-white" />
+                    </motion.div>
+                    <div className={`absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-br ${item.gradient} text-white rounded-full flex items-center justify-center font-bold shadow-lg`}>
+                      {item.step}
+                    </div>
+                  </div>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-3">{item.title}</h3>
+                  <p className="text-gray-600">{item.description}</p>
+                </Card>
+              </motion.div>
             ))}
+          </div>
         </div>
-        </div>
-      </motion.section>
+      </section>
 
-      {/* Features Section */}
-      <motion.section 
-        id="fonctionnalites"
-        initial={{ opacity: 0 }}
-        whileInView={{ opacity: 1 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.8 }}
-        style={{ padding: '96px 24px', background: 'linear-gradient(to bottom, white, rgba(76, 29, 149, 0.03))' }}
-      >
-        <div className="container mx-auto max-w-5xl">
+      {/* Features Grid */}
+      <section className="py-24 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-6">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-center mb-20"
+            className="text-center mb-16"
           >
-            <h2 className="text-4xl font-light text-slate-900 mb-4">
-              Tout ce dont vous avez besoin
-            </h2>
-            <p className="text-lg text-slate-600 font-light">
+            <h2 className="text-5xl font-bold text-gray-900 mb-4">Tout ce dont vous avez besoin</h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
               Des outils puissants pour analyser et optimiser votre activité
             </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-12">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[
               {
                 icon: Search,
                 title: 'Recherches intelligentes',
                 description: 'Trouvez les meilleures opportunités grâce à nos algorithmes avancés',
-                gradient: 'linear-gradient(to bottom right, rgb(76, 29, 149), rgb(79, 70, 229))'
+                gradient: 'from-primary-500 to-primary-600'
               },
               {
                 icon: TrendingUp,
                 title: 'Analyse de marché',
                 description: 'Suivez les tendances et anticipez les évolutions du marché',
-                gradient: 'linear-gradient(to bottom right, rgb(76, 29, 149), rgb(79, 70, 229))'
+                gradient: 'from-blue-500 to-cyan-500'
               },
               {
                 icon: Users,
                 title: 'Suivi concurrents',
                 description: 'Surveillez l\'activité de vos concurrents en temps réel',
-                gradient: 'linear-gradient(to bottom right, rgb(76, 29, 149), rgb(79, 70, 229))'
+                gradient: 'from-cyan-500 to-emerald-500'
               },
               {
                 icon: FileText,
                 title: 'Rapports automatisés',
                 description: 'Générez des rapports professionnels en quelques clics',
-                gradient: 'linear-gradient(to bottom right, rgb(76, 29, 149), rgb(79, 70, 229))'
+                gradient: 'from-emerald-500 to-green-500'
               },
               {
                 icon: Bell,
                 title: 'Alertes intelligentes',
-                description: 'Recevez des notifications pour les opportunités importantes',
-                gradient: 'linear-gradient(to bottom right, rgb(76, 29, 149), rgb(79, 70, 229))'
+                description: 'Recevez des notifications pour les opportunités correspondant à vos critères',
+                gradient: 'from-amber-500 to-orange-500'
               },
               {
-                icon: BarChart3,
+                icon: Brain,
                 title: 'Copilote IA',
-                description: 'Assistant intelligent pour optimiser vos décisions',
-                gradient: 'linear-gradient(to bottom right, rgb(76, 29, 149), rgb(79, 70, 229))'
+                description: 'Assistant intelligent pour vos négociations et emails',
+                gradient: 'from-pink-500 to-purple-500'
               }
             ].map((feature, index) => (
               <motion.div
@@ -674,459 +513,151 @@ export default function HomePage() {
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.1, duration: 0.5 }}
                 whileHover={{ y: -8, scale: 1.02 }}
-                className="text-center group"
               >
-                <motion.div 
-                  whileHover={{ rotate: 360, scale: 1.15 }}
-                  transition={{ duration: 0.6 }}
-                  style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '64px', height: '64px', background: feature.gradient, borderRadius: '16px', marginBottom: '24px', boxShadow: '0 10px 25px rgba(76, 29, 149, 0.3)' }}
-                >
-                  <feature.icon className="h-7 w-7 text-white" />
-                </motion.div>
-                <h3 className="text-lg font-medium text-slate-900 mb-3">{feature.title}</h3>
-                <p className="text-slate-600 font-light leading-relaxed text-[15px]">
-                      {feature.description}
-                    </p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </motion.section>
-
-      {/* Pricing Teaser */}
-      <motion.section 
-        id="tarifs"
-        initial={{ opacity: 0 }}
-        whileInView={{ opacity: 1 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.8 }}
-        style={{ padding: '96px 24px', background: 'linear-gradient(to bottom right, rgba(79, 70, 229, 0.05), rgba(76, 29, 149, 0.05))' }}
-      >
-        <div className="container mx-auto max-w-5xl">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-20"
-          >
-            <h2 className="text-4xl font-light text-slate-900 mb-4">
-              Une offre pour chaque besoin
-            </h2>
-            <p className="text-lg text-slate-600 font-light">
-              Commencez gratuitement, évoluez quand vous voulez
-            </p>
-          </motion.div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {[
-              {
-                name: 'Starter',
-                price: '29',
-                features: ['10 recherches/jour', '5 rapports/mois', 'Support email'],
-                popular: false
-              },
-              {
-                name: 'Pro',
-                price: '99',
-                features: ['Recherches illimitées', 'Rapports illimités', 'Support prioritaire', 'API access'],
-                popular: true
-              },
-              {
-                name: 'Enterprise',
-                price: '299',
-                features: ['Tout de Pro', 'White label', 'Account manager', 'Formation'],
-                popular: false
-              }
-            ].map((plan, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 40 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.15, duration: 0.6 }}
-                whileHover={{ y: -10, scale: 1.02 }}
-              >
-                <Card 
-                  style={{ position: 'relative', border: plan.popular ? '2px solid rgb(76, 29, 149)' : '1px solid #e2e8f0', boxShadow: plan.popular ? '0 25px 50px rgba(76, 29, 149, 0.3)' : 'none' }}
-                >
-                  {plan.popular && (
-                    <motion.div 
-                      initial={{ scale: 0 }}
-                      whileInView={{ scale: 1 }}
-                      viewport={{ once: true }}
-                      transition={{ delay: index * 0.15 + 0.3, type: "spring" }}
-                      className="absolute -top-3 left-1/2 -translate-x-1/2"
-                    >
-                      <Badge style={{ background: 'linear-gradient(to right, rgb(76, 29, 149), rgb(79, 70, 229))', color: 'white', padding: '4px 12px', fontSize: '12px' }}>
-                        Le plus populaire
-                      </Badge>
-                    </motion.div>
-                  )}
-                  <CardContent className="p-8">
-                    <h3 className="text-xl font-medium mb-2">{plan.name}</h3>
-                    <div className="mb-6">
-                      <motion.span 
-                        initial={{ opacity: 0 }}
-                        whileInView={{ opacity: 1 }}
-                        viewport={{ once: true }}
-                        transition={{ delay: index * 0.15 + 0.2 }}
-                        style={{ fontSize: '36px', fontWeight: '300', background: 'linear-gradient(to right, rgb(76, 29, 149), rgb(79, 70, 229))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}
-                      >
-                        {plan.price}€
-                      </motion.span>
-                      <span className="text-slate-600 text-sm">/mois</span>
-                </div>
-                    <ul className="space-y-3 mb-8">
-                      {plan.features.map((feature, i) => (
-                        <motion.li 
-                          key={i}
-                          initial={{ opacity: 0, x: -20 }}
-                          whileInView={{ opacity: 1, x: 0 }}
-                          viewport={{ once: true }}
-                          transition={{ delay: index * 0.15 + i * 0.1 }}
-                          className="flex items-center gap-3 text-sm"
-                        >
-                          <Check style={{ width: '16px', height: '16px', color: 'rgb(76, 29, 149)' }} />
-                          <span className="text-slate-600">{feature}</span>
-                        </motion.li>
-                      ))}
-                    </ul>
-                    <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                      <Button 
-                        style={{ width: '100%', background: plan.popular ? 'linear-gradient(to right, rgb(76, 29, 149), rgb(79, 70, 229))' : 'transparent', color: plan.popular ? 'white' : 'rgb(76, 29, 149)', border: plan.popular ? 'none' : '1px solid #e2e8f0', boxShadow: plan.popular ? '0 10px 25px rgba(76, 29, 149, 0.3)' : 'none' }}
-                        variant={plan.popular ? 'default' : 'outline'}
-                      >
-                        Commencer
-                      </Button>
-                    </motion.div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </motion.section>
-
-      {/* Testimonials */}
-      <motion.section 
-        initial={{ opacity: 0 }}
-        whileInView={{ opacity: 1 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.8 }}
-        className="py-24 px-6 bg-white"
-      >
-        <div className="container mx-auto max-w-6xl">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-20"
-          >
-            <h2 className="text-4xl font-light text-slate-900 mb-4">
-              Ils racontent ce que nous faisons,{' '}
-              <span className="text-slate-400">mieux que nous.</span>
-            </h2>
-          </motion.div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {[
-              {
-                name: 'Sophie Martin',
-                role: 'Agent immobilier',
-                company: 'Century 21 Paris',
-                avatar: 'SM',
-                rating: 5,
-                text: 'SACIMO a transformé ma façon de travailler. Je gagne un temps précieux sur l\'analyse de marché et mes clients adorent les rapports générés.'
-              },
-              {
-                name: 'Thomas Durand',
-                role: 'Directeur d\'agence',
-                company: 'Orpi Lyon',
-                avatar: 'TD',
-                rating: 5,
-                text: 'Un outil indispensable pour rester compétitif. La veille concurrentielle est un vrai plus pour notre équipe.'
-              },
-              {
-                name: 'Marie Dubois',
-                role: 'Négociatrice',
-                company: 'Laforêt Bordeaux',
-                avatar: 'MD',
-                rating: 5,
-                text: 'L\'interface est intuitive et les alertes en temps réel me permettent de ne jamais rater une opportunité.'
-              }
-            ].map((testimonial, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 40 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.2, duration: 0.6 }}
-                whileHover={{ y: -8, scale: 1.02 }}
-                className="bg-white border border-slate-100 rounded-2xl p-8 hover:shadow-xl transition-shadow"
-              >
-                {/* Stars */}
-                <div className="flex gap-1 mb-6">
-                  {[...Array(testimonial.rating)].map((_, i) => (
-                    <motion.div
-                      key={i}
-                      initial={{ opacity: 0, scale: 0 }}
-                      whileInView={{ opacity: 1, scale: 1 }}
-                      viewport={{ once: true }}
-                      transition={{ delay: index * 0.2 + i * 0.1 }}
-                    >
-                      <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-                    </motion.div>
-                  ))}
-                </div>
-
-                {/* Text */}
-                <p className="text-slate-600 mb-8 leading-relaxed text-[15px] font-light">
-                  {testimonial.text}
-                </p>
-
-                {/* Author */}
-                <div className="flex items-center gap-4">
-                  <motion.div 
-                    whileHover={{ scale: 1.1, rotate: 360 }}
-                    transition={{ duration: 0.6 }}
-                    style={{ width: '48px', height: '48px', background: 'linear-gradient(to bottom right, rgb(76, 29, 149), rgb(79, 70, 229))', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '500', fontSize: '14px', boxShadow: '0 10px 25px rgba(76, 29, 149, 0.3)' }}
-                  >
-                    {testimonial.avatar}
-                  </motion.div>
-                  <div>
-                    <div className="font-medium text-slate-900 text-sm">{testimonial.name}</div>
-                    <div className="text-xs text-slate-500">{testimonial.role}</div>
+                <Card className="glass rounded-3xl p-8 hover:shadow-xl transition-all h-full">
+                  <div className={`w-14 h-14 bg-gradient-to-br ${feature.gradient} rounded-2xl flex items-center justify-center mb-6`}>
+                    <feature.icon className="w-7 h-7 text-white" />
                   </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </motion.section>
-
-      {/* FAQ */}
-      <motion.section 
-        initial={{ opacity: 0 }}
-        whileInView={{ opacity: 1 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.8 }}
-        style={{ padding: '96px 24px', background: 'linear-gradient(to bottom right, #f8fafc, rgba(76, 29, 149, 0.02))' }}
-      >
-        <div className="container mx-auto max-w-4xl">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-20"
-          >
-            <h2 className="text-4xl font-light text-slate-900 mb-4">
-              Questions fréquentes
-            </h2>
-            <p className="text-lg text-slate-600 font-light">
-              Tout ce que vous devez savoir sur SACIMO
-            </p>
-          </motion.div>
-
-          <div className="space-y-4">
-            {[
-              {
-                question: 'Puis-je essayer SACIMO gratuitement ?',
-                answer: 'Oui ! SACIMO propose un essai gratuit de 14 jours sans carte bancaire. Vous pouvez tester toutes les fonctionnalités avant de vous engager.'
-              },
-              {
-                question: 'Comment fonctionne la veille concurrentielle ?',
-                answer: 'Notre système analyse automatiquement les annonces de vos concurrents et vous alerte en temps réel des nouvelles publications, modifications de prix, etc.'
-              },
-              {
-                question: 'Les rapports sont-ils personnalisables ?',
-                answer: 'Absolument ! Vous pouvez personnaliser les rapports avec votre logo, vos couleurs et choisir les données à inclure.'
-              },
-              {
-                question: 'Puis-je annuler mon abonnement à tout moment ?',
-                answer: 'Oui, vous pouvez annuler votre abonnement à tout moment depuis votre espace client. Aucun engagement de durée.'
-              },
-              {
-                question: 'SACIMO est-il compatible mobile ?',
-                answer: 'Oui, SACIMO est 100% responsive et fonctionne parfaitement sur mobile, tablette et desktop.'
-              }
-            ].map((faq, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.1 }}
-                whileHover={{ scale: 1.01 }}
-              >
-                <Card style={{ border: '1px solid #e2e8f0', transition: 'border-color 0.3s' }} onMouseEnter={(e) => e.currentTarget.style.borderColor = 'rgb(76, 29, 149)'} onMouseLeave={(e) => e.currentTarget.style.borderColor = '#e2e8f0'}>
-                  <CardContent className="p-6">
-                    <details className="group">
-                      <summary className="flex items-center justify-between cursor-pointer list-none">
-                        <h3 style={{ fontSize: '18px', fontWeight: '500' }}>
-                          {faq.question}
-                      </h3>
-                        <motion.div 
-                          style={{ color: 'rgb(76, 29, 149)' }}
-                          animate={{ rotate: 0 }}
-                          whileHover={{ rotate: 90 }}
-                        >
-                          <svg className="h-6 w-6 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </motion.div>
-                      </summary>
-                      <motion.p 
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="mt-4 text-slate-600 leading-relaxed font-light text-[15px]"
-                      >
-                        {faq.answer}
-                      </motion.p>
-                    </details>
-                  </CardContent>
+                  <h3 className="text-xl font-bold text-gray-900 mb-3">{feature.title}</h3>
+                  <p className="text-gray-600 mb-4">{feature.description}</p>
+                  <Link href="#" className="text-primary-600 font-semibold inline-flex items-center space-x-2 hover:space-x-3 transition-all">
+                    <span>En savoir plus</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
                 </Card>
               </motion.div>
             ))}
           </div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mt-12"
-          >
-            <p className="text-slate-600 mb-4 font-light">Vous avez d'autres questions ?</p>
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Button variant="outline" style={{ border: '2px solid rgba(76, 29, 149, 0.2)', transition: 'all 0.3s' }} onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgb(76, 29, 149)'; e.currentTarget.style.backgroundColor = 'rgba(76, 29, 149, 0.05)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(76, 29, 149, 0.2)'; e.currentTarget.style.backgroundColor = 'transparent'; }} asChild>
-                <Link href="/contact">
-                  Contactez-nous
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-            </motion.div>
-          </motion.div>
         </div>
-      </motion.section>
+      </section>
 
-      {/* CTA Final */}
-      <motion.section 
-        initial={{ opacity: 0 }}
-        whileInView={{ opacity: 1 }}
-        viewport={{ once: true }}
-            transition={{ duration: 0.8 }}
-        style={{ padding: '96px 24px', background: 'linear-gradient(to bottom right, rgb(46, 16, 101), rgb(76, 29, 149), rgb(79, 70, 229))', position: 'relative', overflow: 'hidden' }}
-      >
-        {/* Animated background */}
-        <motion.div
-          animate={{
-            scale: [1, 1.2, 1],
-            rotate: [0, 180, 360],
-          }}
-          transition={{
-            duration: 20,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-          className="absolute inset-0 bg-white/5"
-        />
-        
-        <div className="container mx-auto max-w-4xl relative z-10">
-          <motion.div 
+      {/* CTA Section */}
+      <section className="py-24 relative overflow-hidden" style={{
+        background: 'linear-gradient(-45deg, #7C5CDB, #5E3A9B, #8B72E7, #7C5CDB)',
+        backgroundSize: '400% 400%',
+        animation: 'gradient 15s ease infinite'
+      }}>
+        <style jsx>{`
+          @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+          }
+        `}</style>
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-0 left-0 w-96 h-96 bg-white rounded-full filter blur-3xl"></div>
+          <div className="absolute bottom-0 right-0 w-96 h-96 bg-white rounded-full filter blur-3xl"></div>
+        </div>
+
+        <div className="max-w-4xl mx-auto px-6 text-center relative z-10">
+          <motion.h2
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-center text-white"
+            className="text-5xl md:text-6xl font-bold text-white mb-6"
           >
-            <h2 className="text-4xl font-light mb-4">
-              Prêt à transformer votre activité ?
-            </h2>
-            <p className="text-lg mb-8 font-light text-white/90">
-              Rejoignez des centaines d'agents immobiliers qui utilisent déjà SACIMO
-            </p>
-            <motion.div
-              whileHover={{ scale: 1.05, boxShadow: "0 20px 60px rgba(255, 255, 255, 0.3)" }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <Button 
-                size="lg" 
-                style={{ backgroundColor: 'white', color: 'rgb(76, 29, 149)', fontWeight: '500', padding: '24px 32px', borderRadius: '12px', boxShadow: '0 25px 50px rgba(0, 0, 0, 0.15)' }}
+            Prêt à transformer votre activité ?
+          </motion.h2>
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.1 }}
+            className="text-xl text-white/90 mb-10"
+          >
+            Rejoignez des centaines d'agents immobiliers qui utilisent déjà SACIMO
+          </motion.p>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.2 }}
+            className="flex items-center justify-center space-x-4"
+          >
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button
+                size="lg"
+                className="px-10 py-5 bg-white text-primary-700 hover:bg-gray-50 rounded-xl shadow-2xl transition-all font-bold text-lg"
                 asChild
               >
-                <Link href="/auth/signup">
-                  Essayer gratuitement
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Link>
+                <Link href="/auth/signup">Commencer gratuitement</Link>
+              </Button>
+            </motion.div>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button
+                size="lg"
+                variant="outline"
+                className="px-10 py-5 bg-white/20 backdrop-blur-sm text-white border-2 border-white rounded-xl hover:bg-white/30 transition-all font-bold text-lg"
+              >
+                Planifier une démo
               </Button>
             </motion.div>
           </motion.div>
-            </div>
-      </motion.section>
+        </div>
+      </section>
 
       {/* Footer */}
-      <motion.footer 
-        initial={{ opacity: 0 }}
-        whileInView={{ opacity: 1 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.8 }}
-        className="py-16 px-6 bg-white border-t border-slate-100"
-      >
-        <div className="container mx-auto max-w-6xl">
+      <footer className="bg-gray-900 text-white py-16">
+        <div className="max-w-7xl mx-auto px-6">
           <div className="grid md:grid-cols-4 gap-12 mb-12">
+            {/* Company */}
             <div>
-              <motion.div 
-                whileHover={{ scale: 1.1 }}
-                className="flex items-center gap-2 mb-4"
-              >
-                <div style={{ width: '32px', height: '32px', background: 'linear-gradient(to bottom right, rgb(76, 29, 149), rgb(79, 70, 229))', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span className="text-sm font-semibold text-white">S</span>
+              <div className="flex items-center space-x-3 mb-6">
+                <div className="w-10 h-10 bg-gradient-to-br from-primary-600 to-primary-700 rounded-xl flex items-center justify-center">
+                  <SacimoLogo size={40} />
+                </div>
+                <span className="text-2xl font-bold">SACIMO</span>
+              </div>
+              <p className="text-gray-400 mb-6">L'immobilier intelligent</p>
             </div>
-                <span className="font-semibold text-slate-900">SACIMO</span>
-          </motion.div>
-              <p className="text-sm text-slate-600 font-light">
-                L'immobilier intelligent
-              </p>
-        </div>
-            {[
-              { title: 'Produit', links: [
-                { label: 'Fonctionnalités', href: '#fonctionnalites' },
-                { label: 'Tarifs', href: '#tarifs' },
-                { label: 'Démo', href: '#demo' }
-              ]},
-              { title: 'Entreprise', links: [
-                { label: 'À propos', href: '#' },
-                { label: 'Contact', href: '/contact' },
-                { label: 'Blog', href: '#' }
-              ]},
-              { title: 'Légal', links: [
-                { label: 'CGU', href: '#' },
-                { label: 'Confidentialité', href: '#' },
-                { label: 'Mentions légales', href: '#' }
-              ]}
-            ].map((section, i) => (
-              <div key={i}>
-                <h4 className="font-medium text-slate-900 mb-4 text-sm">{section.title}</h4>
-                <ul className="space-y-2 text-sm text-slate-600">
-                  {section.links.map((link, j) => (
-                    <motion.li 
-                      key={j}
-                      whileHover={{ x: 5 }}
-                    >
-                      <Link href={link.href} style={{ transition: 'color 0.3s' }} onMouseEnter={(e) => e.currentTarget.style.color = 'rgb(76, 29, 149)'} onMouseLeave={(e) => e.currentTarget.style.color = '#64748b'}>
-                        {link.label}
-                      </Link>
-                    </motion.li>
-                  ))}
-                </ul>
-    </div>
-            ))}
+
+            {/* Product */}
+            <div>
+              <h4 className="font-bold mb-4">Produit</h4>
+              <ul className="space-y-3 text-gray-400">
+                <li><Link href="#fonctionnalites" className="hover:text-white transition-colors">Fonctionnalités</Link></li>
+                <li><Link href="#tarifs" className="hover:text-white transition-colors">Tarifs</Link></li>
+                <li><Link href="#" className="hover:text-white transition-colors">Documentation</Link></li>
+              </ul>
+            </div>
+
+            {/* Company */}
+            <div>
+              <h4 className="font-bold mb-4">Entreprise</h4>
+              <ul className="space-y-3 text-gray-400">
+                <li><Link href="/about" className="hover:text-white transition-colors">À propos</Link></li>
+                <li><Link href="#" className="hover:text-white transition-colors">Blog</Link></li>
+                <li><Link href="/contact" className="hover:text-white transition-colors">Contact</Link></li>
+              </ul>
+            </div>
+
+            {/* Legal */}
+            <div>
+              <h4 className="font-bold mb-4">Légal</h4>
+              <ul className="space-y-3 text-gray-400">
+                <li><Link href="#" className="hover:text-white transition-colors">CGU</Link></li>
+                <li><Link href="#" className="hover:text-white transition-colors">Confidentialité</Link></li>
+                <li><Link href="#" className="hover:text-white transition-colors">Mentions légales</Link></li>
+              </ul>
+            </div>
           </div>
-          <div className="pt-8 border-t border-slate-100 text-center text-sm text-slate-500">
-            © 2025 SACIMO. Tous droits réservés.
+
+          <div className="border-t border-gray-800 pt-8 flex flex-col md:flex-row items-center justify-between">
+            <p className="text-gray-400 text-sm">© 2025 SACIMO. Tous droits réservés.</p>
+            <div className="flex items-center space-x-6 mt-4 md:mt-0">
+              <Link href="#" className="text-gray-400 hover:text-white transition-colors">
+                <Twitter className="w-6 h-6" />
+              </Link>
+              <Link href="#" className="text-gray-400 hover:text-white transition-colors">
+                <Github className="w-6 h-6" />
+              </Link>
+              <Link href="#" className="text-gray-400 hover:text-white transition-colors">
+                <Linkedin className="w-6 h-6" />
+              </Link>
+            </div>
           </div>
         </div>
-      </motion.footer>
-        </div>
-      </div>
+      </footer>
     </>
   );
 }
