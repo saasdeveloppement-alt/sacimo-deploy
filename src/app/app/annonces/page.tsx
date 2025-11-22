@@ -20,15 +20,15 @@ import { motion } from "framer-motion"
 import {
   LineChart,
   Line,
-  BarChart,
-  Bar,
+  BarChart, 
+  Bar, 
   PieChart,
   Pie,
   Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
   ResponsiveContainer,
 } from "recharts"
 import type { NormalizedListing } from "@/lib/piges/normalize"
@@ -91,7 +91,20 @@ export default function AnnoncesPage() {
 
   const handleSearch = async () => {
     const userId = (session?.user as { id?: string })?.id
-    if (!canSearch || !userId) return
+    
+    console.log("🔍 [Annonces] handleSearch appelé", { canSearch, userId, filters, selectedSources })
+    
+    if (!canSearch) {
+      console.warn("⚠️ [Annonces] Recherche impossible: canSearch = false", { postalCode: filters.postalCode })
+      setError("Veuillez renseigner un code postal pour lancer la recherche")
+      return
+    }
+    
+    if (!userId) {
+      console.warn("⚠️ [Annonces] Recherche impossible: userId manquant")
+      setError("Vous devez être connecté pour effectuer une recherche")
+          return
+        }
 
     setLoading(true)
     setError(null)
@@ -115,6 +128,8 @@ export default function AnnoncesPage() {
         cleanFilters.sources = selectedSources
       }
 
+      console.log("📤 [Annonces] Envoi requête à /api/piges/fetch", { filters: cleanFilters })
+
       const response = await fetch("/api/piges/fetch", {
         method: "POST",
         headers: {
@@ -125,9 +140,14 @@ export default function AnnoncesPage() {
         }),
       })
 
+      console.log("📥 [Annonces] Réponse reçue", { status: response.status, ok: response.ok })
+
       const data = await response.json()
 
+      console.log("📊 [Annonces] Données reçues", { status: data.status, dataLength: data.data?.length, meta: data.meta })
+
       if (!response.ok) {
+        console.error("❌ [Annonces] Erreur API", { status: response.status, data })
         if (data.message?.includes("limite") || data.message?.includes("quota")) {
           setError("quota_exceeded")
         } else if (data.message?.includes("trop large")) {
@@ -139,13 +159,15 @@ export default function AnnoncesPage() {
       }
 
       if (data.status === "ok") {
+        console.log("✅ [Annonces] Recherche réussie", { total: data.meta?.total, results: data.data?.length })
         setResults(data.data || [])
         setMeta(data.meta || { total: data.data?.length || 0, pages: 1, hasMore: false })
       } else {
+        console.error("❌ [Annonces] Statut non-ok", { status: data.status, message: data.message })
         setError(data.message || "Erreur lors de la recherche")
       }
     } catch (err: any) {
-      console.error("Erreur recherche Annonces:", err)
+      console.error("❌ [Annonces] Erreur recherche:", err)
       setError(err.message || "Erreur de connexion")
     } finally {
       setLoading(false)
@@ -473,7 +495,7 @@ export default function AnnoncesPage() {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                   >
-                    <Button
+            <Button 
                       onClick={handleSearch}
                       disabled={!canSearch || loading}
                       className="w-full bg-gradient-to-r from-primary-600 to-primary-700 text-white font-semibold py-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
@@ -489,7 +511,7 @@ export default function AnnoncesPage() {
                           Lancer la recherche
                         </>
                       )}
-                    </Button>
+            </Button>
                   </motion.div>
                 </CardContent>
               </Card>
@@ -528,8 +550,8 @@ export default function AnnoncesPage() {
                     <Badge className="px-4 py-2 bg-gradient-to-r from-primary-50 to-primary-100 rounded-full border border-primary-200">
                       <Sparkles className="w-4 h-4 text-primary-600 mr-2" strokeWidth={1.5} />
                       <span className="text-sm font-medium text-primary-700">Powered by Moteurimmo</span>
-                    </Badge>
-                  </div>
+                </Badge>
+              </div>
                 </CardHeader>
                 <CardContent>
                   {/* Empty State */}
@@ -551,7 +573,7 @@ export default function AnnoncesPage() {
                         }}
                       >
                         <Search className="w-24 h-24 text-primary-500 relative z-10" strokeWidth={1.5} />
-                      </motion.div>
+            </motion.div>
                       <h3 className="text-2xl font-bold text-gray-700 mb-3">Prêt à trouver ton bien idéal ?</h3>
                       <p className="text-gray-500 mb-8 max-w-md mx-auto">
                         Configure tes critères de recherche et lance une recherche pour découvrir les meilleures annonces du marché.
@@ -585,7 +607,7 @@ export default function AnnoncesPage() {
                           </CardContent>
                         </Card>
                       ))}
-                    </div>
+                  </div>
                   )}
 
                   {/* Error */}
@@ -603,7 +625,7 @@ export default function AnnoncesPage() {
                                   ? "Ta recherche est trop large. Réduis la zone (ville/CP) ou ajoute des filtres."
                                   : error}
                             </p>
-                          </div>
+                </div>
                         </div>
                       </CardContent>
                     </Card>
@@ -620,7 +642,7 @@ export default function AnnoncesPage() {
                           Limitée automatiquement pour protéger l'API
                         </p>
                       )}
-                    </div>
+                </div>
                   )}
 
                   {/* Results */}
@@ -663,8 +685,8 @@ export default function AnnoncesPage() {
                                     <Badge className="bg-green-100 text-green-700">Nouveau</Badge>
                                   )}
                                 </div>
-                              </div>
-
+              </div>
+              
                               {listing.description && (
                                 <p className="text-sm text-gray-600 mb-4 line-clamp-2">
                                   {listing.description}
@@ -690,13 +712,13 @@ export default function AnnoncesPage() {
                                     Voir l'annonce
                                     <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
                                   </a>
-                                </Button>
-                              </div>
+                  </Button>
+                </div>
                             </CardContent>
                           </Card>
                         </motion.div>
                       ))}
-                    </div>
+              </div>
                   )}
 
                   {/* Aucun résultat */}
@@ -715,16 +737,16 @@ export default function AnnoncesPage() {
                   )}
                 </CardContent>
               </Card>
-            </motion.div>
+          </motion.div>
 
             {/* Stats Cards */}
             {meta && results.length > 0 && (
-              <motion.div
+          <motion.div 
                 className="grid grid-cols-3 gap-4"
                 initial="initial"
                 animate="animate"
-                variants={staggerChildren}
-              >
+            variants={staggerChildren}
+          >
                 {[
                   { label: "Recherches", value: "247", change: "+12%", changeLabel: "vs hier", icon: Search, bgColor: "bg-primary-100", iconColor: "text-primary-600" },
                   { label: "Favoris", value: "38", change: "+5", changeLabel: "cette semaine", icon: Heart, bgColor: "bg-pink-100", iconColor: "text-pink-600" },
@@ -750,19 +772,19 @@ export default function AnnoncesPage() {
                         </div>
                       </CardContent>
                     </Card>
-                  </motion.div>
+          </motion.div>
                 ))}
               </motion.div>
             )}
 
             {/* Analytics Charts */}
             {meta && results.length > 0 && (
-              <motion.div
-                className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+          <motion.div 
+            className="grid grid-cols-1 lg:grid-cols-2 gap-6"
                 initial="initial"
                 animate="animate"
-                variants={staggerChildren}
-              >
+            variants={staggerChildren}
+          >
                 {/* Price Evolution Chart */}
                 <motion.div variants={fadeInUp} transition={{ delay: 0.8 }}>
                   <Card className="bg-white/95 backdrop-blur-xl border-primary-200/50 shadow-lg rounded-3xl">
@@ -780,15 +802,15 @@ export default function AnnoncesPage() {
                     <CardContent>
                       <ResponsiveContainer width="100%" height={200}>
                         <LineChart data={priceEvolutionData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
                           <XAxis dataKey="month" stroke="#64748B" fontSize={11} />
                           <YAxis
                             stroke="#64748B"
                             fontSize={11}
                             tickFormatter={(value) => `${value / 1000}k`}
                           />
-                          <Tooltip
-                            contentStyle={{
+                    <Tooltip 
+                      contentStyle={{ 
                               backgroundColor: "white",
                               border: "1px solid #E2E8F0",
                               borderRadius: "8px",
@@ -805,10 +827,10 @@ export default function AnnoncesPage() {
                             activeDot={{ r: 7 }}
                           />
                         </LineChart>
-                      </ResponsiveContainer>
+                </ResponsiveContainer>
                     </CardContent>
                   </Card>
-                </motion.div>
+            </motion.div>
 
                 {/* Property Types Chart */}
                 <motion.div variants={fadeInUp} transition={{ delay: 0.9 }}>
@@ -821,41 +843,41 @@ export default function AnnoncesPage() {
                     </CardHeader>
                     <CardContent>
                       <ResponsiveContainer width="100%" height={200}>
-                        <PieChart>
-                          <Pie
+                  <PieChart>
+                    <Pie
                             data={propertyTypesData}
-                            cx="50%"
-                            cy="50%"
-                            labelLine={false}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
                             label={({ name, percent }) => `${name} ${percent ? (percent * 100).toFixed(0) : 0}%`}
                             outerRadius={70}
-                            fill="#8884d8"
-                            dataKey="value"
-                          >
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
                             {propertyTypesData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.color} />
-                            ))}
-                          </Pie>
-                          <Tooltip
-                            contentStyle={{
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      contentStyle={{ 
                               backgroundColor: "white",
                               border: "1px solid #E2E8F0",
                               borderRadius: "8px",
                               boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
                             }}
                             formatter={(value: number) => [`${value}%`, ""]}
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
                     </CardContent>
                   </Card>
-                </motion.div>
-              </motion.div>
+            </motion.div>
+          </motion.div>
             )}
 
             {/* Activity Chart */}
             {meta && results.length > 0 && (
-              <motion.div
+                  <motion.div 
                 initial="initial"
                 animate="animate"
                 variants={fadeInUp}
@@ -878,8 +900,8 @@ export default function AnnoncesPage() {
                         <Button variant="outline" size="sm" className="px-3 py-1 text-gray-500 border-gray-200">
                           90J
                         </Button>
-                      </div>
                     </div>
+                      </div>
                   </CardHeader>
                   <CardContent>
                     <ResponsiveContainer width="100%" height={200}>
@@ -922,7 +944,7 @@ export default function AnnoncesPage() {
                     </ResponsiveContainer>
                   </CardContent>
                 </Card>
-              </motion.div>
+          </motion.div>
             )}
 
             {/* Performance Metrics */}
@@ -939,7 +961,7 @@ export default function AnnoncesPage() {
                   { label: "Temps moy.", value: "2.3m", sublabel: "par session", icon: Search, iconColor: "text-green-500" },
                   { label: "Contacts", value: "156", sublabel: "ce mois", icon: Mail, iconColor: "text-pink-500" },
                 ].map((metric, index) => (
-                  <motion.div
+                  <motion.div 
                     key={metric.label}
                     variants={fadeInUp}
                     transition={{ delay: 1.1 + index * 0.1 }}
@@ -973,28 +995,28 @@ export default function AnnoncesPage() {
                             </svg>
                             <div className="absolute inset-0 flex items-center justify-center">
                               <span className="text-lg font-bold text-gray-800">{metric.value}</span>
-                            </div>
-                          </div>
-                        ) : (
+                  </div>
+                </div>
+              ) : (
                           <div className="flex items-center justify-center mb-3">
                             <metric.icon
                               className={`w-8 h-8 ${metric.iconColor || "text-primary-500"}`}
                               strokeWidth={1.5}
                             />
-                          </div>
+                  </div>
                         )}
                         <p className="text-2xl font-bold text-gray-800 mb-1">{metric.value}</p>
                         <p className="text-sm font-medium text-gray-600">{metric.label}</p>
                         <p className="text-xs text-gray-400 mt-1">{metric.sublabel}</p>
                       </CardContent>
                     </Card>
-                  </motion.div>
+          </motion.div>
                 ))}
               </motion.div>
             )}
-          </div>
         </div>
-      </div>
+            </div>
+          </div>
 
       {/* Floating Action Button */}
       <motion.button
@@ -1016,6 +1038,6 @@ export default function AnnoncesPage() {
       >
         <Share2 className="w-6 h-6" strokeWidth={1.5} />
       </motion.button>
-    </div>
+        </div>
   )
 }
