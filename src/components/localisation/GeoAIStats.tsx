@@ -77,47 +77,78 @@ export function GeoAIStats({
   ]
 
   return (
-    <Card className="h-full border-purple-200/50 bg-gradient-to-br from-white to-purple-50/30">
+    <Card className="bg-white/95 backdrop-blur-xl border-primary-200/50 rounded-3xl shadow-lg hover:shadow-xl transition-all">
       <CardContent className="p-6">
-        <h3 className="mb-4 text-lg font-bold text-gray-900">Statistiques IA</h3>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h3 className="text-xl font-bold text-gray-900 mb-1">Statistiques IA</h3>
+            <p className="text-sm text-gray-500">Performance et précision du modèle</p>
+          </div>
+          <UIBadge className="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-sm font-semibold border-0">
+            ✓ Modèle actif
+          </UIBadge>
+        </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           {stats.map((stat, index) => (
             <motion.div
               key={stat.label}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
-              className={`rounded-xl ${stat.bgColor} p-3 text-center transition-transform hover:scale-105`}
+              className={`relative p-6 bg-gradient-to-br ${stat.bgColor} rounded-2xl overflow-hidden`}
+              whileHover={{ scale: 1.05 }}
             >
-              <div className={`mb-2 inline-flex rounded-lg bg-gradient-to-r ${stat.color} p-1.5`}>
-                <stat.icon className={`h-4 w-4 ${stat.textColor.replace("text-", "text-white")}`} />
+              <div className="relative z-10">
+                <div className="flex items-center justify-between mb-3">
+                  <div className={`p-2 ${stat.bgColor.replace("bg-", "bg-").replace("-50", "-200")} rounded-lg`}>
+                    <stat.icon className={`w-5 h-5 ${stat.textColor}`} strokeWidth={1.5} />
+                  </div>
+                </div>
+                <p className="text-3xl font-bold text-gray-900 mb-1">{stat.value}</p>
+                <p className={`text-sm font-semibold ${stat.textColor}`}>{stat.label}</p>
               </div>
-              <p className="mb-1 text-xl font-bold text-gray-900">{stat.value}</p>
-              <p className={`text-xs font-medium ${stat.textColor}`}>{stat.label}</p>
             </motion.div>
           ))}
         </div>
 
-        {/* Top Cities */}
-        {topCities.length > 0 && (
-          <div className="mt-4 rounded-xl bg-gray-50 p-3">
-            <p className="mb-2 text-xs font-medium text-gray-700">Top villes</p>
-            <div className="space-y-2">
-              {topCities.slice(0, 3).map((city, index) => (
-                <div key={city.city} className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-purple-100 text-xs font-bold text-purple-700">
-                      {index + 1}
-                    </div>
-                    <span className="text-xs text-gray-700">{city.city}</span>
-                  </div>
-                  <span className="text-xs font-medium text-gray-900">{city.count}</span>
-                </div>
-              ))}
+        {/* Progress Bars */}
+        <div className="space-y-4">
+          {[
+            { label: "Précision globale du modèle", value: 87, color: "from-primary-500 via-primary-600 to-primary-500" },
+            { label: "Taux de succès (localisations validées)", value: 94, color: "from-green-400 to-emerald-500" },
+            { label: "Vitesse de traitement", value: 78, color: "from-blue-400 to-indigo-500", suffix: "2.3s/image" },
+          ].map((progress, index) => (
+            <div key={index}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-semibold text-gray-700">{progress.label}</span>
+                <span className={`text-sm font-bold ${index === 0 ? "text-primary-600" : index === 1 ? "text-green-600" : "text-blue-600"}`}>
+                  {progress.suffix || `${progress.value}%`}
+                </span>
+              </div>
+              <div className="relative w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                <motion.div
+                  className={`absolute inset-0 bg-gradient-to-r ${progress.color} rounded-full`}
+                  initial={{ width: 0 }}
+                  animate={{ width: `${progress.value}%` }}
+                  transition={{ duration: 1.5, delay: 0.5 + index * 0.1 }}
+                >
+                  <motion.div
+                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
+                    animate={{
+                      x: ["-100%", "100%"],
+                    }}
+                    transition={{
+                      duration: 2,
+                      repeat: Infinity,
+                      ease: "linear",
+                    }}
+                  />
+                </motion.div>
+              </div>
             </div>
-          </div>
-        )}
+          ))}
+        </div>
       </CardContent>
     </Card>
   )

@@ -126,7 +126,7 @@ model Tag {
 }
 
 model AnnonceScrape {
-  id             String          @id @default(cuid())
+  id             String           @id @default(cuid())
   title          String
   price          Int
   surface        Int?
@@ -152,29 +152,29 @@ model AnnonceScrape {
 }
 
 model AnnonceLocation {
-  id                 String   @id @default(cuid())
-  annonceScrapeId    String   @unique
+  id              String  @id @default(cuid())
+  annonceScrapeId String  @unique
   // Localisation validée (par l'agent)
-  address            String?
-  latitude           Float?
-  longitude          Float?
-  precisionMeters    Int?     // Précision estimée en mètres
+  address         String?
+  latitude        Float?
+  longitude       Float?
+  precisionMeters Int? // Précision estimée en mètres
 
   // Données AUTO issues du pipeline Vision/StreetView
-  autoAddress        String?
-  autoLatitude       Float?
-  autoLongitude      Float?
-  autoConfidence     Float?   // 0 à 1
-  autoSource         String?  // "EXIF" | "VISION_GEOCODING" | "MANUAL" etc.
+  autoAddress    String?
+  autoLatitude   Float?
+  autoLongitude  Float?
+  autoConfidence Float? // 0 à 1
+  autoSource     String? // "EXIF" | "VISION_GEOCODING" | "MANUAL" etc.
 
   // Logs / debug
-  visionRaw          Json?    // Payload brut (ou partiel) de Google Vision
-  geocodingCandidates Json?   // Liste d'adresses / coords candidates avec score
+  visionRaw           Json? // Payload brut (ou partiel) de Google Vision
+  geocodingCandidates Json? // Liste d'adresses / coords candidates avec score
 
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  annonceScrape      AnnonceScrape @relation(fields: [annonceScrapeId], references: [id], onDelete: Cascade)
+  annonceScrape AnnonceScrape @relation(fields: [annonceScrapeId], references: [id], onDelete: Cascade)
 
   @@map("annonce_locations")
 }
@@ -272,4 +272,17 @@ enum DemoRequestStatus {
   PENDING
   CONTACTED
   QUALIFIED
+}
+
+model UserScan {
+  id        String   @id @default(cuid())
+  userId    String
+  count     Int      @default(1)
+  hour      DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, hour])
+  @@index([userId, hour])
+  @@map("user_scans")
 }

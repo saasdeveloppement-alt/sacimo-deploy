@@ -23,12 +23,31 @@ export interface ConsolidatedResult {
 const SOURCE_PRIORITY: Record<string, number> = {
   MAPS_SCREENSHOT: 1,
   EXIF: 2,
-  STREETVIEW_VISUAL_MATCH: 3,
-  OCR_GEOCODING: 4,
-  VISION_LANDMARK: 5,
-  VISION_GEOCODING: 6,
-  AI_GEOGUESSR: 7,
-  LLM_REASONING: 8,
+  LLM_REASONING: 3, // OpenAI Vision en priorité
+  LLM_STREETVIEW: 3, // Alias pour LLM_REASONING en mode StreetView
+  STREETVIEW_VISUAL_MATCH: 4,
+  OCR_GEOCODING: 5,
+  GOOGLE_GEOCODING: 5, // Alias pour OCR_GEOCODING
+  VISION_LANDMARK: 6,
+  VISION_GEOCODING: 7,
+  VISION_CONTEXT_FALLBACK: 8, // Fallback basé sur le contexte
+  CONTEXT_FALLBACK: 8, // Alias pour VISION_CONTEXT_FALLBACK
+  AI_GEOGUESSR: 9,
+}
+
+/**
+ * Poids des sources dans le calcul de confiance final
+ * OpenAI = 60%, Reverse Geocoding = 30%, Google Vision = 10%
+ */
+const SOURCE_WEIGHT: Record<string, number> = {
+  LLM_REASONING: 0.6, // OpenAI Vision = 60%
+  MAPS_SCREENSHOT: 0.6, // Maps screenshot utilise aussi OpenAI
+  EXIF: 0.3, // EXIF + Reverse Geocoding = 30%
+  OCR_GEOCODING: 0.3, // OCR + Reverse Geocoding = 30%
+  VISION_GEOCODING: 0.1, // Google Vision = 10%
+  VISION_LANDMARK: 0.1, // Google Vision = 10%
+  STREETVIEW_VISUAL_MATCH: 0.3, // StreetView + Reverse = 30%
+  AI_GEOGUESSR: 0.1,
 }
 
 /**
@@ -76,8 +95,29 @@ export function consolidateResultsWithExplanation(
     (a, b) => b.weight - a.weight,
   )
 
-  // Calculer le score final de confiance
-  let finalConfidence = bestResult.confidence || 0.5
+  // Calculer le score final de confiance avec pondération par source
+  let baseConfidence = bestResult.confidence || 0.5
+  const sourceWeight = SOURCE_WEIGHT[bestResult.source] || 0.5
+  
+  // Appliquer le poids de la source (OpenAI 60%, Reverse 30%, Vision 10%)
+  let finalConfidence = baseConfidence * sourceWeight + (1 - sourceWeight) * 0.5
+  
+  // Si plusieurs résultats sont disponibles, faire une moyenne pondérée
+  if (results.length > 1) {
+    const weightedSum = results.reduce((sum, r) => {
+      const weight = SOURCE_WEIGHT[r.source] || 0.5
+      const confidence = r.confidence || 0.5
+      return sum + (confidence * weight)
+    }, 0)
+    const totalWeight = results.reduce((sum, r) => {
+      return sum + (SOURCE_WEIGHT[r.source] || 0.5)
+    }, 0)
+    
+    if (totalWeight > 0) {
+      // Combiner : meilleur résultat (pondéré) + moyenne pondérée des autres
+      finalConfidence = (finalConfidence * 0.7) + ((weightedSum / totalWeight) * 0.3)
+    }
+  }
 
   // Bonus si plusieurs evidences cohérentes
   if (sortedEvidences.length >= 3) {
@@ -87,12 +127,45 @@ export function consolidateResultsWithExplanation(
     finalConfidence = Math.min(0.98, finalConfidence + 0.05)
   }
 
-  // Bonus selon le type de source
+  // Bonus selon le type de source (ajusté pour OpenAI)
+  if (bestResult.source === "LLM_REASONING" && (bestResult.confidence || 0) > 0.7) {
+    finalConfidence = Math.min(0.98, finalConfidence + 0.12) // Bonus OpenAI augmenté
+  }
+  if (bestResult.source === "MAPS_SCREENSHOT" && (bestResult.confidence || 0) > 0.85) {
+    finalConfidence = Math.min(0.98, finalConfidence + 0.10) // Bonus Maps Screenshot
+  }
   if (bestResult.source === "STREETVIEW_VISUAL_MATCH" && (bestResult.confidence || 0) > 0.88) {
-    finalConfidence = Math.min(0.98, finalConfidence + 0.1)
+    finalConfidence = Math.min(0.98, finalConfidence + 0.05) // Bonus réduit pour StreetView
   }
   if (bestResult.source === "OCR_GEOCODING" && sortedEvidences.some(e => e.type === "SHOP_SIGN")) {
-    finalConfidence = Math.min(0.95, finalConfidence + 0.1)
+    finalConfidence = Math.min(0.95, finalConfidence + 0.05) // Bonus réduit pour OCR
+  }
+  
+  // Bonus supplémentaire si plusieurs résultats cohérents (améliore la confiance)
+  if (results.length >= 2) {
+    // Vérifier la cohérence des résultats (distance < 100m)
+    const distances = []
+    for (let i = 0; i < results.length - 1; i++) {
+      for (let j = i + 1; j < results.length; j++) {
+        const lat1 = results[i].latitude || 0
+        const lng1 = results[i].longitude || 0
+        const lat2 = results[j].latitude || 0
+        const lng2 = results[j].longitude || 0
+        // Distance approximative en mètres (formule Haversine simplifiée)
+        const dLat = (lat2 - lat1) * 111000 // 1 degré ≈ 111km
+        const dLng = (lng2 - lng1) * 111000 * Math.cos(lat1 * Math.PI / 180)
+        const distance = Math.sqrt(dLat * dLat + dLng * dLng)
+        distances.push(distance)
+      }
+    }
+    const avgDistance = distances.length > 0 ? distances.reduce((a, b) => a + b, 0) / distances.length : Infinity
+    if (avgDistance < 100) {
+      // Résultats très cohérents (< 100m)
+      finalConfidence = Math.min(0.98, finalConfidence + 0.08)
+    } else if (avgDistance < 500) {
+      // Résultats cohérents (< 500m)
+      finalConfidence = Math.min(0.97, finalConfidence + 0.05)
+    }
   }
 
   // Générer le résumé

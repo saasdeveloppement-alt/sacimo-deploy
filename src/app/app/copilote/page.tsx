@@ -1,12 +1,10 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import PageContainer, { fadeInUp, staggerChildren } from "@/components/ui/PageContainer"
-import SectionHeader from "@/components/ui/SectionHeader"
-import ModernCard from "@/components/ui/ModernCard"
+import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { 
   Brain, 
   Send, 
@@ -22,9 +20,14 @@ import {
   MessageSquare,
   Zap,
   Star,
-  Clock
+  Clock,
+  AlertTriangle,
+  Mail,
+  DollarSign,
+  Sparkles,
+  MessageCircle
 } from "lucide-react"
-import { motion, AnimatePresence } from "framer-motion"
+import { toast } from "sonner"
 
 interface Message {
   id: string
@@ -37,8 +40,11 @@ interface Message {
 interface QuickSuggestion {
   id: string
   text: string
-  category: 'objection' | 'email' | 'negotiation' | 'market' | 'client'
+  category: 'objection' | 'email' | 'negotiation' | 'market' | 'client' | 'pricing'
   icon: React.ReactNode
+  color: string
+  bgColor: string
+  borderColor: string
 }
 
 export default function CopilotePage() {
@@ -47,37 +53,62 @@ export default function CopilotePage() {
   const [isLoading, setIsLoading] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const quickSuggestions: QuickSuggestion[] = [
     {
       id: '1',
       text: 'Gérer une objection client',
       category: 'objection',
-      icon: <Target className="h-4 w-4" />
+      icon: <AlertTriangle className="w-5 h-5" />,
+      color: 'text-purple-700',
+      bgColor: 'from-purple-50 to-purple-100',
+      borderColor: 'border-purple-200'
     },
     {
       id: '2',
       text: 'Reformuler un email',
       category: 'email',
-      icon: <MessageSquare className="h-4 w-4" />
+      icon: <Mail className="w-5 h-5" />,
+      color: 'text-blue-700',
+      bgColor: 'from-blue-50 to-blue-100',
+      borderColor: 'border-blue-200'
     },
     {
       id: '3',
       text: 'Stratégie de négociation',
       category: 'negotiation',
-      icon: <TrendingUp className="h-4 w-4" />
+      icon: <TrendingUp className="w-5 h-5" />,
+      color: 'text-pink-700',
+      bgColor: 'from-pink-50 to-pink-100',
+      borderColor: 'border-pink-200'
     },
     {
       id: '4',
       text: 'Analyse du marché local',
       category: 'market',
-      icon: <Building2 className="h-4 w-4" />
+      icon: <Building2 className="w-5 w-5" />,
+      color: 'text-indigo-700',
+      bgColor: 'from-indigo-50 to-indigo-100',
+      borderColor: 'border-indigo-200'
     },
     {
       id: '5',
       text: 'Profilage client',
       category: 'client',
-      icon: <Users className="h-4 w-4" />
+      icon: <Users className="w-5 h-5" />,
+      color: 'text-cyan-700',
+      bgColor: 'from-cyan-50 to-cyan-100',
+      borderColor: 'border-cyan-200'
+    },
+    {
+      id: '6',
+      text: 'Estimation de prix',
+      category: 'pricing',
+      icon: <DollarSign className="w-5 h-5" />,
+      color: 'text-amber-700',
+      bgColor: 'from-amber-50 to-amber-100',
+      borderColor: 'border-amber-200'
     }
   ]
 
@@ -90,14 +121,13 @@ export default function CopilotePage() {
     const welcomeMessage: Message = {
       id: 'welcome',
       type: 'assistant',
-      content: "Bonjour ! Je suis votre Copilote IA spécialisé dans l'immobilier commercial. Je peux vous aider à gérer les objections clients, rédiger des emails, analyser le marché, et bien plus encore. Que puis-je faire pour vous aujourd'hui ?",
+      content: "Bonjour ! Je suis votre Copilote IA spécialisé dans l'immobilier commercial. Je peux vous aider à gérer vos objections clients, rédiger des emails, analyser le marché, et bien plus encore. Que puis-je faire pour vous aujourd'hui ?",
       timestamp: new Date()
     }
     setMessages([welcomeMessage])
   }, [])
 
   const scrollToBottom = () => {
-    // Utiliser setTimeout pour s'assurer que le DOM est mis à jour
     setTimeout(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
     }, 100)
@@ -162,6 +192,7 @@ export default function CopilotePage() {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
+    toast.success('Message copié dans le presse-papier')
   }
 
   const formatTime = (date: Date) => {
@@ -171,243 +202,410 @@ export default function CopilotePage() {
     })
   }
 
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSendMessage(inputValue)
+    }
+  }
+
+  const handleNewConversation = () => {
+    setMessages([])
+    const welcomeMessage: Message = {
+      id: 'welcome',
+      type: 'assistant',
+      content: "Bonjour ! Je suis votre Copilote IA spécialisé dans l'immobilier commercial. Je peux vous aider à gérer vos objections clients, rédager des emails, analyser le marché, et bien plus encore. Que puis-je faire pour vous aujourd'hui ?",
+      timestamp: new Date()
+    }
+    setMessages([welcomeMessage])
+    toast.success('Nouvelle conversation démarrée')
+  }
+
   return (
-    <PageContainer>
-      {/* Header */}
-      <SectionHeader
-        title="Copilote IA"
-        subtitle="Votre assistant commercial intelligent pour l'immobilier"
-        icon={<Brain className="h-8 w-8 text-purple-600" />}
-        action={
-          <div className="flex gap-2">
-            <Button 
-              variant="outline"
-              onClick={() => setMessages([])}
-              className="border-slate-200 hover:border-purple-300 hover:text-purple-600"
-            >
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Nouvelle conversation
-            </Button>
-            <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200">
-              <Star className="mr-2 h-4 w-4" />
-              Favoris
-            </Button>
-          </div>
-        }
-      />
+    <div className="min-h-screen bg-gray-50 relative overflow-hidden">
+      {/* Floating Background Orbs */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+        <motion.div
+          className="absolute top-20 left-10 w-96 h-96 bg-primary-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20"
+          animate={{
+            y: [0, -20, 0],
+            scale: [1, 1.1, 1],
+          }}
+          transition={{
+            duration: 6,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        />
+        <motion.div
+          className="absolute top-40 right-10 w-96 h-96 bg-primary-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20"
+          animate={{
+            y: [0, 20, 0],
+            scale: [1, 1.2, 1],
+          }}
+          transition={{
+            duration: 8,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: 2,
+          }}
+        />
+        <motion.div
+          className="absolute bottom-20 left-1/3 w-96 h-96 bg-primary-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20"
+          animate={{
+            y: [0, -15, 0],
+            scale: [1, 1.15, 1],
+          }}
+          transition={{
+            duration: 7,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: 4,
+          }}
+        />
+      </div>
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-        <div className="max-w-7xl mx-auto space-y-8">
-          {/* Suggestions rapides */}
-          <motion.div variants={fadeInUp}>
-            <ModernCard
-              title="Suggestions Rapides"
-              icon={<Lightbulb className="h-5 w-5 text-purple-600" />}
-            >
-              <div className="space-y-4">
-                {/* Filtres par catégorie */}
-                <div className="flex flex-wrap gap-2">
+      <div className="relative z-10 min-h-screen">
+        {/* Header */}
+        <header className="bg-white/95 backdrop-blur-xl border-b border-gray-200 sticky top-0 z-50">
+          <div className="max-w-6xl mx-auto px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <motion.div
+                  className="p-2 bg-gradient-to-br from-primary-600 via-primary-700 to-primary-800 rounded-xl"
+                  animate={{
+                    scale: [1, 1.1, 1],
+                  }}
+                  transition={{
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
+                >
+                  <Brain className="w-8 h-8 text-white" strokeWidth={1.5} />
+                </motion.div>
+                <div>
+                  <h1 className="text-2xl font-bold bg-gradient-to-r from-primary-600 to-primary-700 bg-clip-text text-transparent">
+                    Copilote IA
+                  </h1>
+                  <p className="text-sm text-gray-600">Votre assistant commercial intelligent pour l'immobilier</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3">
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                   <Button
-                    variant={selectedCategory === null ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setSelectedCategory(null)}
-                    className={selectedCategory === null ? "bg-purple-600 hover:bg-purple-700" : "border-slate-200 hover:border-purple-300"}
+                    variant="outline"
+                    onClick={handleNewConversation}
+                    className="border-gray-300 hover:bg-gray-50 transition-all font-medium"
                   >
-                    Toutes
+                    <RefreshCw className="mr-2 h-4 w-4" strokeWidth={1.5} />
+                    Nouvelle conversation
                   </Button>
-                  {['objection', 'email', 'negotiation', 'market', 'client'].map(category => (
-                    <Button
-                      key={category}
-                      variant={selectedCategory === category ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setSelectedCategory(category === selectedCategory ? null : category)}
-                      className={selectedCategory === category ? "bg-purple-600 hover:bg-purple-700" : "border-slate-200 hover:border-purple-300"}
-                    >
-                      {category === 'objection' && 'Objections'}
-                      {category === 'email' && 'Emails'}
-                      {category === 'negotiation' && 'Négociation'}
-                      {category === 'market' && 'Marché'}
-                      {category === 'client' && 'Clients'}
-                    </Button>
-                  ))}
-                </div>
-
-                {/* Suggestions */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {filteredSuggestions.map((suggestion) => (
-                    <motion.div
-                      key={suggestion.id}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      <Button
-                        variant="outline"
-                        className="w-full h-auto p-4 justify-start text-left border-slate-200 hover:border-purple-300 hover:bg-purple-50 transition-all duration-200"
-                        onClick={() => handleQuickSuggestion(suggestion)}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-lg bg-purple-100 text-purple-600">
-                            {suggestion.icon}
-                          </div>
-                          <span className="font-medium">{suggestion.text}</span>
-                        </div>
-                      </Button>
-                    </motion.div>
-                  ))}
-                </div>
+                </motion.div>
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Button className="bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white rounded-xl shadow-lg hover:shadow-xl transition-all font-medium">
+                    <Star className="mr-2 h-4 w-4" strokeWidth={1.5} />
+                    Favoris
+                  </Button>
+                </motion.div>
               </div>
-            </ModernCard>
-          </motion.div>
+            </div>
+          </div>
+        </header>
 
-          {/* Chat Interface */}
-          <motion.div variants={fadeInUp} className="min-w-0">
-            <div className="bg-white/80 backdrop-blur-sm border-slate-200/60 shadow-lg rounded-lg h-[600px] flex flex-col overflow-hidden">
-              {/* Header */}
-              <div className="px-6 py-4 border-b border-slate-200/60">
-                <div className="flex items-center gap-2 text-lg font-semibold text-slate-800">
-                  <MessageSquare className="h-5 w-5 text-blue-600" />
-                  Conversation
-                </div>
+        <main className="max-w-6xl mx-auto px-6 py-8">
+          {/* Quick Suggestions */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="bg-white/95 backdrop-blur-xl border-primary-200/50 rounded-3xl p-6 mb-6 shadow-lg"
+          >
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="p-2 bg-primary-100 rounded-xl">
+                <Lightbulb className="w-5 h-5 text-primary-600" strokeWidth={1.5} />
               </div>
-              
-              {/* Messages - Zone scrollable */}
-              <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4" style={{ WebkitOverflowScrolling: 'touch' }}>
-                <AnimatePresence>
-                  {messages.map((message) => (
-                    <motion.div
-                      key={message.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -20 }}
-                      transition={{ duration: 0.3 }}
-                      className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
-                    >
-                      <div className={`max-w-[80%] min-w-0 rounded-2xl p-4 ${
-                        message.type === 'user' 
-                          ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white' 
-                          : 'bg-slate-100 text-slate-900'
-                      }`}>
-                        <div className="flex items-start gap-3 min-w-0">
-                          {message.type === 'assistant' && (
-                            <div className="p-2 rounded-lg bg-purple-100 text-purple-600 flex-shrink-0 mt-1">
-                              <Brain className="h-4 w-4" />
-                            </div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <div className="whitespace-pre-wrap break-words text-sm leading-relaxed overflow-wrap-anywhere">
-                              {message.content}
-                            </div>
-                            <div className={`flex items-center justify-between mt-2 text-xs ${
-                              message.type === 'user' ? 'text-purple-100' : 'text-slate-500'
-                            }`}>
-                              <span>{formatTime(message.timestamp)}</span>
-                              {message.type === 'assistant' && (
-                                <div className="flex gap-1">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => copyToClipboard(message.content)}
-                                    className="h-6 w-6 p-0 hover:bg-slate-200"
-                                  >
-                                    <Copy className="h-3 w-3" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 w-6 p-0 hover:bg-slate-200"
-                                  >
-                                    <ThumbsUp className="h-3 w-3" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 w-6 p-0 hover:bg-slate-200"
-                                  >
-                                    <ThumbsDown className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-                
-                {isLoading && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex justify-start"
-                  >
-                    <div className="bg-slate-100 rounded-2xl p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-purple-100 text-purple-600">
-                          <Brain className="h-4 w-4" />
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" />
-                          <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
-                          <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
-                        </div>
+              <h2 className="text-lg font-bold text-gray-900">Suggestions Rapides</h2>
+            </div>
+
+            {/* Category Tabs */}
+            <div className="flex items-center space-x-2 mb-4 overflow-x-auto pb-2">
+              <Button
+                variant={selectedCategory === null ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedCategory(null)}
+                className={selectedCategory === null 
+                  ? "bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white rounded-xl font-medium whitespace-nowrap shadow-lg" 
+                  : "bg-gray-100 text-gray-700 rounded-xl font-medium whitespace-nowrap hover:bg-gray-200 border-gray-200"
+                }
+              >
+                Toutes
+              </Button>
+              {[
+                { key: 'objection', label: 'Objections' },
+                { key: 'email', label: 'Emails' },
+                { key: 'negotiation', label: 'Négociation' },
+                { key: 'market', label: 'Marché' },
+                { key: 'client', label: 'Clients' },
+                { key: 'pricing', label: 'Prix' }
+              ].map(category => (
+                <Button
+                  key={category.key}
+                  variant={selectedCategory === category.key ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedCategory(category.key === selectedCategory ? null : category.key)}
+                  className={selectedCategory === category.key
+                    ? "bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white rounded-xl font-medium whitespace-nowrap shadow-lg"
+                    : "bg-gray-100 text-gray-700 rounded-xl font-medium whitespace-nowrap hover:bg-gray-200 border-gray-200"
+                  }
+                >
+                  {category.label}
+                </Button>
+              ))}
+            </div>
+
+            {/* Suggestion Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredSuggestions.map((suggestion) => (
+                <motion.button
+                  key={suggestion.id}
+                  onClick={() => handleQuickSuggestion(suggestion)}
+                  className={`text-left p-4 bg-gradient-to-br ${suggestion.bgColor} rounded-xl border-2 ${suggestion.borderColor} hover:shadow-lg transition-all`}
+                  whileHover={{ y: -2, scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <div className="flex items-center space-x-3 mb-2">
+                    <div className={`p-2 bg-opacity-50 rounded-lg ${suggestion.color.replace('text-', 'bg-').replace('-700', '-200')}`}>
+                      <div className={suggestion.color}>
+                        {suggestion.icon}
                       </div>
                     </div>
-                  </motion.div>
-                )}
-                <div ref={messagesEndRef} />
-              </div>
-
-              {/* Input */}
-              <div className="border-t border-slate-200 p-4">
-                <div className="flex gap-3">
-                  <Input
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    placeholder="Posez une question au Copilote IA…"
-                    className="flex-1 border-slate-200 focus:border-purple-300 focus:ring-purple-200"
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault()
-                        handleSendMessage(inputValue)
-                      }
-                    }}
-                  />
-                  <Button
-                    onClick={() => handleSendMessage(inputValue)}
-                    disabled={!inputValue.trim() || isLoading}
-                    className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50"
-                  >
-                    {isLoading ? (
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Send className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-                <p className="text-xs text-slate-500 mt-2">
-                  Appuyez sur Entrée pour envoyer, Maj+Entrée pour une nouvelle ligne
-                </p>
-              </div>
+                    <span className="font-semibold text-gray-900">{suggestion.text}</span>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    {suggestion.category === 'objection' && 'Comment répondre aux préoccupations courantes'}
+                    {suggestion.category === 'email' && 'Améliorer le ton et la clarté de vos messages'}
+                    {suggestion.category === 'negotiation' && 'Conseils pour négocier efficacement'}
+                    {suggestion.category === 'market' && 'Obtenir des insights sur votre zone'}
+                    {suggestion.category === 'client' && 'Mieux comprendre les besoins clients'}
+                    {suggestion.category === 'pricing' && 'Évaluer la valeur d\'un bien'}
+                  </p>
+                </motion.button>
+              ))}
             </div>
           </motion.div>
 
-          {/* Historique des conversations */}
-          <motion.div variants={fadeInUp}>
-            <ModernCard
-              title="Historique des Conversations"
-              icon={<Clock className="h-5 w-5 text-cyan-600" />}
-            >
-              <div className="text-center py-8 text-slate-500">
-                <Clock className="h-12 w-12 text-slate-400 mx-auto mb-4" />
-                <p className="text-lg font-medium">Aucune conversation sauvegardée</p>
-                <p className="text-sm">Vos conversations seront sauvegardées ici</p>
+          {/* Conversation Area */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="bg-white/95 backdrop-blur-xl border-primary-200/50 rounded-3xl p-6 mb-6 shadow-lg"
+          >
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="p-2 bg-blue-100 rounded-xl">
+                <MessageSquare className="w-5 h-5 text-blue-600" strokeWidth={1.5} />
               </div>
-            </ModernCard>
+              <h2 className="text-lg font-bold text-gray-900">Conversation</h2>
+            </div>
+
+            {/* Messages */}
+            <div className="mb-6 max-h-[500px] overflow-y-auto pr-2 space-y-4">
+              <AnimatePresence>
+                {messages.map((message) => (
+                  <motion.div
+                    key={message.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.4 }}
+                    className={`flex items-start space-x-3 ${message.type === 'user' ? 'justify-end flex-row-reverse' : 'justify-start'}`}
+                  >
+                    {message.type === 'assistant' && (
+                      <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-primary-600 to-primary-700 rounded-full flex items-center justify-center shadow-md">
+                        <Brain className="w-5 h-5 text-white" strokeWidth={1.5} />
+                      </div>
+                    )}
+                    <div className={`flex-1 max-w-[80%] ${message.type === 'user' ? 'flex flex-col items-end' : ''}`}>
+                      <div className={`rounded-2xl p-4 ${
+                        message.type === 'user'
+                          ? 'bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-tr-sm'
+                          : 'bg-gradient-to-r from-primary-50 to-blue-50 border border-primary-200 rounded-tl-sm'
+                      }`}>
+                        <p className="text-gray-800 leading-relaxed whitespace-pre-wrap break-words">
+                          {message.content}
+                        </p>
+                      </div>
+                      <div className={`flex items-center space-x-4 mt-2 ${message.type === 'user' ? 'flex-row-reverse' : ''}`}>
+                        <span className="text-xs text-gray-400">{formatTime(message.timestamp)}</span>
+                        {message.type === 'assistant' && (
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => copyToClipboard(message.content)}
+                              className="h-6 w-6 p-0 text-gray-400 hover:text-primary-600"
+                            >
+                              <Copy className="h-3 w-3" strokeWidth={1.5} />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 text-gray-400 hover:text-primary-600"
+                            >
+                              <ThumbsUp className="h-3 w-3" strokeWidth={1.5} />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 text-gray-400 hover:text-primary-600"
+                            >
+                              <ThumbsDown className="h-3 w-3" strokeWidth={1.5} />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+
+              {isLoading && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex items-start space-x-3"
+                >
+                  <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-primary-600 to-primary-700 rounded-full flex items-center justify-center">
+                    <Brain className="w-5 h-5 text-white" strokeWidth={1.5} />
+                  </div>
+                  <div className="bg-gradient-to-r from-primary-50 to-blue-50 border border-primary-200 rounded-2xl rounded-tl-sm p-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-primary-400 rounded-full animate-bounce" />
+                      <div className="w-2 h-2 bg-primary-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
+                      <div className="w-2 h-2 bg-primary-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Chat Input */}
+            <div className="relative">
+              <Textarea
+                ref={textareaRef}
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleKeyPress}
+                placeholder="Posez une question au Copilote IA..."
+                className="w-full p-4 pr-14 border-2 border-gray-200 rounded-2xl resize-none focus:border-primary-400 focus:ring-2 focus:ring-primary-200 transition-all min-h-[100px]"
+                rows={3}
+              />
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Button
+                  onClick={() => handleSendMessage(inputValue)}
+                  disabled={!inputValue.trim() || isLoading}
+                  className="absolute bottom-4 right-4 p-3 bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50"
+                >
+                  {isLoading ? (
+                    <RefreshCw className="w-5 h-5 animate-spin" strokeWidth={1.5} />
+                  ) : (
+                    <Send className="w-5 h-5" strokeWidth={1.5} />
+                  )}
+                </Button>
+              </motion.div>
+            </div>
+            <p className="text-xs text-gray-400 mt-2 text-center">
+              Appuyez sur Entrée pour envoyer, Maj+Entrée pour une nouvelle ligne
+            </p>
           </motion.div>
+
+          {/* Conversation History */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+            className="bg-white/95 backdrop-blur-xl border-primary-200/50 rounded-3xl p-6 shadow-lg"
+          >
+            <div className="flex items-center space-x-3 mb-6">
+              <div className="p-2 bg-indigo-100 rounded-xl">
+                <Clock className="w-5 h-5 text-indigo-600" strokeWidth={1.5} />
+              </div>
+              <h2 className="text-lg font-bold text-gray-900">Historique des Conversations</h2>
+            </div>
+
+            {/* Empty State */}
+            <div className="text-center py-12">
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", delay: 0.4 }}
+                className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full mb-4"
+              >
+                <Clock className="w-10 h-10 text-gray-400" strokeWidth={1.5} />
+              </motion.div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Aucune conversation sauvegardée</h3>
+              <p className="text-sm text-gray-500 mb-4">Vos conversations seront sauvegardées ici</p>
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Button
+                  onClick={handleNewConversation}
+                  className="px-6 py-3 bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white rounded-xl shadow-lg hover:shadow-xl transition-all font-medium"
+                >
+                  <Sparkles className="mr-2 h-4 w-4" strokeWidth={1.5} />
+                  Commencer une nouvelle conversation
+                </Button>
+              </motion.div>
+            </div>
+          </motion.div>
+        </main>
+      </div>
+
+      {/* AI Status Indicator */}
+      <motion.div
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.5 }}
+        className="fixed bottom-8 left-8 bg-white/95 backdrop-blur-xl border-primary-200/50 rounded-full px-4 py-3 shadow-lg z-50 flex items-center space-x-3"
+      >
+        <div className="relative">
+          <div className="w-3 h-3 bg-green-500 rounded-full" />
+          <motion.div
+            className="absolute inset-0 w-3 h-3 bg-green-500 rounded-full"
+            animate={{
+              scale: [1, 2, 1],
+              opacity: [1, 0, 1],
+            }}
+            transition={{
+              duration: 2,
+              repeat: Infinity,
+              ease: "easeOut",
+            }}
+          />
         </div>
-      </main>
-    </PageContainer>
+        <span className="text-sm font-semibold text-gray-700">IA Active</span>
+      </motion.div>
+
+      {/* Floating Chat Button */}
+      <motion.button
+        className="fixed bottom-8 right-8 w-14 h-14 bg-gradient-to-br from-primary-600 to-primary-700 text-white rounded-full shadow-2xl z-50 flex items-center justify-center"
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        animate={{
+          boxShadow: [
+            "0 0 20px rgba(124, 92, 219, 0.4)",
+            "0 0 40px rgba(124, 92, 219, 0.6)",
+            "0 0 20px rgba(124, 92, 219, 0.4)",
+          ],
+        }}
+        transition={{
+          duration: 3,
+          repeat: Infinity,
+          ease: "easeInOut",
+        }}
+      >
+        <MessageCircle className="w-6 h-6" strokeWidth={1.5} />
+      </motion.button>
+    </div>
   )
 }

@@ -1,3 +1,10 @@
+/**
+ * ⚠️ MELO.AI DÉSACTIVÉ
+ * Ce service est désactivé. Utilisez MoteurImmo comme provider.
+ * Tous les appels sont protégés par MELO_DISABLED.
+ */
+
+import { MELO_DISABLED, assertMeloDisabled } from "@/lib/melo-disabled";
 import { LeBonCoinAnnonce } from '../scrapers/leboncoin-zenrows'
 
 interface MeloSearchParams {
@@ -114,6 +121,9 @@ export class MeloService {
   }
 
   async searchAnnonces(params: MeloSearchParams): Promise<LeBonCoinAnnonce[]> {
+    // Protection: vérifier si Melo est désactivé
+    assertMeloDisabled("MeloService.searchAnnonces");
+    
     if (!this.apiKey) {
       throw new Error('❌ MELO_API_KEY non configurée ! Le scraping ne peut pas fonctionner.')
     }
@@ -215,6 +225,8 @@ export class MeloService {
    * Boucle simple : tant que hydra:next existe, on continue à fetch
    */
   async searchAnnoncesWithPagination(params: MeloSearchParams): Promise<LeBonCoinAnnonce[]> {
+    // Protection: vérifier si Melo est désactivé
+    assertMeloDisabled("MeloService.searchAnnoncesWithPagination");
     console.log(`🚀 searchAnnoncesWithPagination APPELÉE`)
     console.log(`📥 Paramètres reçus:`, JSON.stringify(params, null, 2))
     

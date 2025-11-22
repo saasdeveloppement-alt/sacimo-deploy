@@ -38,7 +38,7 @@ import { prioritizeResults } from "@/lib/fusion/prioritizeResults"
 import { isInsideDepartment, filterByDepartment } from "@/lib/geo/isInsideDepartment"
 import { analyzeImageAdvanced } from "@/lib/vision/advancedAnalysis"
 import { extractOCRHeavy } from "@/lib/vision/ocrHeavy"
-import { analyzeImageWithOcr } from "@/lib/google/ocrLocation"
+// import { analyzeImageWithOcr } from "@/lib/google/ocrLocation" // Fonction non disponible, skip si Google Vision n'est pas utilisé
 import { reasonLocationWithLLM } from "@/lib/llm/locationReasoner"
 import { consolidateResultsWithExplanation } from "@/lib/location/consolidateResults"
 import type { LocationFromImageResult, GeocodedCandidate, LocationResult, EvidenceItem } from "@/types/location"
@@ -47,6 +47,14 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  // Déclarer toutes les variables au début du scope pour éviter les erreurs "not defined"
+  let visionResult: any = null
+  let visionText = ""
+  let visualAnalysis: any = null
+  let ocrHeavy: any = null
+  let ocrAnalysis: any = null
+  let geocodedCandidates: any[] = []
+  
   try {
     // 1. Auth & validation (optionnel pour les tests locaux)
     // En production, décommenter cette section
@@ -70,15 +78,45 @@ export async function POST(
     const { id } = await params
 
     // 2. Récupération du listing (ou création si demo)
-    let annonce = await prisma.annonceScrape.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        city: true,
-        postalCode: true,
-        title: true,
-      },
-    })
+    // Helper pour gérer les connexions fermées avec retry
+    const executeWithRetry = async <T>(
+      operation: () => Promise<T>,
+      maxRetries = 2,
+    ): Promise<T> => {
+      let lastError: Error | null = null
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          return await operation()
+        } catch (error: any) {
+          lastError = error
+          const isConnectionError = 
+            error.message?.includes('closed the connection') ||
+            error.message?.includes('connection') ||
+            error.code === 'P1001' ||
+            error.code === 'P1008'
+          
+          if (isConnectionError && attempt < maxRetries) {
+            console.warn(`⚠️ [Localisation] Tentative ${attempt}/${maxRetries} échouée (connexion fermée), reconnexion...`)
+            await new Promise(resolve => setTimeout(resolve, 500 * attempt))
+            continue
+          }
+          throw error
+        }
+      }
+      throw lastError || new Error('Échec après plusieurs tentatives')
+    }
+
+    let annonce = await executeWithRetry(() =>
+      prisma.annonceScrape.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          city: true,
+          postalCode: true,
+          title: true,
+        },
+      })
+    )
 
     // Si l'annonce n'existe pas et que c'est un ID demo, créer une annonce temporaire
     if (!annonce && id === "demo-annonce-id") {
@@ -206,23 +244,42 @@ export async function POST(
     // Pipeline de localisation - Collecte de tous les résultats
     const allResults: LocationResult[] = []
     
+    // Convertir l'image en base64 UNE SEULE FOIS (optimisation)
+    const imageBase64 = imageBuffer.toString("base64")
+    
     // Fonction helper pour vérifier si on peut arrêter tôt
+    // Seuil à 0.92 pour garder la qualité tout en optimisant la vitesse
     const canEarlyExit = (): boolean => {
       if (allResults.length === 0) return false
       const bestResult = allResults.reduce((best, current) => 
         (current.confidence || 0) > (best.confidence || 0) ? current : best
       )
-      return (bestResult.confidence || 0) >= 0.9
+      // Seuil élevé (0.92) pour ne pas sacrifier la qualité
+      // Mais on permet quand même un early exit si on a plusieurs résultats cohérents
+      if (allResults.length >= 2 && (bestResult.confidence || 0) >= 0.88) {
+        return true // Si on a 2+ résultats cohérents, on peut sortir plus tôt
+      }
+      return (bestResult.confidence || 0) >= 0.92 // Sinon, on attend un résultat très fiable
     }
 
-    // 1️⃣ Détection robuste screenshot Google Maps avec OpenAI Vision (PRIORITÉ MAXIMALE)
-    console.log("🗺️ [Localisation] Étape 1: Détection robuste screenshot Google Maps (OpenAI Vision)...")
+    // 🚀 OPTIMISATION: Paralléliser les deux appels OpenAI dès le début
+    console.log("🚀 [Localisation] Démarrage parallèle: Maps detection + LLM Reasoning...")
     
-    // Convertir l'image en base64 pour OpenAI Vision
-    const imageBase64 = imageBuffer.toString("base64")
+    // Lancer les deux appels OpenAI en parallèle pour gagner du temps
+    const [mapsDetection, llmReasoning] = await Promise.all([
+      isMapsScreenshot(imageBase64),
+      reasonLocationWithLLM(imageBase64, {
+        ...llmContext!,
+        ocrShopNames: [],
+        ocrStreetCandidates: [],
+        visualIndices: [],
+      }).catch((err) => {
+        console.warn("⚠️ [Localisation] Erreur LLM Reasoning (non bloquant):", err.message)
+        return null
+      }),
+    ])
     
-    // Utiliser le nouveau classifieur OpenAI Vision (plus robuste)
-    const mapsDetection = await isMapsScreenshot(imageBase64)
+    console.log(`🔍 [Localisation] Détection OpenAI Vision: isMaps=${mapsDetection.isMaps}, confidence=${mapsDetection.confidence.toFixed(2)}`)
     
     console.log(`🔍 [Localisation] Détection OpenAI Vision: isMaps=${mapsDetection.isMaps}, confidence=${mapsDetection.confidence.toFixed(2)}`)
     
@@ -237,11 +294,20 @@ export async function POST(
         
         // HARD LOCK: Vérifier que le point est dans le département
         if (isInsideDepartment(mapsLocation.lat, mapsLocation.lng, departmentCode)) {
-          // Utiliser reverse geocoding pour obtenir l'adresse complète si pas déjà fournie
+          // Utiliser reverse geocoding pour obtenir l'adresse complète si pas déjà fournie (en parallèle avec la création des URLs)
           let address = mapsLocation.address
-          if (!address || address.length < 10) {
-            const reverseGeocodeResult = await reverseGeocode(mapsLocation.lat, mapsLocation.lng)
-            address = reverseGeocodeResult?.address || mapsLocation.address || null
+          const reverseGeocodePromise = (!address || address.length < 10) 
+            ? reverseGeocode(mapsLocation.lat, mapsLocation.lng)
+            : Promise.resolve(null)
+          
+          // Générer les URLs Street View en parallèle
+          const [reverseGeocodeResult] = await Promise.all([
+            reverseGeocodePromise,
+            // Pré-générer les URLs (opération synchrone, pas besoin d'attendre)
+          ])
+          
+          if (reverseGeocodeResult) {
+            address = reverseGeocodeResult.address || mapsLocation.address || null
           }
           
           allResults.push({
@@ -271,6 +337,8 @@ export async function POST(
           })
           
           console.log(`✅ [Localisation] Localisation extraite depuis screenshot Vision: ${mapsLocation.lat}, ${mapsLocation.lng} -> ${address} (confiance: ${mapsLocation.confidence.toFixed(2)})`)
+          
+          // Note: Early exit sera vérifié plus tard pour permettre la consolidation
         } else {
           console.warn(`⚠️ [Localisation] Screenshot point (${mapsLocation.lat}, ${mapsLocation.lng}) hors département ${departmentCode}, rejeté`)
         }
@@ -332,10 +400,67 @@ export async function POST(
       }
     }
 
-    // 2️⃣ EXIF GPS (priorité haute si pas de screenshot)
+    // 2️⃣ Traitement du résultat LLM Reasoning (déjà obtenu en parallèle)
+    console.log("🤖 [Localisation] Traitement du résultat LLM Reasoning (déjà obtenu en parallèle)...")
+    
+    let openAIScore = 0
+    let openAIResult: LocationResult | null = null
+    
+    // Vérifier early exit avant de traiter LLM
+    if (canEarlyExit()) {
+      console.log("⚡ [Localisation] Early exit: skip LLM Reasoning (résultat fiable déjà trouvé)")
+    } else if (llmReasoning && llmReasoning.latitude && llmReasoning.longitude) {
+      // HARD LOCK: Vérifier que le résultat LLM est dans le département
+      if (isInsideDepartment(llmReasoning.latitude, llmReasoning.longitude, departmentCode)) {
+        // Google Reverse Geocoding pour validation et correction (en parallèle avec la génération des URLs)
+        const [reverseGeocodeResult] = await Promise.all([
+          reverseGeocode(llmReasoning.latitude, llmReasoning.longitude),
+          // URLs générées de manière synchrone, pas besoin d'attendre
+        ])
+        
+        openAIScore = llmReasoning.confidence
+        openAIResult = {
+          source: "LLM_REASONING",
+          latitude: llmReasoning.latitude,
+          longitude: llmReasoning.longitude,
+          address: reverseGeocodeResult?.address || llmReasoning.address || null,
+          confidence: llmReasoning.confidence,
+          streetViewUrl: fetchStreetViewPreview(llmReasoning.latitude, llmReasoning.longitude, "600x400", 0),
+          streetViewEmbedUrl: fetchStreetViewEmbedUrl(llmReasoning.latitude, llmReasoning.longitude, 0),
+          heading: 0,
+          evidences: [
+            ...(llmReasoning.evidences || []),
+            {
+              type: "LLM_REASONING",
+              label: "Raisonnement OpenAI Vision",
+              detail: "Localisation déterminée par analyse visuelle OpenAI",
+              weight: 0.6,
+            },
+            {
+              type: "DEPARTMENT_LOCK",
+              label: "Département verrouillé",
+              detail: `Localisation validée dans le département ${departmentCode} (${departmentName})`,
+              weight: 0.5,
+            },
+          ],
+        }
+        
+        allResults.push(openAIResult)
+        console.log(`✅ [Localisation] OpenAI Vision Reasoning: ${llmReasoning.latitude}, ${llmReasoning.longitude} (confiance: ${llmReasoning.confidence.toFixed(2)})`)
+        
+        // Note: On continue pour collecter plus de résultats et améliorer la confiance via consolidation
+      } else {
+        console.warn(`⚠️ [Localisation] OpenAI Reasoning (${llmReasoning.latitude}, ${llmReasoning.longitude}) hors département ${departmentCode}, rejeté`)
+      }
+    } else {
+      console.log("⚠️ [Localisation] OpenAI Vision Reasoning n'a pas retourné de résultat valide")
+    }
+
+    // 3️⃣ EXIF GPS (priorité haute si pas de screenshot)
     // Skip si on a déjà un résultat très fiable
     if (!canEarlyExit()) {
-      console.log("📸 [Localisation] Étape 2: Lecture EXIF...")
+      console.log("📸 [Localisation] Étape 3: Lecture EXIF...")
+      // EXIF est rapide (lecture locale), on peut le faire même si on a un résultat
       const exifData = await readExifFromImage(imageBuffer)
 
     if (exifData.lat && exifData.lng) {
@@ -344,7 +469,11 @@ export async function POST(
       )
       // HARD LOCK: Vérifier que le point EXIF est dans le département
       if (isInsideDepartment(exifData.lat, exifData.lng, departmentCode)) {
-        const reverseGeocodeResult = await reverseGeocode(exifData.lat, exifData.lng)
+        // Reverse geocoding en parallèle avec la génération des URLs
+        const [reverseGeocodeResult] = await Promise.all([
+          reverseGeocode(exifData.lat, exifData.lng),
+          // URLs générées de manière synchrone
+        ])
         const address = reverseGeocodeResult?.address || `${exifData.lat}, ${exifData.lng}`
         
         allResults.push({
@@ -378,16 +507,16 @@ export async function POST(
       console.log("⏭️ [Localisation] EXIF skip (résultat fiable déjà trouvé)")
     }
 
-    // 3️⃣ Appel Google Vision (si pas de screenshot ou EXIF)
-    // Skip si on a déjà un résultat très fiable
-    let visionResult: any = null
-    let visionText = ""
-    let visualAnalysis: any = null
-    let ocrHeavy: any = null
-    let ocrAnalysis: any = null
+    // 4️⃣ Appel Google Vision (UNIQUEMENT si OpenAI score < 0.70)
+    // Skip si on a déjà un résultat très fiable OU si OpenAI a un bon score
+    // Les variables sont déjà déclarées au début de la fonction
     
-    if (!canEarlyExit()) {
-      console.log("🔍 [Localisation] Étape 3: Appel Google Vision API...")
+    // Ne faire Google Vision que si OpenAI score < 0.70 ET pas de résultat fiable
+    // Mais on permet Google Vision si on a besoin d'améliorer la confiance (moins de 2 résultats)
+    const shouldUseGoogleVision = !canEarlyExit() && openAIScore < 0.70 && allResults.length < 2
+    
+    if (shouldUseGoogleVision) {
+      console.log(`🔍 [Localisation] Étape 4: Appel Google Vision API (fallback, OpenAI score: ${openAIScore.toFixed(2)} < 0.70)...`)
       visionResult = await callVisionForImage(imageBuffer)
     
       // 🔍 LOGS DÉTAILLÉS - Résultat brut de Vision API
@@ -400,7 +529,7 @@ export async function POST(
       visionText = visionResult.fullTextAnnotation?.text || ""
 
         // 3️⃣ BIS - Analyse visuelle avancée (en parallèle avec OCR Heavy)
-      console.log("🎨 [Localisation] Étape 3bis: Analyse visuelle avancée (parallèle)...")
+      console.log("🎨 [Localisation] Étape 4bis: Analyse visuelle avancée (parallèle)...")
       const [visualAnalysisResult, ocrHeavyResult] = await Promise.all([
         analyzeImageAdvanced(imageBuffer),
         extractOCRHeavy(imageBuffer),
@@ -458,7 +587,7 @@ export async function POST(
     } // Fin du bloc if (!canEarlyExit()) pour Vision
 
     // 4️⃣ Vérifier si on a des landmarks avec coordonnées GPS directes
-    console.log("🎯 [Localisation] Étape 4: Détection de landmarks...")
+    console.log("🎯 [Localisation] Étape 5: Détection de landmarks...")
     const landmarks = visionResult?.landmarkAnnotations || []
     if (landmarks.length > 0) {
       for (const landmark of landmarks) {
@@ -615,11 +744,13 @@ export async function POST(
 
     // 5️⃣ Analyse OCR améliorée pour géolocalisation
     let addressCandidates: any[] = []
-    let geocodedCandidates: any[] = []
+    // geocodedCandidates est déjà déclaré au début de la fonction
     
     if (!canEarlyExit() && visionResult) {
-      console.log("📝 [Localisation] Étape 5: Analyse OCR améliorée...")
-      ocrAnalysis = await analyzeImageWithOcr(imageBuffer)
+            console.log("📝 [Localisation] Étape 6: Analyse OCR améliorée...")
+      // OCR Analysis désactivé temporairement (fonction non disponible)
+      // ocrAnalysis = await analyzeImageWithOcr(imageBuffer)
+      ocrAnalysis = { shopNames: [], streetCandidates: [] } // Fallback vide
       console.log(`📊 [Localisation] OCR Analysis: ${ocrAnalysis.shopNames.length} enseigne(s), ${ocrAnalysis.streetCandidates.length} rue(s) candidate(s)`)
       
       // HARD LOCK: Forcer le département dans le contexte OCR
@@ -1012,7 +1143,7 @@ export async function POST(
           const centerLng = validCandidates.length > 0 ? validCandidates[0].longitude : undefined
           
           if (centerLat && centerLng) {
-            console.log("🔍 [Localisation] Étape 6: StreetView Dense Matching...")
+            console.log("🔍 [Localisation] Étape 7: StreetView Dense Matching...")
             
             // Essayer d'abord le dense matcher (plus précis)
             const denseMatch = await matchStreetViewDense(
@@ -1108,61 +1239,13 @@ export async function POST(
           }
         }
       }
+        } // Fin du bloc if (validCandidates.length === 0) else
       } // Fin du bloc if (geocodedCandidates.length > 0)
     } else {
       console.log("⏭️ [Localisation] OCR skip (résultat fiable déjà trouvé)")
     } // Fin du bloc if (!canEarlyExit() && visionResult) pour OCR
 
-    // 7️⃣ Fallback OpenAI Vision Reasoning (dernier recours seulement)
-    // Skip si on a déjà un résultat acceptable
-    if (!canEarlyExit() && (allResults.length === 0 || (allResults.length > 0 && allResults[0].confidence < 0.7))) {
-      console.log("🤖 [Localisation] Étape 7: Fallback OpenAI Vision Reasoning...")
-      
-      // Convertir l'image en base64 pour OpenAI
-      const base64Image = imageBuffer.toString("base64")
-      
-      // Préparer les indices visuels
-      const visualIndices: string[] = []
-      if (visualAnalysis && visualAnalysis.architecturalStyle && visualAnalysis.architecturalStyle.length > 0) {
-        visualIndices.push(`Style architectural : ${visualAnalysis.architecturalStyle[0]}`)
-      }
-      if (visualAnalysis && visualAnalysis.roadTexture) {
-        visualIndices.push(`Texture de route : ${visualAnalysis.roadTexture}`)
-      }
-      
-      const llmReasoning = await reasonLocationWithLLM(base64Image, {
-        ...llmContext!,
-        ocrShopNames: ocrAnalysis?.shopNames || [],
-        ocrStreetCandidates: ocrAnalysis?.streetCandidates || [],
-        visualIndices,
-      })
-      
-      if (llmReasoning && llmReasoning.latitude && llmReasoning.longitude) {
-        // HARD LOCK: Vérifier que le résultat LLM est dans le département
-        if (isInsideDepartment(llmReasoning.latitude, llmReasoning.longitude, departmentCode)) {
-          const reverseGeocodeResult = await reverseGeocode(
-            llmReasoning.latitude,
-            llmReasoning.longitude,
-          )
-          allResults.push({
-            source: "LLM_REASONING",
-            latitude: llmReasoning.latitude,
-            longitude: llmReasoning.longitude,
-            address: reverseGeocodeResult?.address || llmReasoning.address || null,
-            confidence: llmReasoning.confidence,
-            streetViewUrl: fetchStreetViewPreview(llmReasoning.latitude, llmReasoning.longitude, "600x400", 0),
-            streetViewEmbedUrl: fetchStreetViewEmbedUrl(llmReasoning.latitude, llmReasoning.longitude, 0),
-            heading: 0,
-            evidences: llmReasoning.evidences,
-          })
-          console.log(`✅ [Localisation] LLM Reasoning: ${llmReasoning.latitude}, ${llmReasoning.longitude} (confiance: ${llmReasoning.confidence.toFixed(2)})`)
-        } else {
-          console.warn(`⚠️ [Localisation] LLM Reasoning (${llmReasoning.latitude}, ${llmReasoning.longitude}) hors département ${departmentCode}, rejeté`)
-        }
-      }
-    }
-
-    // 8️⃣ Priorisation et rééquilibrage des résultats
+    // 7️⃣ Priorisation et rééquilibrage des résultats
     console.log(`📊 [Localisation] Priorisation des résultats...`)
     
     // Filtrer d'abord les résultats avec coordonnées valides
@@ -1205,8 +1288,8 @@ export async function POST(
       
       const llmReasoning = await reasonLocationWithLLM(base64Image, {
         ...llmContext!,
-        ocrShopNames: ocrAnalysis?.shopNames || [],
-        ocrStreetCandidates: ocrAnalysis?.streetCandidates || [],
+        ocrShopNames: (ocrAnalysis && ocrAnalysis.shopNames) ? ocrAnalysis.shopNames : [],
+        ocrStreetCandidates: (ocrAnalysis && ocrAnalysis.streetCandidates) ? ocrAnalysis.streetCandidates : [],
         visualIndices,
       })
       
@@ -1275,10 +1358,7 @@ export async function POST(
     )
 
     // 9️⃣ Sauvegarde dans AnnonceLocation
-    let location = await prisma.annonceLocation.findUnique({
-      where: { annonceScrapeId: id },
-    })
-
+    // Utiliser upsert pour éviter les requêtes multiples et optimiser les connexions
     const locationData = {
       autoAddress: mergedResult.address || "",
       autoLatitude: mergedResult.latitude,
@@ -1289,28 +1369,29 @@ export async function POST(
       geocodingCandidates: (geocodedCandidates?.length ? geocodedCandidates : []) as any,
     }
 
-    if (!location) {
-      location = await prisma.annonceLocation.create({
-        data: {
+    // Utiliser upsert pour une seule requête au lieu de findUnique + create/update
+    // Avec gestion d'erreur de connexion via executeWithRetry
+    const location = await executeWithRetry(() =>
+      prisma.annonceLocation.upsert({
+        where: { annonceScrapeId: id },
+        update: locationData,
+        create: {
           annonceScrapeId: id,
           ...locationData,
         },
       })
-    } else {
-      location = await prisma.annonceLocation.update({
-        where: { id: location.id },
-        data: locationData,
-      })
-    }
+    )
 
     // Mettre à jour aussi latitude/longitude directement sur AnnonceScrape
-    await prisma.annonceScrape.update({
-      where: { id },
-      data: {
-        latitude: mergedResult.latitude,
-        longitude: mergedResult.longitude,
-      },
-    })
+    await executeWithRetry(() =>
+      prisma.annonceScrape.update({
+        where: { id },
+        data: {
+          latitude: mergedResult.latitude,
+          longitude: mergedResult.longitude,
+        },
+      })
+    )
 
     // 🔟 Réponse JSON avec indication de correction manuelle si nécessaire
     const needsManualCorrection = mergedResult.confidence < 0.7
@@ -1342,8 +1423,7 @@ export async function POST(
         ? `Localisation imprécise (${Math.round(mergedResult.confidence * 100)}%). Vous pouvez corriger manuellement l'adresse.`
         : undefined,
       explanation: mergedResult.explanation,
-    } as LocationFromImageResult);
-  } // Fin du bloc try
+    } as LocationFromImageResult)
   } catch (error: any) {
     console.error("❌ [Localisation] Erreur complète:", error)
     console.error("❌ [Localisation] Stack:", error.stack)

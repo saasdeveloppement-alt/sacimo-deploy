@@ -62,7 +62,7 @@ export function prioritizeResults(
   )
 
   // Appliquer les coefficients de priorité
-  const prioritizedResults = validResults.map((result) => {
+  const prioritizedResults = results.map((result) => {
     let score = result.confidence || 0.5
 
     // + Priorité landmark

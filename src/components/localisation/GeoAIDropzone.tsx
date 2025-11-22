@@ -449,7 +449,7 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
   }, [uploadedImageUrl])
 
   return (
-    <Card className="border-2 border-purple-200/50 bg-gradient-to-br from-white to-purple-50/30 shadow-xl">
+    <Card className="bg-white/95 backdrop-blur-xl border-primary-200/50 rounded-3xl shadow-xl hover:shadow-2xl transition-all">
       <CardContent className="p-8 md:p-12">
         <AnimatePresence mode="wait">
           {/* Idle State - Dropzone */}
@@ -476,7 +476,7 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
                 <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
                   <SelectTrigger
                     id="department"
-                    className="w-full bg-white border-purple-200 focus:border-purple-400"
+                    className="w-full bg-white border-2 border-gray-200 rounded-xl px-4 py-3 transition-all hover:border-primary-300 focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
                   >
                     <SelectValue placeholder="Sélectionnez un département" />
                   </SelectTrigger>
@@ -497,7 +497,7 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
 
               {/* Filtres optionnels dans un menu déroulant */}
               <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
-                <CollapsibleTrigger className="w-full flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors">
+                <CollapsibleTrigger className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-primary-50 to-blue-50 border-2 border-primary-200 rounded-xl hover:bg-gradient-to-r hover:from-primary-100 hover:to-blue-100 transition-all shadow-sm hover:shadow-md">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-gray-700">
                       Filtres optionnels pour améliorer la précision
@@ -541,8 +541,10 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
                           })
                         }
                       }}
-                      className={`w-full bg-white border-purple-200 focus:border-purple-400 ${
-                        autoFilledFields.has("city") ? "border-green-300 bg-green-50/30" : ""
+                      className={`w-full bg-white border-2 rounded-xl px-4 py-3 transition-all ${
+                        autoFilledFields.has("city") 
+                          ? "border-green-300 bg-green-50/30 focus:border-green-500 focus:ring-2 focus:ring-green-200" 
+                          : "border-gray-200 hover:border-primary-300 focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
                       }`}
                     />
                     <p className="text-xs text-gray-500">
@@ -580,8 +582,10 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
                           })
                         }
                       }}
-                      className={`w-full bg-white border-purple-200 focus:border-purple-400 ${
-                        autoFilledFields.has("postalCode") ? "border-green-300 bg-green-50/30" : ""
+                      className={`w-full bg-white border-2 rounded-xl px-4 py-3 transition-all ${
+                        autoFilledFields.has("postalCode") 
+                          ? "border-green-300 bg-green-50/30 focus:border-green-500 focus:ring-2 focus:ring-green-200" 
+                          : "border-gray-200 hover:border-primary-300 focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
                       }`}
                     />
                     <p className="text-xs text-gray-500">
@@ -671,7 +675,7 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
               </Collapsible>
 
               {/* Checkbox pour activer le mode multi-images */}
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="p-4 bg-gradient-to-r from-primary-50 to-blue-50 border-2 border-primary-200 rounded-xl shadow-sm">
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="multi-image-mode"
@@ -703,7 +707,7 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
               </div>
 
               <div
-                className="relative cursor-pointer rounded-2xl border-2 border-dashed border-purple-300 bg-gradient-to-br from-purple-50/50 to-blue-50/50 p-12 transition-all hover:border-purple-400 hover:bg-purple-50/70"
+                className="relative cursor-pointer rounded-3xl border-2 border-dashed border-primary-300 bg-gradient-to-br from-primary-50/50 to-blue-50/50 p-12 transition-all hover:border-primary-400 hover:bg-primary-50/70 hover:shadow-lg group"
                 onDrop={handleDrop}
                 onDragOver={handleDragOver}
                 onClick={() => fileInputRef.current?.click()}
@@ -722,9 +726,23 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
                   transition={{ duration: 2, repeat: Infinity }}
                   className="mb-6 flex justify-center"
                 >
-                  <div className="rounded-full bg-gradient-to-br from-purple-500 to-blue-500 p-6">
-                    <Scan className="h-12 w-12 text-white" />
-                  </div>
+                  <motion.div
+                    className="rounded-full bg-gradient-to-br from-primary-600 to-primary-700 p-6 shadow-lg"
+                    animate={{
+                      boxShadow: [
+                        "0 0 20px rgba(124, 92, 219, 0.4)",
+                        "0 0 40px rgba(124, 92, 219, 0.6)",
+                        "0 0 20px rgba(124, 92, 219, 0.4)",
+                      ],
+                    }}
+                    transition={{
+                      duration: 3,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                    }}
+                  >
+                    <Scan className="h-12 w-12 text-white" strokeWidth={1.5} />
+                  </motion.div>
                 </motion.div>
 
                 <h3 className="mb-2 text-2xl font-bold text-gray-900">
@@ -734,14 +752,16 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
                   Notre IA analysera l'image et tentera de localiser automatiquement le bien.
                 </p>
 
-                <Button
-                  size="lg"
-                  className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-                  disabled={!selectedDepartment}
-                >
-                  <Upload className="mr-2 h-5 w-5" />
-                  Sélectionner une image
-                </Button>
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Button
+                    size="lg"
+                    className="bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all"
+                    disabled={!selectedDepartment}
+                  >
+                    <Upload className="mr-2 h-5 w-5" strokeWidth={1.5} />
+                    Sélectionner une image
+                  </Button>
+                </motion.div>
 
                 <p className="mt-4 text-xs text-gray-500">
                   {multiImageMode
@@ -752,7 +772,7 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
 
               {/* Miniatures des images sélectionnées (mode multi-images) */}
               {multiImageMode && selectedFiles.length > 0 && (
-                <div className="space-y-3 rounded-xl border border-purple-200 bg-white p-4">
+                <div className="space-y-3 rounded-2xl border-2 border-primary-200 bg-white/95 backdrop-blur-sm p-6 shadow-lg">
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-medium text-gray-700">
                       {selectedFiles.length} image{selectedFiles.length > 1 ? "s" : ""} sélectionnée{selectedFiles.length > 1 ? "s" : ""}
@@ -828,7 +848,7 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
                         }
                       }}
                       disabled={isLoading || !selectedDepartment}
-                      className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white disabled:opacity-50"
+                      className="w-full bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50"
                     >
                       {isLoading ? (
                         <>
@@ -849,11 +869,11 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
                   )}
                   {selectedFiles.length < 6 && (
                     <div
-                      className="border-2 border-dashed border-purple-300 rounded-lg p-4 text-center hover:border-purple-400 hover:bg-purple-50/50 transition-colors cursor-pointer"
+                      className="border-2 border-dashed border-primary-300 rounded-xl p-4 text-center hover:border-primary-400 hover:bg-primary-50/50 transition-all cursor-pointer hover:shadow-md"
                       onClick={() => fileInputRef.current?.click()}
                     >
-                      <div className="flex items-center justify-center gap-2 text-purple-600">
-                        <Upload className="h-5 w-5" />
+                      <div className="flex items-center justify-center gap-2 text-primary-600">
+                        <Upload className="h-5 w-5" strokeWidth={1.5} />
                         <span className="text-sm font-medium">
                           Ajouter d'autres images ({selectedFiles.length}/6)
                         </span>
@@ -882,9 +902,23 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
                 transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
                 className="mb-6 flex justify-center"
               >
-                <div className="rounded-full bg-gradient-to-br from-purple-500 to-blue-500 p-6">
-                  <Loader2 className="h-12 w-12 text-white" />
-                </div>
+                <motion.div
+                  className="rounded-full bg-gradient-to-br from-primary-600 to-primary-700 p-6 shadow-lg"
+                  animate={{
+                    boxShadow: [
+                      "0 0 20px rgba(124, 92, 219, 0.4)",
+                      "0 0 40px rgba(124, 92, 219, 0.6)",
+                      "0 0 20px rgba(124, 92, 219, 0.4)",
+                    ],
+                  }}
+                  transition={{
+                    duration: 3,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
+                >
+                  <Loader2 className="h-12 w-12 text-white" strokeWidth={1.5} />
+                </motion.div>
               </motion.div>
 
               <h3 className="mb-4 text-2xl font-bold text-gray-900">Analyse en cours...</h3>
@@ -910,14 +944,16 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div
-                    className={`rounded-full p-3 ${
+                  <motion.div
+                    className={`rounded-xl p-3 shadow-md ${
                       result.source === "VISION_CONTEXT_FALLBACK"
                         ? "bg-orange-100"
                         : result.source === "EXIF"
                           ? "bg-green-100"
                           : "bg-blue-100"
                     }`}
+                    animate={{ scale: [1, 1.1, 1] }}
+                    transition={{ duration: 2, repeat: Infinity }}
                   >
                     <CheckCircle2
                       className={`h-6 w-6 ${
@@ -927,8 +963,9 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
                             ? "text-green-600"
                             : "text-blue-600"
                       }`}
+                      strokeWidth={1.5}
                     />
-                  </div>
+                  </motion.div>
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="text-xl font-bold text-gray-900">Localisation détectée</h3>
@@ -964,7 +1001,7 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
               {/* Image d'origine + Comparaison */}
               {uploadedImageUrl && (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-1 gap-4 rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50/50 to-blue-50/50 p-4 md:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-4 rounded-2xl border-2 border-primary-200 bg-gradient-to-br from-primary-50/50 to-blue-50/50 p-6 md:grid-cols-2 shadow-lg">
                     {/* Image analysée */}
                     <div>
                       <p className="mb-2 text-sm font-medium text-gray-700">Image analysée</p>
@@ -1053,11 +1090,11 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
               )}
 
               {/* Address - Pleine largeur, juste après les images */}
-              <div className="w-full rounded-xl bg-gradient-to-br from-purple-50 to-blue-50 p-6">
+              <div className="w-full rounded-2xl bg-gradient-to-br from-primary-50 to-blue-50 p-6 border-2 border-primary-200 shadow-lg">
                 <div className="mb-4 flex items-start justify-between gap-4">
                   <div className="flex-1">
                     <div className="mb-3 flex items-center gap-2">
-                      <MapPin className="h-5 w-5 text-purple-600" />
+                      <MapPin className="h-5 w-5 text-primary-600" strokeWidth={1.5} />
                       <span className="text-sm font-medium text-gray-700">Adresse détectée</span>
                     </div>
                     <p className="mb-2 text-lg font-semibold text-gray-900">
@@ -1135,9 +1172,9 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
 
               {/* Bloc d'explication */}
               {result.explanation && (
-                <div className="rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50/50 to-blue-50/50 p-6">
+                <div className="rounded-2xl border-2 border-primary-200 bg-gradient-to-br from-primary-50/50 to-blue-50/50 p-6 shadow-lg">
                   <div className="mb-4 flex items-center gap-2">
-                    <Eye className="h-5 w-5 text-purple-600" />
+                    <Eye className="h-5 w-5 text-primary-600" strokeWidth={1.5} />
                     <h4 className="text-lg font-semibold text-gray-900">
                       Comment l'IA a trouvé cette localisation ?
                     </h4>
@@ -1295,20 +1332,22 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
 
               {/* Actions */}
               <div className="flex gap-3">
-                <Button
-                  onClick={handleValidate}
-                  className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-                >
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
-                  Valider cette localisation
-                </Button>
+                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="flex-1">
+                  <Button
+                    onClick={handleValidate}
+                    className="w-full bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all"
+                  >
+                    <CheckCircle2 className="mr-2 h-4 w-4" strokeWidth={1.5} />
+                    Valider cette localisation
+                  </Button>
+                </motion.div>
                 <Button variant="outline" className="flex-1" onClick={handleReset}>
                   Réessayer
                 </Button>
               </div>
 
               {/* Texte explicatif - Déplacé sous les boutons */}
-              <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4">
+              <div className="rounded-xl border-2 border-blue-200 bg-blue-50/50 p-4 shadow-sm">
                 <p className="text-sm text-gray-700">
                   <strong>Comment ça fonctionne ?</strong> Notre IA a analysé votre image en utilisant{" "}
                   {result.source === "EXIF"
@@ -1332,9 +1371,13 @@ export function GeoAIDropzone({ annonceId = "demo-annonce-id", onLocationValidat
               className="text-center"
             >
               <div className="mb-6 flex justify-center">
-                <div className="rounded-full bg-red-100 p-6">
-                  <AlertCircle className="h-12 w-12 text-red-600" />
-                </div>
+                <motion.div
+                  className="rounded-full bg-red-100 p-6 shadow-lg"
+                  animate={{ scale: [1, 1.1, 1] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                >
+                  <AlertCircle className="h-12 w-12 text-red-600" strokeWidth={1.5} />
+                </motion.div>
               </div>
 
               <h3 className="mb-2 text-2xl font-bold text-gray-900">Erreur d'analyse</h3>

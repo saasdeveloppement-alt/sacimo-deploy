@@ -1,8 +1,43 @@
 import { NextRequest, NextResponse } from "next/server";
-import { meloService } from "@/lib/services/melo";
-import { isMeloSyncAllowed } from "@/lib/melo-safe";
+import { MELO_DISABLED } from "@/lib/melo-disabled";
 
 export async function GET(req: NextRequest) {
+  // ⚠️ MELO DÉSACTIVÉ - Utiliser MoteurImmo via /api/piges/fetch
+  if (MELO_DISABLED) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "❌ Melo.ai est désactivé. Utilisez MoteurImmo via /api/piges/fetch",
+      },
+      { status: 403 }
+    );
+  }
+
+  // Code Melo désactivé - ne sera jamais exécuté
+  if (!MELO_DISABLED) {
+    // Ancien code Melo (désactivé)
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Melo.ai est désactivé",
+      },
+      { status: 403 }
+    );
+  }
+
+  // Ce code ne sera jamais atteint
+  return NextResponse.json(
+    {
+      success: false,
+      error: "Melo.ai est désactivé",
+    },
+    { status: 403 }
+  );
+
+  /* ANCIEN CODE MELO (DÉSACTIVÉ) - TOUT LE CODE CI-DESSOUS EST COMMENTÉ
+  import { meloService } from "@/lib/services/melo";
+  import { isMeloSyncAllowed } from "@/lib/melo-safe";
+  
   if (!isMeloSyncAllowed()) {
     return NextResponse.json(
       {
@@ -155,5 +190,6 @@ export async function GET(req: NextRequest) {
       message: error.message || 'Erreur lors de la récupération des annonces'
     }, { status: 500 })
   }
+  */
 }
 
