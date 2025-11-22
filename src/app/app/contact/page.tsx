@@ -574,26 +574,6 @@ export default function ContactPage() {
         </main>
       </div>
 
-      {/* Floating Chat Button */}
-      <motion.button
-        className="fixed bottom-8 right-8 w-14 h-14 bg-gradient-to-br from-primary-600 to-primary-700 text-white rounded-full shadow-2xl z-50 flex items-center justify-center"
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
-      >
-        <MessageCircle className="w-6 h-6" strokeWidth={1.5} />
-        <motion.div
-          className="absolute inset-0 rounded-full bg-gradient-to-br from-primary-600 to-primary-700"
-          animate={{
-            scale: [1, 1.5, 1],
-            opacity: [0.3, 0, 0.3],
-          }}
-          transition={{
-            duration: 2,
-            repeat: Infinity,
-            ease: "easeOut",
-          }}
-        />
-      </motion.button>
     </div>
   );
 }

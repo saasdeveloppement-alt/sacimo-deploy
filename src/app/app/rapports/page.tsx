@@ -28,7 +28,6 @@ import {
   Clock,
   Heart,
   Mail,
-  MessageCircle,
 } from 'lucide-react';
 import {
   LineChart,
@@ -888,26 +887,6 @@ export default function RapportsPage() {
         </motion.div>
       </div>
 
-      {/* Floating Chat Button */}
-      <motion.button
-        className="fixed bottom-8 right-8 w-14 h-14 bg-gradient-to-br from-primary-600 to-primary-700 text-white rounded-full shadow-2xl z-50 flex items-center justify-center"
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
-        animate={{
-          boxShadow: [
-            "0 0 20px rgba(124, 92, 219, 0.4)",
-            "0 0 40px rgba(124, 92, 219, 0.6)",
-            "0 0 20px rgba(124, 92, 219, 0.4)",
-          ],
-        }}
-        transition={{
-          duration: 3,
-          repeat: Infinity,
-          ease: "easeInOut",
-        }}
-      >
-        <MessageCircle className="w-6 h-6" strokeWidth={1.5} />
-      </motion.button>
     </div>
   );
 }

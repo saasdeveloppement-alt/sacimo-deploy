@@ -29,7 +29,6 @@ import {
   CreditCard, 
   CheckCircle2, 
   AlertCircle,
-  MessageCircle,
   ArrowLeft,
   Sparkles
 } from 'lucide-react';
@@ -144,7 +143,7 @@ export default function FacturationPage() {
         {/* Header */}
         <header className="bg-white/95 backdrop-blur-xl border-b border-gray-200 sticky top-0 z-50">
           <div className="max-w-7xl mx-auto px-6 py-4">
-            <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <motion.div
                   className="p-2 bg-gradient-to-br from-primary-600 to-primary-700 rounded-xl"
@@ -300,7 +299,7 @@ export default function FacturationPage() {
                             />
                           </div>
                         </div>
-                        <div>
+          <div>
                           <div className="flex items-center justify-between mb-1">
                             <span className="text-xs text-gray-600">API Calls</span>
                             <span className="text-xs font-bold text-gray-900">
@@ -424,19 +423,19 @@ export default function FacturationPage() {
                         plan.current ? 'border-2 border-primary-600' : ''
                       }`}
                       whileHover={{ y: -8 }}
-                    >
-                      {plan.popular && (
+                >
+                  {plan.popular && (
                         <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
                           <Badge className="px-3 py-1 bg-gradient-to-r from-primary-600 to-primary-700 text-white text-xs font-bold rounded-full border-0">
                             POPULAIRE
-                          </Badge>
+                    </Badge>
                         </div>
-                      )}
-                      {plan.current && (
+                  )}
+                  {plan.current && (
                         <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
                           <Badge className="px-3 py-1 bg-primary-600 text-white text-xs font-bold rounded-full border-0">
                             PLAN ACTUEL
-                          </Badge>
+                    </Badge>
                         </div>
                       )}
 
@@ -447,13 +446,13 @@ export default function FacturationPage() {
                             ? 'bg-gradient-to-r from-primary-600 to-primary-700 bg-clip-text text-transparent'
                             : 'text-gray-900'
                         }`}>
-                          {plan.price}€
+                      {plan.price}€
                         </span>
                         <span className="text-gray-600">/mois</span>
-                      </div>
-                      
+                    </div>
+                  
                       <ul className="space-y-3 mb-6">
-                        {plan.features.map((feature, i) => (
+                      {plan.features.map((feature, i) => (
                           <li key={i} className="flex items-start space-x-2">
                             <CheckCircle2
                               className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
@@ -466,41 +465,41 @@ export default function FacturationPage() {
                             }`}>
                               {feature}
                             </span>
-                          </li>
-                        ))}
-                      </ul>
-
-                      {!plan.current && (
+                        </li>
+                      ))}
+                    </ul>
+                    
+                    {!plan.current && (
                         <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                          <Button
-                            onClick={() => handleUpgrade(plan)}
+                      <Button 
+                        onClick={() => handleUpgrade(plan)}
                             className={`w-full px-4 py-3 rounded-xl font-medium transition-all ${
                               plan.popular
                                 ? 'bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white shadow-lg hover:shadow-xl'
                                 : 'bg-white border-2 border-gray-300 text-gray-700 hover:bg-gray-50'
                             }`}
-                          >
-                            {plan.price > (currentPlan?.price || 0) ? 'Passer à ce plan' : 'Rétrograder'}
-                          </Button>
+                      >
+                        {plan.price > (currentPlan?.price || 0) ? 'Passer à ce plan' : 'Rétrograder'}
+                      </Button>
                         </motion.div>
-                      )}
-                      
-                      {plan.current && (
+                    )}
+                    
+                    {plan.current && (
                         <Button
                           className="w-full px-4 py-3 bg-primary-100 text-primary-700 rounded-xl font-medium cursor-not-allowed"
                           disabled
                         >
-                          Plan actuel
-                        </Button>
-                      )}
+                        Plan actuel
+                      </Button>
+                    )}
                     </motion.div>
-                  ))}
-                </div>
-              </div>
+              ))}
+            </div>
+          </div>
             </>
           )}
 
-          {/* TAB 2 : FACTURES */}
+        {/* TAB 2 : FACTURES */}
           {activeTab === 'factures' && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -528,7 +527,7 @@ export default function FacturationPage() {
                           })}
                         </p>
                       </div>
-                      <Badge
+                      <Badge 
                         className={
                           invoice.status === 'paid'
                             ? 'bg-green-100 text-green-700 border-green-200'
@@ -546,15 +545,15 @@ export default function FacturationPage() {
                     <div className="flex items-center gap-4">
                       <p className="text-lg font-bold text-gray-900">{invoice.amount}€</p>
                       <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDownloadInvoice(invoice.id)}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDownloadInvoice(invoice.id)}
                           className="border-gray-200 hover:border-primary-300 hover:bg-primary-50"
-                        >
+                      >
                           <Download className="h-4 w-4 mr-2" strokeWidth={1.5} />
-                          Télécharger
-                        </Button>
+                        Télécharger
+                      </Button>
                       </motion.div>
                     </div>
                   </motion.div>
@@ -563,7 +562,7 @@ export default function FacturationPage() {
             </motion.div>
           )}
 
-          {/* TAB 3 : MOYENS DE PAIEMENT */}
+        {/* TAB 3 : MOYENS DE PAIEMENT */}
           {activeTab === 'paiement' && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -573,51 +572,51 @@ export default function FacturationPage() {
               <h2 className="text-xl font-bold text-gray-900 mb-4">Moyens de paiement</h2>
               <p className="text-sm text-gray-600 mb-6">Gérez vos cartes bancaires et moyens de paiement</p>
               <div className="space-y-4">
-                {mockPaymentMethods.map((method) => (
+              {mockPaymentMethods.map((method) => (
                   <motion.div
-                    key={method.id}
+                  key={method.id}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     className="flex items-center justify-between p-4 border-2 border-gray-200 rounded-xl hover:border-primary-300 hover:bg-primary-50/50 transition-all"
-                  >
-                    <div className="flex items-center gap-4">
+                >
+                  <div className="flex items-center gap-4">
                       <CreditCard className="h-8 w-8 text-primary-600" strokeWidth={1.5} />
-                      <div>
+                    <div>
                         <p className="font-semibold text-gray-900">
-                          {method.brand} •••• {method.last4}
-                        </p>
+                        {method.brand} •••• {method.last4}
+                      </p>
                         <p className="text-sm text-gray-600">
-                          Expire le {method.expiryMonth}/{method.expiryYear}
-                        </p>
-                      </div>
-                      {method.isDefault && (
+                        Expire le {method.expiryMonth}/{method.expiryYear}
+                      </p>
+                    </div>
+                    {method.isDefault && (
                         <Badge className="bg-primary-100 text-primary-700 border-primary-200">
                           Par défaut
                         </Badge>
-                      )}
-                    </div>
-                    
-                    <div className="flex gap-2">
+                    )}
+                  </div>
+                  
+                  <div className="flex gap-2">
                       <Button variant="outline" size="sm" className="border-gray-200 hover:border-primary-300 hover:bg-primary-50">
-                        Modifier
-                      </Button>
+                      Modifier
+                    </Button>
                       <Button variant="outline" size="sm" className="border-gray-200 hover:border-red-300 hover:bg-red-50 hover:text-red-600">
-                        Supprimer
-                      </Button>
-                    </div>
+                      Supprimer
+                    </Button>
+                  </div>
                   </motion.div>
-                ))}
-                
+              ))}
+              
                 <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                   <Button className="w-full border-2 border-dashed border-gray-300 hover:border-primary-400 hover:bg-primary-50 text-gray-700 hover:text-primary-700">
-                    ➕ Ajouter une carte
-                  </Button>
+                ➕ Ajouter une carte
+              </Button>
                 </motion.div>
               </div>
             </motion.div>
           )}
 
-          {/* TAB 4 : CONSOMMATION */}
+        {/* TAB 4 : CONSOMMATION */}
           {activeTab === 'usage' && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -634,53 +633,33 @@ export default function FacturationPage() {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.1 }}
                   >
-                    <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center justify-between mb-2">
                       <p className="font-semibold text-gray-900 capitalize">
-                        {key === 'searches' ? 'Recherches' :
-                         key === 'reports' ? 'Rapports' :
-                         key === 'alerts' ? 'Alertes' :
-                         'Appels API'}
-                      </p>
+                      {key === 'searches' ? 'Recherches' :
+                       key === 'reports' ? 'Rapports' :
+                       key === 'alerts' ? 'Alertes' :
+                       'Appels API'}
+                    </p>
                       <p className="text-sm text-gray-600">
-                        {data.used.toLocaleString('fr-FR')}
-                        {data.limit > 0 ? ` / ${data.limit.toLocaleString('fr-FR')}` : ' / Illimité'}
-                      </p>
-                    </div>
+                      {data.used.toLocaleString('fr-FR')}
+                      {data.limit > 0 ? ` / ${data.limit.toLocaleString('fr-FR')}` : ' / Illimité'}
+                    </p>
+                  </div>
                     <Progress value={data.percentage || 0} className="h-2" />
-                    {data.percentage > 80 && data.limit > 0 && (
-                      <p className="text-sm text-orange-500 mt-1 flex items-center gap-1">
+                  {data.percentage > 80 && data.limit > 0 && (
+                    <p className="text-sm text-orange-500 mt-1 flex items-center gap-1">
                         <AlertCircle className="h-4 w-4" strokeWidth={1.5} />
-                        Vous approchez de la limite
-                      </p>
-                    )}
+                      Vous approchez de la limite
+                    </p>
+                  )}
                   </motion.div>
                 ))}
               </div>
             </motion.div>
           )}
         </main>
-      </div>
+                </div>
 
-      {/* Floating Chat Button */}
-      <motion.button
-        className="fixed bottom-8 right-8 w-14 h-14 bg-gradient-to-br from-primary-600 to-primary-700 text-white rounded-full shadow-2xl z-50 flex items-center justify-center"
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
-        animate={{
-          boxShadow: [
-            "0 0 20px rgba(124, 92, 219, 0.4)",
-            "0 0 40px rgba(124, 92, 219, 0.6)",
-            "0 0 20px rgba(124, 92, 219, 0.4)",
-          ],
-        }}
-        transition={{
-          duration: 3,
-          repeat: Infinity,
-          ease: "easeInOut",
-        }}
-      >
-        <MessageCircle className="w-6 h-6" strokeWidth={1.5} />
-      </motion.button>
     </div>
   );
 }
