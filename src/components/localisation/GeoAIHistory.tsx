@@ -146,60 +146,61 @@ export function GeoAIHistory({ refreshTrigger = 0 }: GeoAIHistoryProps) {
                   }}
                 />
                 <div className="relative z-10 flex items-center space-x-4 flex-1">
-                <div className="flex items-start gap-4">
-                  {/* Image thumbnail */}
-                  {item.imageUrl ? (
-                    <div className="relative w-16 h-16 bg-gradient-to-br from-primary-400 to-primary-600 rounded-xl flex items-center justify-center overflow-hidden">
-                      <img
-                        src={item.imageUrl}
-                        alt="Thumbnail"
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                  ) : (
-                    <div className="relative w-16 h-16 bg-gradient-to-br from-primary-400 to-primary-600 rounded-xl flex items-center justify-center overflow-hidden">
-                      <MapPin className="h-8 w-8 text-white relative z-10" strokeWidth={1.5} />
-                    </div>
-                  )}
+                  <div className="flex items-start gap-4">
+                    {/* Image thumbnail */}
+                    {item.imageUrl ? (
+                      <div className="relative w-16 h-16 bg-gradient-to-br from-primary-400 to-primary-600 rounded-xl flex items-center justify-center overflow-hidden">
+                        <img
+                          src={item.imageUrl}
+                          alt="Thumbnail"
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                    ) : (
+                      <div className="relative w-16 h-16 bg-gradient-to-br from-primary-400 to-primary-600 rounded-xl flex items-center justify-center overflow-hidden">
+                        <MapPin className="h-8 w-8 text-white relative z-10" strokeWidth={1.5} />
+                      </div>
+                    )}
 
-                  {/* Content */}
-                  <div className="flex-1">
-                    <h4 className="font-semibold text-gray-900">{item.address}</h4>
-                    <p className="text-sm text-gray-600 mt-1">{formatDate(item.timestamp)}</p>
-                    <div className="flex items-center space-x-2 mt-2">
-                      <Badge className="px-2 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded-full border-0">
-                        {Math.round(item.confidence * 100)}% précision
-                      </Badge>
-                      <Badge variant="outline" className="text-xs border-primary-200">
-                        {getSourceLabel(item.source)}
-                      </Badge>
+                    {/* Content */}
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-gray-900">{item.address}</h4>
+                      <p className="text-sm text-gray-600 mt-1">{formatDate(item.timestamp)}</p>
+                      <div className="flex items-center space-x-2 mt-2">
+                        <Badge className="px-2 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded-full border-0">
+                          {Math.round(item.confidence * 100)}% précision
+                        </Badge>
+                        <Badge variant="outline" className="text-xs border-primary-200">
+                          {getSourceLabel(item.source)}
+                        </Badge>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="text-right relative z-10">
-                  <div className="inline-flex items-center space-x-2 px-3 py-1 bg-white rounded-lg border border-primary-200">
-                    <motion.div
-                      className="w-2 h-2 bg-green-500 rounded-full"
-                      animate={{
-                        opacity: [1, 0.5, 1],
-                      }}
-                      transition={{
-                        duration: 2,
-                        repeat: Infinity,
-                        ease: "easeInOut",
-                      }}
-                    />
-                    <span className="text-sm font-medium text-gray-700">Validé</span>
+                  <div className="text-right relative z-10">
+                    <div className="inline-flex items-center space-x-2 px-3 py-1 bg-white rounded-lg border border-primary-200">
+                      <motion.div
+                        className="w-2 h-2 bg-green-500 rounded-full"
+                        animate={{
+                          opacity: [1, 0.5, 1],
+                        }}
+                        transition={{
+                          duration: 2,
+                          repeat: Infinity,
+                          ease: "easeInOut",
+                        }}
+                      />
+                      <span className="text-sm font-medium text-gray-700">Validé</span>
+                    </div>
+                    {item.annonceId && (
+                      <a
+                        href={`/app/annonces/${item.annonceId}`}
+                        className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 mt-2 justify-end"
+                      >
+                        <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
+                        Voir annonce
+                      </a>
+                    )}
                   </div>
-                  {item.annonceId && (
-                    <a
-                      href={`/app/annonces/${item.annonceId}`}
-                      className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 mt-2 justify-end"
-                    >
-                      <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
-                      Voir annonce
-                    </a>
-                  )}
                 </div>
               </motion.div>
             ))}
