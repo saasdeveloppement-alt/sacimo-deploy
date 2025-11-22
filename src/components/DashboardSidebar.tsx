@@ -81,7 +81,7 @@ export function DashboardSidebar({ sidebarOpen, setSidebarOpen, user }: Dashboar
       {/* HEADER SIDEBAR */}
       <div className="p-4 border-b border-gray-100">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg overflow-hidden">
               <SacimoLogo size={40} />
             </div>
@@ -89,7 +89,7 @@ export function DashboardSidebar({ sidebarOpen, setSidebarOpen, user }: Dashboar
               <h1 className="font-bold text-gray-900 text-base">SACIMO</h1>
               <p className="text-xs text-gray-500">L'immobilier intelligent</p>
             </div>
-          </div>
+          </Link>
         </div>
       </div>
 
