@@ -59,7 +59,7 @@ export default function LocalisationPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 relative overflow-hidden">
+    <PageContainer>
       {/* Floating Background Orbs */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
         <motion.div
@@ -102,75 +102,73 @@ export default function LocalisationPage() {
         />
                   </div>
                   
-      <PageContainer>
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 relative z-10">
-          <div className="mx-auto max-w-7xl space-y-6">
-            {/* Hero Section */}
-            <motion.div variants={fadeInUp}>
-              <GeoAIHero
-                totalLocalized={stats.totalLocalized}
-                averagePrecision={stats.averagePrecision}
-                totalAnalyzed={stats.totalAnalyzed}
-              />
-            </motion.div>
-
-            {/* Main Content: Dropzone - Pleine largeur */}
-            <motion.div variants={fadeInUp}>
-              {annonceId ? (
-                <GeoAIDropzone annonceId={annonceId} onLocationValidated={handleLocationValidated} />
-              ) : (
-                <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
-                  <p className="text-gray-500">Chargement...</p>
-                </div>
-              )}
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 relative z-10">
+        <div className="mx-auto max-w-7xl space-y-6">
+          {/* Hero Section */}
+          <motion.div variants={fadeInUp}>
+            <GeoAIHero
+              totalLocalized={stats.totalLocalized}
+              averagePrecision={stats.averagePrecision}
+              totalAnalyzed={stats.totalAnalyzed}
+            />
           </motion.div>
 
-            {/* Grid: History + Map - Equal columns */}
+          {/* Main Content: Dropzone - Pleine largeur */}
+          <motion.div variants={fadeInUp}>
+            {annonceId ? (
+              <GeoAIDropzone annonceId={annonceId} onLocationValidated={handleLocationValidated} />
+            ) : (
+              <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
+                <p className="text-gray-500">Chargement...</p>
+              </div>
+            )}
+          </motion.div>
+
+          {/* Grid: History + Map - Equal columns */}
           <motion.div 
-              className="grid grid-cols-1 gap-6 lg:grid-cols-2"
+            className="grid grid-cols-1 gap-6 lg:grid-cols-2"
             variants={staggerChildren}
           >
-              <motion.div variants={fadeInUp}>
-                <GeoAIHistory refreshTrigger={historyRefreshTrigger} />
-          </motion.div>
-
             <motion.div variants={fadeInUp}>
-                <GeoAIMap />
-                    </motion.div>
+              <GeoAIHistory refreshTrigger={historyRefreshTrigger} />
             </motion.div>
 
-            {/* Stats - En bas */}
             <motion.div variants={fadeInUp}>
-              <GeoAIStats />
+              <GeoAIMap />
+            </motion.div>
           </motion.div>
 
-            {/* Footer */}
-            <motion.div
-              variants={fadeInUp}
-              className="flex flex-col items-center justify-between gap-4 rounded-xl border border-primary-200/50 bg-gradient-to-br from-primary-50/50 to-blue-50/50 p-6 sm:flex-row"
-            >
-              <div className="text-center sm:text-left">
-                <p className="font-semibold text-gray-900">SACIMO — IA Localisation Engine</p>
-                <p className="text-sm text-gray-600">Version BETA — En développement actif</p>
-              </div>
-              <div className="flex gap-3">
-                <Button variant="ghost" size="sm" asChild>
-                  <a href="/app/parametres">
-                    <Settings className="mr-2 h-4 w-4" strokeWidth={1.5} />
-                    Paramètres IA
+          {/* Stats - En bas */}
+          <motion.div variants={fadeInUp}>
+            <GeoAIStats />
+          </motion.div>
+
+          {/* Footer */}
+                    <motion.div
+                      variants={fadeInUp}
+            className="flex flex-col items-center justify-between gap-4 rounded-xl border border-primary-200/50 bg-gradient-to-br from-primary-50/50 to-blue-50/50 p-6 sm:flex-row"
+          >
+            <div className="text-center sm:text-left">
+              <p className="font-semibold text-gray-900">SACIMO — IA Localisation Engine</p>
+              <p className="text-sm text-gray-600">Version BETA — En développement actif</p>
+                              </div>
+            <div className="flex gap-3">
+              <Button variant="ghost" size="sm" asChild>
+                <a href="/app/parametres">
+                  <Settings className="mr-2 h-4 w-4" strokeWidth={1.5} />
+                  Paramètres IA
                                       </a>
                                     </Button>
-                <Button variant="ghost" size="sm" asChild>
-                  <a href="/docs/localisation" target="_blank" rel="noopener noreferrer">
-                    <BookOpen className="mr-2 h-4 w-4" strokeWidth={1.5} />
-                    Documentation
-                  </a>
+              <Button variant="ghost" size="sm" asChild>
+                <a href="/docs/localisation" target="_blank" rel="noopener noreferrer">
+                  <BookOpen className="mr-2 h-4 w-4" strokeWidth={1.5} />
+                  Documentation
+                </a>
                                     </Button>
                                   </div>
           </motion.div>
         </div>
       </main>
     </PageContainer>
-    </div>
   )
 }

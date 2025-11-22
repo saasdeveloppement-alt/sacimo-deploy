@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion"
 import { Card, CardContent } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { Camera, Clock, MapPin, TrendingUp, Image as ImageIcon, Globe } from "lucide-react"
 
 interface GeoAIStatsProps {
@@ -84,9 +85,9 @@ export function GeoAIStats({
             <h3 className="text-xl font-bold text-gray-900 mb-1">Statistiques IA</h3>
             <p className="text-sm text-gray-500">Performance et précision du modèle</p>
           </div>
-          <UIBadge className="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-sm font-semibold border-0">
+          <Badge className="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-sm font-semibold border-0">
             ✓ Modèle actif
-          </UIBadge>
+          </Badge>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">

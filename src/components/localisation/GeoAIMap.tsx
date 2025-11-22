@@ -2,8 +2,7 @@
 
 import { motion } from "framer-motion"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { MapPin, Badge } from "lucide-react"
-import { Badge as UIBadge } from "@/components/ui/badge"
+import { MapPin } from "lucide-react"
 
 export function GeoAIMap() {
   return (
