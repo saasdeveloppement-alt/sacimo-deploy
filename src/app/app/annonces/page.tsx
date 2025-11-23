@@ -38,6 +38,7 @@ interface PigeFilters {
   city?: string
   postalCode?: string
   type?: "vente" | "location" | "all"
+  types?: ("vente" | "location")[] // Pour gérer les cases à cocher
   sellerType?: "all" | "pro" | "particulier"
   minPrice?: number
   maxPrice?: number
@@ -46,6 +47,7 @@ interface PigeFilters {
   minRooms?: number
   maxRooms?: number
   sources?: string[]
+  dateFilter?: "24h" | "48h" | "7j" | "30j" | "all" // Filtre par date
 }
 
 // Animations
@@ -73,7 +75,9 @@ export default function AnnoncesPage() {
   const { data: session } = useSession()
   const [filters, setFilters] = useState<PigeFilters>({
     type: "all",
+    types: [], // Pour les cases à cocher vente/location
     sellerType: "all",
+    dateFilter: "all", // Par défaut, toutes les dates
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -83,19 +87,41 @@ export default function AnnoncesPage() {
 
   const canSearch = !!(filters.postalCode && filters.postalCode.trim() !== "")
 
-  // Filtrer les résultats côté client selon sellerType
+  // Filtrer les résultats côté client selon sellerType et dateFilter
   const filteredListings = results.filter((listing) => {
+    // Filtre par type de vendeur
     if (filters.sellerType === "all" || !filters.sellerType) {
-      return true // Afficher toutes les annonces
-    }
-    if (filters.sellerType === "pro") {
+      // Pas de filtre sur le type de vendeur
+    } else if (filters.sellerType === "pro") {
       // Uniquement les professionnels (isPro === true)
-      return listing.isPro === true
-    }
-    if (filters.sellerType === "particulier") {
+      if (listing.isPro !== true) return false
+    } else if (filters.sellerType === "particulier") {
       // Uniquement les particuliers (isPro === false ou undefined)
-      return listing.isPro === false || listing.isPro === undefined
+      if (listing.isPro !== false && listing.isPro !== undefined) return false
     }
+
+    // Filtre par date
+    if (filters.dateFilter && filters.dateFilter !== "all" && listing.publishedAt) {
+      const now = new Date()
+      const publishedDate = new Date(listing.publishedAt)
+      const diffHours = (now.getTime() - publishedDate.getTime()) / (1000 * 60 * 60)
+      
+      switch (filters.dateFilter) {
+        case "24h":
+          if (diffHours > 24) return false
+          break
+        case "48h":
+          if (diffHours > 48) return false
+          break
+        case "7j":
+          if (diffHours > 168) return false // 7 jours = 168 heures
+          break
+        case "30j":
+          if (diffHours > 720) return false // 30 jours = 720 heures
+          break
+      }
+    }
+
     return true
   })
 
@@ -105,6 +131,27 @@ export default function AnnoncesPage() {
         ? prev.filter(s => s !== src)
         : [...prev, src]
     )
+  }
+
+  function handleTypeToggle(type: "vente" | "location") {
+    const currentTypes = filters.types || []
+    if (currentTypes.includes(type)) {
+      // Désactiver le type
+      const newTypes = currentTypes.filter(t => t !== type)
+      setFilters({ 
+        ...filters, 
+        types: newTypes,
+        type: newTypes.length === 0 ? "all" : (newTypes.length === 1 ? newTypes[0] : "all")
+      })
+    } else {
+      // Activer le type
+      const newTypes = [...currentTypes, type]
+      setFilters({ 
+        ...filters, 
+        types: newTypes,
+        type: newTypes.length === 1 ? newTypes[0] : "all"
+      })
+    }
   }
 
   function handleSellerTypeToggle(type: "pro" | "particulier") {
@@ -143,7 +190,15 @@ export default function AnnoncesPage() {
       const cleanFilters: PigeFilters = {}
       if (filters.city) cleanFilters.city = filters.city
       if (filters.postalCode) cleanFilters.postalCode = filters.postalCode
-      if (filters.type && filters.type !== "all") {
+      // Gérer les types (cases à cocher)
+      if (filters.types && filters.types.length > 0) {
+        if (filters.types.length === 1) {
+          cleanFilters.type = filters.types[0]
+        } else if (filters.types.length === 2) {
+          // Si les deux sont sélectionnés, on envoie "all" ou on ne filtre pas
+          // cleanFilters.type reste undefined pour afficher tous les types
+        }
+      } else if (filters.type && filters.type !== "all") {
         cleanFilters.type = filters.type as "vente" | "location"
       }
       if (filters.sellerType && filters.sellerType !== "all") {
@@ -174,7 +229,7 @@ export default function AnnoncesPage() {
       console.log("📥 [Annonces] Réponse reçue", { status: response.status, ok: response.ok })
 
       const data = await response.json()
-
+      
       console.log("📊 [Annonces] Données reçues", { status: data.status, dataLength: data.data?.length, meta: data.meta })
 
       if (!response.ok) {
@@ -183,7 +238,7 @@ export default function AnnoncesPage() {
           setError("quota_exceeded")
         } else if (data.message?.includes("trop large")) {
           setError("too_large")
-          } else {
+        } else {
           setError(data.message || "Erreur lors de la recherche")
         }
         return
@@ -193,7 +248,7 @@ export default function AnnoncesPage() {
         console.log("✅ [Annonces] Recherche réussie", { total: data.meta?.total, results: data.data?.length })
         setResults(data.data || [])
         setMeta(data.meta || { total: data.data?.length || 0, pages: 1, hasMore: false })
-          } else {
+        } else {
         console.error("❌ [Annonces] Statut non-ok", { status: data.status, message: data.message })
         setError(data.message || "Erreur lors de la recherche")
       }
@@ -220,6 +275,8 @@ export default function AnnoncesPage() {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     }).format(new Date(date))
   }
 
@@ -304,209 +361,176 @@ export default function AnnoncesPage() {
 
       {/* Main Content */}
       <div className="relative z-10 container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Search Panel */}
-          <div className="lg:col-span-1">
-            <motion.div
-              initial="initial"
-              animate="animate"
-              variants={slideIn}
-              transition={{ delay: 0.3 }}
-            >
-              <Card className="bg-white/95 backdrop-blur-xl border-primary-200/50 shadow-xl rounded-3xl overflow-hidden">
-                <CardHeader className="pb-4">
-                  <div className="flex items-center space-x-3 mb-2">
-                    <div className="p-2 bg-gradient-to-br from-primary-600 to-primary-700 rounded-xl">
-                      <Search className="w-6 h-6 text-white" strokeWidth={1.5} />
-                    </div>
-                    <div>
-                      <CardTitle className="text-2xl font-bold bg-gradient-to-r from-primary-600 to-primary-700 bg-clip-text text-transparent">
-                        Filtres de recherche
-                      </CardTitle>
-                      <CardDescription className="text-sm text-gray-500 mt-1">
-                        Configure ta recherche immobilière
-                      </CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* City Input */}
-                  <div>
-                    <Label htmlFor="city" className="block text-sm font-semibold text-gray-700 mb-2">
-                      Ville
-                    </Label>
-                    <div className="relative">
-                      <Input
-                        id="city"
-                        placeholder="Ex: Paris"
-                        value={filters.city || ""}
-                        onChange={(e) => setFilters({ ...filters, city: e.target.value })}
-                        className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 transition-all duration-300 hover:border-primary-300 focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
-                      />
-                      <MapPin className="absolute right-3 top-3 w-5 h-5 text-gray-400" strokeWidth={1.5} />
-                    </div>
-                  </div>
+        {/* Header */}
+        <motion.div
+          initial="initial"
+          animate="animate"
+          variants={fadeInUp}
+          className="mb-8"
+        >
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-primary-600 to-primary-700 bg-clip-text text-transparent mb-2">
+                Annonces immobilières
+              </h1>
+              <div className="flex items-center space-x-3 text-sm text-gray-500">
+                <span>Recherche en temps réel via MoteurImmo</span>
+                <span className="text-gray-300">—</span>
+                <span className="flex items-center space-x-1">
+                  <motion.span
+                    className="w-2 h-2 bg-green-400 rounded-full"
+                    animate={{ opacity: [1, 0.5, 1] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  />
+                  <span>Pige IA instantanée</span>
+                </span>
+              </div>
+            </div>
+            <Badge className="px-4 py-2 bg-gradient-to-r from-primary-50 to-primary-100 rounded-full border border-primary-200">
+              <Sparkles className="w-4 h-4 text-primary-600 mr-2" strokeWidth={1.5} />
+              <span className="text-sm font-medium text-primary-700">Powered by Moteurimmo</span>
+                </Badge>
+              </div>
+            </motion.div>
 
-                  {/* Postal Code */}
-                  <div>
-                    <Label htmlFor="postalCode" className="block text-sm font-semibold text-gray-700 mb-2">
-                      Code postal
-                    </Label>
+        {/* Filters Horizontal */}
+        <motion.div
+          initial="initial"
+          animate="animate"
+          variants={fadeInUp}
+          transition={{ delay: 0.2 }}
+          className="mb-8"
+        >
+          <Card className="bg-white/95 backdrop-blur-xl border-primary-200/50 shadow-xl rounded-3xl overflow-hidden">
+            <CardContent className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* City */}
+                <div>
+                  <Label htmlFor="city" className="block text-xs font-semibold text-gray-700 mb-2">
+                    Ville
+                  </Label>
+                  <div className="relative">
                     <Input
-                      id="postalCode"
-                      placeholder="75001"
-                      value={filters.postalCode || ""}
-                      onChange={(e) => setFilters({ ...filters, postalCode: e.target.value })}
-                      className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 transition-all duration-300 hover:border-primary-300 focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
+                      id="city"
+                      placeholder="Paris"
+                      value={filters.city || ""}
+                      onChange={(e) => setFilters({ ...filters, city: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg border-2 border-gray-200 text-sm"
                     />
-                    {!canSearch && (
-                      <p className="text-xs text-amber-500 mt-2 flex items-center">
-                        <AlertTriangle className="w-4 h-4 mr-1" strokeWidth={1.5} />
-                        Veuillez entrer un code postal.
-                      </p>
-                    )}
+                    <MapPin className="absolute right-2 top-2.5 w-4 h-4 text-gray-400" strokeWidth={1.5} />
                   </div>
+                </div>
+                
+                {/* Postal Code */}
+                <div>
+                  <Label htmlFor="postalCode" className="block text-xs font-semibold text-gray-700 mb-2">
+                    Code postal
+                  </Label>
+                  <Input
+                    id="postalCode"
+                    placeholder="75001"
+                    value={filters.postalCode || ""}
+                    onChange={(e) => setFilters({ ...filters, postalCode: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border-2 border-gray-200 text-sm"
+                  />
+                </div>
 
-                  {/* Type */}
-                  <div>
-                    <Label htmlFor="type" className="block text-sm font-semibold text-gray-700 mb-2">
-                      Type
-                    </Label>
-                    <Select
-                      value={filters.type || "all"}
-                      onValueChange={(value) =>
-                        setFilters({ ...filters, type: value as "vente" | "location" | "all" })
-                      }
+                {/* Type */}
+                <div>
+                  <Label className="block text-xs font-semibold text-gray-700 mb-2">
+                    Type
+                  </Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <motion.button
+                      type="button"
+                      onClick={() => handleTypeToggle("vente")}
+                      className={`px-4 py-2.5 rounded-lg border-2 transition-all duration-300 text-sm font-medium ${
+                        filters.types?.includes("vente")
+                          ? "bg-gradient-to-r from-primary-600 to-primary-700 text-white border-primary-600 shadow-lg"
+                          : "bg-white text-gray-700 border-gray-200 hover:border-primary-300 hover:bg-primary-50"
+                      }`}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
                     >
-                      <SelectTrigger id="type" className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 transition-all duration-300 hover:border-primary-300">
-                        <SelectValue placeholder="Tous" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Tous</SelectItem>
-                        <SelectItem value="vente">Vente</SelectItem>
-                        <SelectItem value="location">Location</SelectItem>
-                      </SelectContent>
-                    </Select>
+                      <div className="flex items-center justify-center space-x-2">
+                        <div className={`w-2.5 h-2.5 rounded-full ${filters.types?.includes("vente") ? "bg-white" : "bg-gray-400"}`} style={{ minWidth: '10px', minHeight: '10px' }}></div>
+                        <span>Vente</span>
+                      </div>
+                    </motion.button>
+                    <motion.button
+                      type="button"
+                      onClick={() => handleTypeToggle("location")}
+                      className={`px-4 py-2.5 rounded-lg border-2 transition-all duration-300 text-sm font-medium ${
+                        filters.types?.includes("location")
+                          ? "bg-gradient-to-r from-primary-600 to-primary-700 text-white border-primary-600 shadow-lg"
+                          : "bg-white text-gray-700 border-gray-200 hover:border-primary-300 hover:bg-primary-50"
+                      }`}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      <div className="flex items-center justify-center space-x-2">
+                        <div className={`w-2.5 h-2.5 rounded-full ${filters.types?.includes("location") ? "bg-white" : "bg-gray-400"}`} style={{ minWidth: '10px', minHeight: '10px' }}></div>
+                        <span>Location</span>
+                      </div>
+                    </motion.button>
                   </div>
-
-                  {/* Seller Type - Toggle Buttons */}
-                  <div>
-                    <Label className="block text-sm font-semibold text-gray-700 mb-3">
-                      Type de vendeur
-                    </Label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <motion.button
-                        type="button"
-                        onClick={() => handleSellerTypeToggle("pro")}
-                        className={`px-4 py-3 rounded-xl border-2 transition-all duration-300 font-medium ${
-                          filters.sellerType === "pro"
-                            ? "bg-gradient-to-r from-primary-600 to-primary-700 text-white border-primary-600 shadow-lg"
-                            : "bg-white text-gray-700 border-gray-200 hover:border-primary-300 hover:bg-primary-50"
-                        }`}
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                      >
-                        <div className="flex items-center justify-center space-x-2">
-                          <div className={`w-2 h-2 rounded-full ${filters.sellerType === "pro" ? "bg-white" : "bg-gray-400"}`}></div>
-                          <span>Professionnel</span>
-                        </div>
-                      </motion.button>
-                      <motion.button
-                        type="button"
-                        onClick={() => handleSellerTypeToggle("particulier")}
-                        className={`px-4 py-3 rounded-xl border-2 transition-all duration-300 font-medium ${
-                          filters.sellerType === "particulier"
-                            ? "bg-gradient-to-r from-primary-600 to-primary-700 text-white border-primary-600 shadow-lg"
-                            : "bg-white text-gray-700 border-gray-200 hover:border-primary-300 hover:bg-primary-50"
-                        }`}
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                      >
-                        <div className="flex items-center justify-center space-x-2">
-                          <div className={`w-2 h-2 rounded-full ${filters.sellerType === "particulier" ? "bg-white" : "bg-gray-400"}`}></div>
-                          <span>Particulier</span>
-                        </div>
-                      </motion.button>
-                    </div>
-                    {(!filters.sellerType || filters.sellerType === "all") && (
-                      <p className="text-xs text-gray-500 mt-2 text-center">Tous les vendeurs</p>
-                    )}
+                  {(!filters.types || filters.types.length === 0) && (
+                    <p className="text-xs text-gray-500 mt-2 text-center">Tous les types</p>
+                  )}
+                </div>
+                
+                {/* Seller Type */}
+                <div>
+                  <Label className="block text-xs font-semibold text-gray-700 mb-2">
+                    Type de vendeur
+                  </Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <motion.button
+                      type="button"
+                      onClick={() => handleSellerTypeToggle("pro")}
+                      className={`px-4 py-2.5 rounded-lg border-2 transition-all duration-300 text-sm font-medium ${
+                        filters.sellerType === "pro"
+                          ? "bg-gradient-to-r from-primary-600 to-primary-700 text-white border-primary-600 shadow-lg"
+                          : "bg-white text-gray-700 border-gray-200 hover:border-primary-300 hover:bg-primary-50"
+                      }`}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      <div className="flex items-center justify-center space-x-2">
+                        <div className={`w-2.5 h-2.5 rounded-full ${filters.sellerType === "pro" ? "bg-white" : "bg-gray-400"}`} style={{ minWidth: '10px', minHeight: '10px' }}></div>
+                        <span>Professionnel</span>
+                      </div>
+                    </motion.button>
+                    <motion.button
+                      type="button"
+                      onClick={() => handleSellerTypeToggle("particulier")}
+                      className={`px-4 py-2.5 rounded-lg border-2 transition-all duration-300 text-sm font-medium ${
+                        filters.sellerType === "particulier"
+                          ? "bg-gradient-to-r from-primary-600 to-primary-700 text-white border-primary-600 shadow-lg"
+                          : "bg-white text-gray-700 border-gray-200 hover:border-primary-300 hover:bg-primary-50"
+                      }`}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      <div className="flex items-center justify-center space-x-2">
+                        <div className={`w-2.5 h-2.5 rounded-full ${filters.sellerType === "particulier" ? "bg-white" : "bg-gray-400"}`} style={{ minWidth: '10px', minHeight: '10px' }}></div>
+                        <span>Particulier</span>
+                      </div>
+                    </motion.button>
                   </div>
-
-                  {/* Origin */}
-                  <div>
-                    <Label className="block text-sm font-semibold text-gray-700 mb-3">
-                      Origine des annonces
-                    </Label>
-                    <div className="space-y-3">
-                      {[
-                        { id: "leboncoin", label: "Leboncoin", popular: true },
-                        { id: "seloger", label: "SeLoger" },
-                        { id: "bienici", label: "Bien'ici" },
-                        { id: "pap", label: "PAP" },
-                        { id: "logicimmo", label: "Logic-Immo" },
-                      ].map((src) => (
-                        <motion.label
-                          key={src.id}
-                          className="flex items-center p-3 rounded-xl hover:bg-primary-50 transition-all cursor-pointer group"
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                        >
-                          <input
-                            type="checkbox"
-                            value={src.id}
-                            checked={selectedSources.includes(src.id)}
-                            onChange={(e) => handleSourceToggle(e.target.value)}
-                            className="w-5 h-5 rounded border-2 border-gray-300 text-primary-600 focus:ring-primary-500 focus:ring-2"
-                          />
-                          <span className="ml-3 text-gray-700 group-hover:text-primary-700 transition-colors flex-1">
-                            {src.label}
-                          </span>
-                          {src.popular && (
-                            <span className="px-2 py-1 text-xs bg-primary-100 text-primary-700 rounded-full font-medium">
-                              Popular
-                            </span>
-                          )}
-                        </motion.label>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Price Range */}
-                  <div>
-                    <Label className="block text-sm font-semibold text-gray-700 mb-3">Prix</Label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <Input
-                        type="number"
-                        placeholder="Min"
-                        value={filters.minPrice || ""}
-                        onChange={(e) =>
-                          setFilters({
-                            ...filters,
-                            minPrice: e.target.value ? Number(e.target.value) : undefined,
-                          })
-                        }
-                        className="px-4 py-3 rounded-xl border-2 border-gray-200 transition-all duration-300 hover:border-primary-300 focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
-                      />
-                      <Input
-                        type="number"
-                        placeholder="Max"
-                        value={filters.maxPrice || ""}
-                        onChange={(e) =>
-                          setFilters({
-                            ...filters,
-                            maxPrice: e.target.value ? Number(e.target.value) : undefined,
-                          })
-                        }
-                        className="px-4 py-3 rounded-xl border-2 border-gray-200 transition-all duration-300 hover:border-primary-300 focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
-                      />
-                    </div>
-                  </div>
-
+                  {(!filters.sellerType || filters.sellerType === "all") && (
+                    <p className="text-xs text-gray-500 mt-2 text-center">Tous les vendeurs</p>
+                  )}
+                </div>
+              </div>
+              
+              {/* Additional Filters (Collapsible) */}
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {/* Surface */}
                   <div>
-                    <Label className="block text-sm font-semibold text-gray-700 mb-3">Surface (m²)</Label>
-                    <div className="grid grid-cols-2 gap-3">
+                    <Label className="block text-xs font-semibold text-gray-700 mb-2">Surface (m²)</Label>
+                    <div className="flex gap-2">
                       <Input
                         type="number"
                         placeholder="Min"
@@ -517,7 +541,7 @@ export default function AnnoncesPage() {
                             minSurface: e.target.value ? Number(e.target.value) : undefined,
                           })
                         }
-                        className="px-4 py-3 rounded-xl border-2 border-gray-200 transition-all duration-300 hover:border-primary-300 focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
+                        className="w-full px-3 py-2 rounded-lg border-2 border-gray-200 text-sm"
                       />
                       <Input
                         type="number"
@@ -529,15 +553,46 @@ export default function AnnoncesPage() {
                             maxSurface: e.target.value ? Number(e.target.value) : undefined,
                           })
                         }
-                        className="px-4 py-3 rounded-xl border-2 border-gray-200 transition-all duration-300 hover:border-primary-300 focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
+                        className="w-full px-3 py-2 rounded-lg border-2 border-gray-200 text-sm"
+                      />
+                </div>
+              </div>
+
+                  {/* Price Range */}
+                  <div>
+                    <Label className="block text-xs font-semibold text-gray-700 mb-2">Prix</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        type="number"
+                        placeholder="Min"
+                        value={filters.minPrice || ""}
+                        onChange={(e) =>
+                          setFilters({
+                            ...filters,
+                            minPrice: e.target.value ? Number(e.target.value) : undefined,
+                          })
+                        }
+                        className="w-full px-3 py-2 rounded-lg border-2 border-gray-200 text-sm"
+                      />
+                      <Input
+                        type="number"
+                        placeholder="Max"
+                        value={filters.maxPrice || ""}
+                        onChange={(e) =>
+                          setFilters({
+                            ...filters,
+                            maxPrice: e.target.value ? Number(e.target.value) : undefined,
+                          })
+                        }
+                        className="w-full px-3 py-2 rounded-lg border-2 border-gray-200 text-sm"
                       />
                     </div>
                   </div>
 
                   {/* Rooms */}
                   <div>
-                    <Label className="block text-sm font-semibold text-gray-700 mb-3">Pièces</Label>
-                    <div className="grid grid-cols-2 gap-3">
+                    <Label className="block text-xs font-semibold text-gray-700 mb-2">Pièces</Label>
+                    <div className="flex gap-2">
                       <Input
                         type="number"
                         placeholder="Min"
@@ -548,7 +603,7 @@ export default function AnnoncesPage() {
                             minRooms: e.target.value ? Number(e.target.value) : undefined,
                           })
                         }
-                        className="px-4 py-3 rounded-xl border-2 border-gray-200 transition-all duration-300 hover:border-primary-300 focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
+                        className="w-full px-3 py-2 rounded-lg border-2 border-gray-200 text-sm"
                       />
                       <Input
                         type="number"
@@ -560,20 +615,89 @@ export default function AnnoncesPage() {
                             maxRooms: e.target.value ? Number(e.target.value) : undefined,
                           })
                         }
-                        className="px-4 py-3 rounded-xl border-2 border-gray-200 transition-all duration-300 hover:border-primary-300 focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
+                        className="w-full px-3 py-2 rounded-lg border-2 border-gray-200 text-sm"
                       />
                     </div>
                   </div>
+                </div>
 
-                  {/* Search Button */}
+                {/* Origin - Multi-column layout */}
+                <div className="mt-4">
+                  <Label className="block text-xs font-semibold text-gray-700 mb-2">Origine des annonces</Label>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
+                    {[
+                      { id: "leboncoin", label: "Leboncoin", popular: true },
+                      { id: "seloger", label: "SeLoger" },
+                      { id: "bienici", label: "Bien'ici" },
+                      { id: "pap", label: "PAP" },
+                      { id: "logicimmo", label: "Logic-Immo" },
+                    ].map((src) => (
+                      <motion.label
+                        key={src.id}
+                        className="flex items-center p-2 rounded-lg hover:bg-primary-50 transition-all cursor-pointer group border border-gray-200"
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <input
+                          type="checkbox"
+                          value={src.id}
+                          checked={selectedSources.includes(src.id)}
+                          onChange={(e) => handleSourceToggle(e.target.value)}
+                          className="w-4 h-4 rounded border-2 border-gray-300 text-primary-600 focus:ring-primary-500 focus:ring-2 mr-2"
+                        />
+                        <span className="text-xs text-gray-700 group-hover:text-primary-700 transition-colors flex-1">
+                          {src.label}
+                        </span>
+                        {src.popular && (
+                          <span className="px-1.5 py-0.5 text-xs bg-primary-100 text-primary-700 rounded-full font-medium ml-1">
+                            Popular
+                          </span>
+                        )}
+                      </motion.label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Date Filter */}
+                <div className="mt-4">
+                  <Label className="block text-xs font-semibold text-gray-700 mb-2">Date de publication</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { id: "all", label: "Toutes" },
+                      { id: "24h", label: "24h" },
+                      { id: "48h", label: "48h" },
+                      { id: "7j", label: "7 jours" },
+                      { id: "30j", label: "30 jours" },
+                    ].map((option) => (
+                      <motion.button
+                        key={option.id}
+                        type="button"
+                        onClick={() => setFilters({ ...filters, dateFilter: option.id as "24h" | "48h" | "7j" | "30j" | "all" })}
+                        className={`px-3 py-1.5 rounded-lg border-2 transition-all duration-300 text-xs font-medium ${
+                          filters.dateFilter === option.id
+                            ? "bg-gradient-to-r from-primary-600 to-primary-700 text-white border-primary-600 shadow-lg"
+                            : "bg-white text-gray-700 border-gray-200 hover:border-primary-300 hover:bg-primary-50"
+                        }`}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        {option.label}
+                      </motion.button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Search Button - Full Width at Bottom */}
+                <div className="mt-6 pt-4 border-t border-gray-200">
                   <motion.div
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
+                    className="w-full"
                   >
-            <Button 
+                    <Button 
                       onClick={handleSearch}
                       disabled={!canSearch || loading}
-                      className="w-full bg-gradient-to-r from-primary-600 to-primary-700 text-white font-semibold py-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+                      className="w-full bg-gradient-to-r from-primary-600 to-primary-700 text-white font-semibold py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
                     >
                       {loading ? (
                         <>
@@ -586,559 +710,231 @@ export default function AnnoncesPage() {
                           Lancer la recherche
                         </>
                       )}
-            </Button>
-                  </motion.div>
-                </CardContent>
-              </Card>
+                    </Button>
             </motion.div>
-          </div>
-
-          {/* Results Area */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Main Card */}
-            <motion.div
-              initial="initial"
-              animate="animate"
-              variants={fadeInUp}
-              transition={{ delay: 0.4 }}
-            >
-              <Card className="bg-white/95 backdrop-blur-xl border-primary-200/50 shadow-xl rounded-3xl overflow-hidden">
-                <CardHeader>
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <CardTitle className="text-4xl font-bold bg-gradient-to-r from-primary-600 to-primary-700 bg-clip-text text-transparent mb-2">
-                        Annonces immobilières
-                      </CardTitle>
-                      <div className="flex items-center space-x-3 text-sm text-gray-500">
-                        <span>Recherche en temps réel via MoteurImmo</span>
-                        <span className="text-gray-300">—</span>
-                        <span className="flex items-center space-x-1">
-                          <motion.span
-                            className="w-2 h-2 bg-green-400 rounded-full"
-                            animate={{ opacity: [1, 0.5, 1] }}
-                            transition={{ duration: 2, repeat: Infinity }}
-                          />
-                          <span>Pige IA instantanée</span>
-                        </span>
-                      </div>
-                    </div>
-                    <Badge className="px-4 py-2 bg-gradient-to-r from-primary-50 to-primary-100 rounded-full border border-primary-200">
-                      <Sparkles className="w-4 h-4 text-primary-600 mr-2" strokeWidth={1.5} />
-                      <span className="text-sm font-medium text-primary-700">Powered by Moteurimmo</span>
-                </Badge>
-              </div>
-                </CardHeader>
-                <CardContent>
-                  {/* Empty State */}
-                  {!loading && !error && results.length === 0 && !meta && (
-                    <div className="text-center py-12">
-                      <motion.div
-                        className="inline-block p-8 bg-gradient-to-br from-primary-100 to-primary-200 rounded-3xl mb-6 relative overflow-hidden"
-                        animate={{
-                          backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"],
-                        }}
-                        transition={{
-                          duration: 15,
-                          repeat: Infinity,
-                          ease: "linear",
-                        }}
-                        style={{
-                          backgroundSize: "200% 200%",
-                          backgroundImage: "linear-gradient(-45deg, #F0EBFF, #E4D9FF, #F0EBFF)",
-                        }}
-                      >
-                        <Search className="w-24 h-24 text-primary-500 relative z-10" strokeWidth={1.5} />
-            </motion.div>
-                      <h3 className="text-2xl font-bold text-gray-700 mb-3">Prêt à trouver ton bien idéal ?</h3>
-                      <p className="text-gray-500 mb-8 max-w-md mx-auto">
-                        Configure tes critères de recherche et lance une recherche pour découvrir les meilleures annonces du marché.
-                      </p>
-                      <div className="flex items-center justify-center space-x-4">
-                        <div className="flex items-center space-x-2 px-4 py-2 bg-white rounded-full shadow-sm border border-gray-200">
-                          <div className="w-2 h-2 bg-primary-400 rounded-full"></div>
-                          <span className="text-sm text-gray-600">Multi-sources</span>
-                        </div>
-                        <div className="flex items-center space-x-2 px-4 py-2 bg-white rounded-full shadow-sm border border-gray-200">
-                          <div className="w-2 h-2 bg-primary-500 rounded-full"></div>
-                          <span className="text-sm text-gray-600">Temps réel</span>
-                        </div>
-                        <div className="flex items-center space-x-2 px-4 py-2 bg-white rounded-full shadow-sm border border-gray-200">
-                          <div className="w-2 h-2 bg-primary-600 rounded-full"></div>
-                          <span className="text-sm text-gray-600">IA intégrée</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Loading skeletons */}
-                  {loading && (
-                    <div className="space-y-4">
-                      {[...Array(5)].map((_, i) => (
-                        <Card key={i} className="rounded-2xl border border-gray-200">
-                          <CardContent className="p-6">
-                            <Skeleton className="h-6 w-3/4 mb-4" />
-                            <Skeleton className="h-4 w-1/2 mb-2" />
-                            <Skeleton className="h-4 w-1/3" />
-                          </CardContent>
-                        </Card>
-                      ))}
-                  </div>
-                  )}
-
-                  {/* Error */}
-                  {error && !loading && (
-                    <Card className="rounded-2xl border border-red-200 bg-red-50">
-                      <CardContent className="p-6">
-                        <div className="flex items-start gap-3">
-                          <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5" strokeWidth={1.5} />
-                          <div>
-                            <h3 className="font-semibold text-red-900 mb-1">Erreur de recherche</h3>
-                            <p className="text-sm text-red-700">
-                              {error === "quota_exceeded"
-                                ? "Tu as atteint la limite de recherche pour cette heure. Réessaie plus tard."
-                                : error === "too_large"
-                                  ? "Ta recherche est trop large. Réduis la zone (ville/CP) ou ajoute des filtres."
-                                  : error}
-                            </p>
                 </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-
-                  {/* Results count */}
-                  {meta && (
-                    <div className="mb-6">
-                      <h2 className="text-2xl font-semibold text-gray-900">
-                        {meta.total} résultat{meta.total > 1 ? "s" : ""}
-                      </h2>
-                      {meta.total >= 140 && (
-                        <p className="text-sm text-amber-600 mt-1">
-                          Limitée automatiquement pour protéger l'API
-                        </p>
-                      )}
-                </div>
-                  )}
-
-                  {/* Results */}
-                  {!loading && !error && filteredListings.length > 0 && (
-                    <div className="space-y-4">
-                      {filteredListings.map((listing, index) => (
-                        <motion.div
-                          key={listing.id}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: index * 0.1 }}
-                        >
-                          <Card className="rounded-2xl border border-gray-200 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 overflow-hidden">
-                            <CardContent className="p-0">
-                              <div className="flex flex-col sm:flex-row">
-                                {/* Image */}
-                                {listing.images && listing.images.length > 0 ? (
-                                  <div className="relative w-full sm:w-64 h-48 sm:h-auto flex-shrink-0">
-                                    <img
-                                      src={listing.images[0]}
-                                      alt={listing.title}
-                                      className="w-full h-full object-cover"
-                                      onError={(e) => {
-                                        // Fallback si l'image ne charge pas
-                                        const target = e.target as HTMLImageElement;
-                                        target.style.display = 'none';
-                                      }}
-                                    />
-                                    {/* Badge Nouveau sur l'image */}
-                                    {isRecent(listing.publishedAt) && (
-                                      <div className="absolute top-2 right-2">
-                                        <Badge className="bg-green-100 text-green-700">Nouveau</Badge>
-                                      </div>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <div className="relative w-full sm:w-64 h-48 sm:h-auto flex-shrink-0 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
-                                    <div className="text-center p-4">
-                                      <div className="w-16 h-16 mx-auto mb-2 bg-gray-300 rounded-lg flex items-center justify-center">
-                                        <MapPin className="w-8 h-8 text-gray-500" strokeWidth={1.5} />
-                                      </div>
-                                      <p className="text-xs text-gray-500">Aucune image</p>
-                                    </div>
-                                    {isRecent(listing.publishedAt) && (
-                                      <div className="absolute top-2 right-2">
-                                        <Badge className="bg-green-100 text-green-700">Nouveau</Badge>
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                                
-                                {/* Contenu */}
-                                <div className="flex-1 p-6">
-                                  <div className="flex items-start justify-between mb-4">
-                                    <div className="flex-1">
-                                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                                        {listing.title}
-                                      </h3>
-                                      <div className="flex items-center gap-4 text-sm text-gray-600 mb-2 flex-wrap">
-                                        <span className="font-semibold text-gray-900">
-                                          {formatPrice(listing.price)}
-                                        </span>
-                                        {listing.surface && <span>{listing.surface} m²</span>}
-                                        {listing.rooms && (
-                                          <span>{listing.rooms} pièce{listing.rooms > 1 ? "s" : ""}</span>
-                                        )}
-                                        {/* Badge Professionnel/Particulier */}
-                                        {listing.isPro !== undefined && (
-                                          <Badge 
-                                            className="text-xs px-2 py-0.5 font-medium bg-gradient-to-r from-primary-600 to-primary-700 text-white border-primary-600 shadow-sm"
-                                          >
-                                            {listing.isPro ? "Professionnel" : "Particulier"}
-                                          </Badge>
-                                        )}
-                                      </div>
-                                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                                        <MapPin className="h-4 w-4" strokeWidth={1.5} />
-                                        <span>
-                                          {listing.city}
-                                          {listing.postalCode && ` (${listing.postalCode})`}
-                                        </span>
-                                      </div>
-                                    </div>
-                                    <div className="flex flex-col items-end gap-2 ml-4">
-                                      {listing.origin && <OriginBadge origin={listing.origin} />}
-                                    </div>
-                                  </div>
-                                  
-                                  {listing.description && (
-                                    <p className="text-sm text-gray-600 mb-4 line-clamp-2">
-                                      {listing.description}
-                                    </p>
-                                  )}
-
-                                  <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-                                    <span className="text-xs text-gray-500">
-                                      Publiée le {formatDate(listing.publishedAt)}
-                                    </span>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      asChild
-                                      className="border-gray-300 hover:border-primary-500 hover:text-primary-700"
-                                    >
-                                      <a
-                                        href={listing.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="flex items-center gap-2"
-                                      >
-                                        Voir l'annonce
-                                        <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
-                                      </a>
-                                    </Button>
-                                  </div>
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        </motion.div>
-                      ))}
               </div>
-                  )}
-
-                  {/* Aucun résultat */}
-                  {!loading && !error && filteredListings.length === 0 && (results.length === 0 || meta) && (
-                    <Card className="rounded-2xl border border-gray-200">
-                      <CardContent className="p-12 text-center">
-                        <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" strokeWidth={1.5} />
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                          Aucune annonce trouvée
-                        </h3>
-                        <p className="text-sm text-gray-600">
-                          Aucune annonce ne correspond à tes critères de recherche.
-                        </p>
-                      </CardContent>
-                    </Card>
-                  )}
-                </CardContent>
-              </Card>
+            </CardContent>
+          </Card>
           </motion.div>
 
-            {/* Stats Cards */}
-            {meta && results.length > 0 && (
-          <motion.div 
-                className="grid grid-cols-3 gap-4"
-                initial="initial"
-                animate="animate"
-            variants={staggerChildren}
-          >
-                {[
-                  { label: "Recherches", value: "247", change: "+12%", changeLabel: "vs hier", icon: Search, bgColor: "bg-primary-100", iconColor: "text-primary-600" },
-                  { label: "Favoris", value: "38", change: "+5", changeLabel: "cette semaine", icon: Heart, bgColor: "bg-pink-100", iconColor: "text-pink-600" },
-                  { label: "Alertes", value: "12", change: "Actives", changeLabel: "", icon: Bell, bgColor: "bg-blue-100", iconColor: "text-blue-600" },
-                ].map((stat, index) => (
-                  <motion.div
-                    key={stat.label}
-                    variants={fadeInUp}
-                    transition={{ delay: 0.5 + index * 0.1 }}
-                  >
-                    <Card className="bg-white/95 backdrop-blur-xl border-primary-200/50 shadow-lg rounded-2xl hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                      <CardContent className="p-6">
-                        <div className="flex items-center justify-between mb-3">
-                          <span className="text-sm text-gray-500 font-medium">{stat.label}</span>
-                          <div className={`p-2 ${stat.bgColor} rounded-lg`}>
-                            <stat.icon className={`w-4 h-4 ${stat.iconColor}`} strokeWidth={1.5} />
-                          </div>
-                        </div>
-                        <p className="text-3xl font-bold text-gray-800 mb-1">{stat.value}</p>
-                        <div className="flex items-center space-x-2">
-                          <span className="text-xs text-green-600 font-semibold">{stat.change}</span>
-                          {stat.changeLabel && <span className="text-xs text-gray-400">{stat.changeLabel}</span>}
-                        </div>
-                      </CardContent>
-                    </Card>
-          </motion.div>
-                ))}
-              </motion.div>
-            )}
+        {/* Results Area - Grid 3 columns */}
+        <div className="space-y-6">
+          {/* Results count */}
+          {meta && (
+            <div className="mb-4">
+              <h2 className="text-2xl font-semibold text-gray-900">
+                {meta.total} résultat{meta.total > 1 ? "s" : ""}
+              </h2>
+              {meta.total >= 140 && (
+                <p className="text-sm text-amber-600 mt-1">
+                  Limitée automatiquement pour protéger l'API
+                </p>
+              )}
+            </div>
+          )}
 
-            {/* Analytics Charts */}
-            {meta && results.length > 0 && (
-          <motion.div 
-            className="grid grid-cols-1 lg:grid-cols-2 gap-6"
-                initial="initial"
-                animate="animate"
-            variants={staggerChildren}
-          >
-                {/* Price Evolution Chart */}
-                <motion.div variants={fadeInUp} transition={{ delay: 0.8 }}>
-                  <Card className="bg-white/95 backdrop-blur-xl border-primary-200/50 shadow-lg rounded-3xl">
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <CardTitle className="text-lg font-bold text-gray-800">Évolution des prix</CardTitle>
-                          <CardDescription className="text-sm text-gray-500">Derniers 6 mois</CardDescription>
-                        </div>
-                        <Badge className="px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-xs font-semibold">
-                          Paris
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <ResponsiveContainer width="100%" height={200}>
-                        <LineChart data={priceEvolutionData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-                          <XAxis dataKey="month" stroke="#64748B" fontSize={11} />
-                          <YAxis
-                            stroke="#64748B"
-                            fontSize={11}
-                            tickFormatter={(value) => `${value / 1000}k`}
-                          />
-                    <Tooltip 
-                      contentStyle={{ 
-                              backgroundColor: "white",
-                              border: "1px solid #E2E8F0",
-                              borderRadius: "8px",
-                              boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                            }}
-                            formatter={(value: number) => [`${value.toLocaleString()} €/m²`, "Prix moyen"]}
-                          />
-                          <Line
-                            type="monotone"
-                            dataKey="price"
-                            stroke="#7C5CDB"
-                            strokeWidth={3}
-                            dot={{ fill: "#7C5CDB", r: 5 }}
-                            activeDot={{ r: 7 }}
-                          />
-                        </LineChart>
-                </ResponsiveContainer>
-                    </CardContent>
-                  </Card>
-            </motion.div>
-
-                {/* Property Types Chart */}
-                <motion.div variants={fadeInUp} transition={{ delay: 0.9 }}>
-                  <Card className="bg-white/95 backdrop-blur-xl border-primary-200/50 shadow-lg rounded-3xl">
-                    <CardHeader>
-                      <div>
-                        <CardTitle className="text-lg font-bold text-gray-800">Types de biens</CardTitle>
-                        <CardDescription className="text-sm text-gray-500">Distribution actuelle</CardDescription>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <ResponsiveContainer width="100%" height={200}>
-                  <PieChart>
-                    <Pie
-                            data={propertyTypesData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                            label={({ name, percent }) => `${name} ${percent ? (percent * 100).toFixed(0) : 0}%`}
-                            outerRadius={70}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                            {propertyTypesData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      contentStyle={{ 
-                              backgroundColor: "white",
-                              border: "1px solid #E2E8F0",
-                              borderRadius: "8px",
-                              boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                            }}
-                            formatter={(value: number) => [`${value}%`, ""]}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-                    </CardContent>
-                  </Card>
-            </motion.div>
-          </motion.div>
-            )}
-
-            {/* Activity Chart */}
-            {meta && results.length > 0 && (
+          {/* Empty State */}
+          {!loading && !error && results.length === 0 && !meta && (
+            <Card className="rounded-2xl border border-gray-200">
+              <CardContent className="p-12 text-center">
                   <motion.div 
-                initial="initial"
-                animate="animate"
-                variants={fadeInUp}
-                transition={{ delay: 1 }}
-              >
-                <Card className="bg-white/95 backdrop-blur-xl border-primary-200/50 shadow-lg rounded-3xl">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <CardTitle className="text-xl font-bold text-gray-800">Activité de recherche</CardTitle>
-                        <CardDescription className="text-sm text-gray-500">Nombre de recherches par jour</CardDescription>
+                  className="inline-block p-8 bg-gradient-to-br from-primary-100 to-primary-200 rounded-3xl mb-6 relative overflow-hidden"
+                  animate={{
+                    backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"],
+                  }}
+                  transition={{
+                    duration: 15,
+                    repeat: Infinity,
+                    ease: "linear",
+                  }}
+                  style={{
+                    backgroundSize: "200% 200%",
+                    backgroundImage: "linear-gradient(-45deg, #F0EBFF, #E4D9FF, #F0EBFF)",
+                  }}
+                >
+                  <Search className="w-24 h-24 text-primary-500 relative z-10" strokeWidth={1.5} />
+                </motion.div>
+                <h3 className="text-2xl font-bold text-gray-700 mb-3">Prêt à trouver ton bien idéal ?</h3>
+                <p className="text-gray-500 mb-8 max-w-md mx-auto">
+                  Configure tes critères de recherche et lance une recherche pour découvrir les meilleures annonces du marché.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Loading skeletons */}
+          {loading && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[...Array(6)].map((_, i) => (
+                <Card key={i} className="rounded-2xl border border-gray-200">
+                  <CardContent className="p-0">
+                    <Skeleton className="h-48 w-full" />
+                    <div className="p-4">
+                      <Skeleton className="h-6 w-3/4 mb-4" />
+                      <Skeleton className="h-4 w-1/2 mb-2" />
+                      <Skeleton className="h-4 w-1/3" />
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <Button variant="outline" size="sm" className="px-3 py-1 bg-primary-100 text-primary-700 border-primary-200">
-                          7J
-                        </Button>
-                        <Button variant="outline" size="sm" className="px-3 py-1 text-gray-500 border-gray-200">
-                          30J
-                        </Button>
-                        <Button variant="outline" size="sm" className="px-3 py-1 text-gray-500 border-gray-200">
-                          90J
-                        </Button>
-                    </div>
-                      </div>
-                  </CardHeader>
-                  <CardContent>
-                    <ResponsiveContainer width="100%" height={200}>
-                      <BarChart data={activityData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-                        <XAxis dataKey="day" stroke="#64748B" fontSize={11} />
-                        <YAxis stroke="#64748B" fontSize={11} />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: "white",
-                            border: "1px solid #E2E8F0",
-                            borderRadius: "8px",
-                            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                          }}
-                          formatter={(value: number) => [`${value} recherches`, ""]}
-                        />
-                        <Bar dataKey="searches" radius={[8, 8, 0, 0]}>
-                          {activityData.map((entry, index) => (
-                            <Cell
-                              key={`cell-${index}`}
-                              fill={
-                                index % 2 === 0
-                                  ? "url(#primaryGradient)"
-                                  : "url(#primaryGradientDark)"
-                              }
-                            />
-                          ))}
-                        </Bar>
-                        <defs>
-                          <linearGradient id="primaryGradient" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#7C5CDB" />
-                            <stop offset="100%" stopColor="#5E3A9B" />
-                          </linearGradient>
-                          <linearGradient id="primaryGradientDark" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#8B72E7" />
-                            <stop offset="100%" stopColor="#7C5CDB" />
-                          </linearGradient>
-                        </defs>
-                      </BarChart>
-                    </ResponsiveContainer>
                   </CardContent>
                 </Card>
-          </motion.div>
-            )}
+              ))}
+                    </div>
+          )}
 
-            {/* Performance Metrics */}
-            {meta && results.length > 0 && (
-              <motion.div
-                className="grid grid-cols-4 gap-4"
-                initial="initial"
-                animate="animate"
-                variants={staggerChildren}
-              >
-                {[
-                  { label: "Taux de réponse", value: "70%", sublabel: "Moy. 24h", icon: TrendingUp, progress: 70 },
-                  { label: "Visites", value: "+24%", sublabel: "vs mois dernier", icon: Zap, iconColor: "text-blue-500" },
-                  { label: "Temps moy.", value: "2.3m", sublabel: "par session", icon: Search, iconColor: "text-green-500" },
-                  { label: "Contacts", value: "156", sublabel: "ce mois", icon: Mail, iconColor: "text-pink-500" },
-                ].map((metric, index) => (
-                  <motion.div 
-                    key={metric.label}
-                    variants={fadeInUp}
-                    transition={{ delay: 1.1 + index * 0.1 }}
-                  >
-                    <Card className="bg-white/95 backdrop-blur-xl border-primary-200/50 shadow-lg rounded-2xl hover:shadow-xl transition-all duration-300 hover:-translate-y-1 text-center">
-                      <CardContent className="p-6">
-                        {metric.progress ? (
-                          <div className="relative inline-block mb-3">
-                            <svg className="w-20 h-20 transform -rotate-90">
-                              <circle
-                                cx="40"
-                                cy="40"
-                                r="35"
-                                stroke="#E5E7EB"
-                                strokeWidth="8"
-                                fill="none"
-                              />
-                              <motion.circle
-                                cx="40"
-                                cy="40"
-                                r="35"
-                                stroke="#7C5CDB"
-                                strokeWidth="8"
-                                fill="none"
-                                strokeLinecap="round"
-                                strokeDasharray={220}
-                                initial={{ strokeDashoffset: 220 }}
-                                animate={{ strokeDashoffset: 220 - (220 * metric.progress) / 100 }}
-                                transition={{ duration: 2, ease: "easeOut" }}
-                              />
-                            </svg>
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <span className="text-lg font-bold text-gray-800">{metric.value}</span>
+          {/* Error */}
+          {error && !loading && (
+            <Card className="rounded-2xl border border-red-200 bg-red-50">
+              <CardContent className="p-6">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5" strokeWidth={1.5} />
+                  <div>
+                    <h3 className="font-semibold text-red-900 mb-1">Erreur de recherche</h3>
+                    <p className="text-sm text-red-700">
+                      {error === "quota_exceeded"
+                        ? "Tu as atteint la limite de recherche pour cette heure. Réessaie plus tard."
+                        : error === "too_large"
+                          ? "Ta recherche est trop large. Réduis la zone (ville/CP) ou ajoute des filtres."
+                          : error}
+                    </p>
                   </div>
                 </div>
-              ) : (
-                          <div className="flex items-center justify-center mb-3">
-                            <metric.icon
-                              className={`w-8 h-8 ${metric.iconColor || "text-primary-500"}`}
-                              strokeWidth={1.5}
-                            />
-                  </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Results Grid */}
+          {!loading && !error && filteredListings.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredListings.map((listing, index) => (
+                        <motion.div 
+                  key={listing.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                >
+                  <Card className="rounded-2xl border border-gray-200 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 overflow-hidden h-full flex flex-col">
+                    {/* Image */}
+                    {listing.images && listing.images.length > 0 ? (
+                      <div className="relative w-full h-48 flex-shrink-0">
+                        <img
+                          src={listing.images[0]}
+                          alt={listing.title}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                          }}
+                        />
+                        {isRecent(listing.publishedAt) && (
+                          <div className="absolute top-2 right-2">
+                            <Badge className="bg-green-100 text-green-700 text-xs">Nouveau</Badge>
+                      </div>
                         )}
-                        <p className="text-2xl font-bold text-gray-800 mb-1">{metric.value}</p>
-                        <p className="text-sm font-medium text-gray-600">{metric.label}</p>
-                        <p className="text-xs text-gray-400 mt-1">{metric.sublabel}</p>
-                      </CardContent>
-                    </Card>
+                        {listing.origin && (
+                          <div className="absolute top-2 left-2">
+                            <OriginBadge origin={listing.origin} />
+                    </div>
+                        )}
+              </div>
+                    ) : (
+                      <div className="relative w-full h-48 flex-shrink-0 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                        <div className="text-center p-4">
+                          <div className="w-12 h-12 mx-auto mb-2 bg-gray-300 rounded-lg flex items-center justify-center">
+                            <MapPin className="w-6 h-6 text-gray-500" strokeWidth={1.5} />
+                          </div>
+                          <p className="text-xs text-gray-500">Aucune image</p>
+                        </div>
+                        {isRecent(listing.publishedAt) && (
+                          <div className="absolute top-2 right-2">
+                            <Badge className="bg-green-100 text-green-700 text-xs">Nouveau</Badge>
+                          </div>
+                        )}
+                        {listing.origin && (
+                          <div className="absolute top-2 left-2">
+                            <OriginBadge origin={listing.origin} />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Content */}
+                    <CardContent className="p-4 flex-1 flex flex-col">
+                      <h3 className="text-base font-semibold text-gray-900 mb-2 line-clamp-2">
+                        {listing.title}
+                      </h3>
+                      <div className="flex items-center gap-2 text-sm text-gray-600 mb-2 flex-wrap">
+                        <span className="font-semibold text-gray-900">
+                          {formatPrice(listing.price)}
+                        </span>
+                        {listing.surface && <span>{listing.surface} m²</span>}
+                        {listing.rooms && (
+                          <span>{listing.rooms} pièce{listing.rooms > 1 ? "s" : ""}</span>
+                        )}
+                        {/* Badge Pro/Particulier - toujours affiché */}
+                        <Badge 
+                          className="text-xs px-1.5 py-0.5 font-medium bg-gradient-to-r from-primary-600 to-primary-700 text-white border-primary-600 shadow-sm"
+                        >
+                          {(listing.isPro ?? false) ? "Pro" : "Part."}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-gray-600 mb-3">
+                        <MapPin className="h-3 w-3" strokeWidth={1.5} />
+                        <span className="line-clamp-1">
+                          {listing.city}
+                          {listing.postalCode && ` (${listing.postalCode})`}
+                        </span>
+                      </div>
+                      
+                      {listing.description && (
+                        <p className="text-xs text-gray-600 mb-3 line-clamp-2 flex-1">
+                          {listing.description}
+                        </p>
+                      )}
+
+                      <div className="flex items-center justify-between pt-3 border-t border-gray-200 mt-auto">
+                        <span className="text-xs text-gray-500">
+                          {formatDate(listing.publishedAt)}
+                        </span>
+                      <Button 
+                          variant="outline"
+                          size="sm"
+                          asChild
+                          className="border-gray-300 hover:border-primary-500 hover:text-primary-700 text-xs h-7"
+                        >
+                          <a
+                            href={listing.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1"
+                          >
+                            Voir
+                            <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
+                          </a>
+                  </Button>
+                  </div>
+                    </CardContent>
+                  </Card>
           </motion.div>
-                ))}
-              </motion.div>
-            )}
+              ))}
         </div>
+          )}
+
+          {/* Aucun résultat */}
+          {!loading && !error && filteredListings.length === 0 && (results.length === 0 || meta) && (
+            <Card className="rounded-2xl border border-gray-200">
+              <CardContent className="p-12 text-center">
+                <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" strokeWidth={1.5} />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  Aucune annonce trouvée
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Aucune annonce ne correspond à tes critères de recherche.
+                </p>
+              </CardContent>
+            </Card>
+          )}
             </div>
           </div>
-
         </div>
   )
 }

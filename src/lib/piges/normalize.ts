@@ -20,7 +20,7 @@ export interface NormalizedListing {
   images?: string[];
   origin?: string; // Plateforme source (leboncoin, seloger, bienici, etc.)
   publisher?: string; // Nom du vendeur/agence
-  isPro?: boolean; // true si vendeur professionnel, false si particulier
+  isPro: boolean; // true si vendeur professionnel, false si particulier (toujours défini)
 }
 
 /**
@@ -46,30 +46,46 @@ export function normalizeMoteurImmo(ad: MoteurImmoAd): NormalizedListing {
   // Déterminer si c'est un vendeur professionnel ou particulier
   // Les agences ont généralement un nom de publisher, les particuliers non
   const publisher = ad.publisher?.name || "";
+  const origin = ad.origin?.toLowerCase() || "";
   
   // Si pas de publisher, considérer comme particulier par défaut
-  let isPro: boolean | undefined;
-  if (publisher.length === 0) {
-    isPro = false; // Pas de publisher = particulier par défaut
-  } else {
+  let isPro: boolean = false; // Par défaut, on considère comme particulier
+  
+  if (publisher.length > 0) {
     // Vérifier si c'est un professionnel (agence immobilière)
     const publisherLower = publisher.toLowerCase();
-    isPro = (
-      publisherLower.includes("immobilier") ||
-      publisherLower.includes("agence") ||
-      publisherLower.includes("century") ||
-      publisherLower.includes("orpi") ||
-      publisherLower.includes("foncia") ||
-      publisherLower.includes("laforêt") ||
-      publisherLower.includes("guy hoquet") ||
-      publisherLower.includes("safti") ||
-      publisherLower.includes("seloger") ||
-      publisherLower.includes("bienici") ||
-      publisherLower.includes("logic-immo") ||
-      publisherLower.includes("figaro") ||
-      publisherLower.includes("etreproprio") ||
-      publisherLower.includes("leboncoin") === false // Leboncoin peut être pro ou particulier
-    ) && !publisherLower.includes("pap"); // PAP = toujours particulier
+    
+    // Liste des mots-clés indiquant un professionnel
+    const proKeywords = [
+      "immobilier", "agence", "century", "orpi", "foncia", "laforêt", 
+      "guy hoquet", "safti", "seloger", "bienici", "logic-immo", 
+      "figaro", "etreproprio", "greenacres", "paruvendu", "immo", 
+      "real estate", "realty", "property", "consultant", "expert"
+    ];
+    
+    // Liste des mots-clés indiquant un particulier
+    const particulierKeywords = ["pap", "particulier", "privé", "private"];
+    
+    // Vérifier si c'est un particulier d'abord
+    const isParticulier = particulierKeywords.some(keyword => 
+      publisherLower.includes(keyword)
+    );
+    
+    if (isParticulier) {
+      isPro = false;
+    } else {
+      // Vérifier si c'est un professionnel
+      isPro = proKeywords.some(keyword => publisherLower.includes(keyword));
+    }
+  } else {
+    // Pas de publisher, mais on peut vérifier l'origine
+    // Certaines origines sont généralement professionnelles
+    const proOrigins = ["seloger", "bienici", "logic-immo", "figaro", "paruvendu", "greenacres"];
+    if (proOrigins.includes(origin)) {
+      isPro = true;
+    } else {
+      isPro = false; // Par défaut, particulier
+    }
   }
 
   return {
