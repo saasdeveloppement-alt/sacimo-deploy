@@ -19,6 +19,8 @@ export interface NormalizedListing {
   description?: string;
   images?: string[];
   origin?: string; // Plateforme source (leboncoin, seloger, bienici, etc.)
+  publisher?: string; // Nom du vendeur/agence
+  isPro?: boolean; // true si vendeur professionnel, false si particulier
 }
 
 /**
@@ -41,6 +43,35 @@ export function normalizeMoteurImmo(ad: MoteurImmoAd): NormalizedListing {
     images.push(...ad.pictureUrls);
   }
 
+  // Déterminer si c'est un vendeur professionnel ou particulier
+  // Les agences ont généralement un nom de publisher, les particuliers non
+  const publisher = ad.publisher?.name || "";
+  
+  // Si pas de publisher, considérer comme particulier par défaut
+  let isPro: boolean | undefined;
+  if (publisher.length === 0) {
+    isPro = false; // Pas de publisher = particulier par défaut
+  } else {
+    // Vérifier si c'est un professionnel (agence immobilière)
+    const publisherLower = publisher.toLowerCase();
+    isPro = (
+      publisherLower.includes("immobilier") ||
+      publisherLower.includes("agence") ||
+      publisherLower.includes("century") ||
+      publisherLower.includes("orpi") ||
+      publisherLower.includes("foncia") ||
+      publisherLower.includes("laforêt") ||
+      publisherLower.includes("guy hoquet") ||
+      publisherLower.includes("safti") ||
+      publisherLower.includes("seloger") ||
+      publisherLower.includes("bienici") ||
+      publisherLower.includes("logic-immo") ||
+      publisherLower.includes("figaro") ||
+      publisherLower.includes("etreproprio") ||
+      publisherLower.includes("leboncoin") === false // Leboncoin peut être pro ou particulier
+    ) && !publisherLower.includes("pap"); // PAP = toujours particulier
+  }
+
   return {
     id: ad.uniqueId,
     title: ad.title || "Bien immobilier",
@@ -55,6 +86,8 @@ export function normalizeMoteurImmo(ad: MoteurImmoAd): NormalizedListing {
     description: ad.description,
     images: images.length > 0 ? images : undefined,
     origin: ad.origin ? ad.origin.toLowerCase().trim() : undefined,
+    publisher: publisher || undefined,
+    isPro, // Toujours défini maintenant (true ou false)
   };
 }
 

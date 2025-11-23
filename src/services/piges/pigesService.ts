@@ -23,6 +23,7 @@ export interface PigeSearchFilters {
   minRooms?: number;
   maxRooms?: number;
   type?: "vente" | "location" | "all" | "";
+  sellerType?: "all" | "pro" | "particulier";
   sources?: string[]; // Origines des annonces à filtrer (leboncoin, seloger, etc.)
 }
 
@@ -198,6 +199,25 @@ export async function runPigeSearch(
         });
         console.log(
           `🔍 [Piges] Filtrage par sources: ${filters.sources.join(", ")} → ${normalized.length} résultats après filtrage`
+        );
+      }
+
+      // Filtrer par type de vendeur si spécifié
+      if (filters.sellerType && filters.sellerType !== "all") {
+        const beforeFilter = normalized.length;
+        normalized = normalized.filter((ad) => {
+          // Si isPro n'est pas défini, on ne peut pas filtrer (on garde l'annonce)
+          if (ad.isPro === undefined) return true;
+          
+          if (filters.sellerType === "pro") {
+            return ad.isPro === true;
+          } else if (filters.sellerType === "particulier") {
+            return ad.isPro === false;
+          }
+          return true;
+        });
+        console.log(
+          `🔍 [Piges] Filtrage par type de vendeur: ${filters.sellerType} → ${normalized.length} résultats (${beforeFilter} avant filtrage)`
         );
       }
       

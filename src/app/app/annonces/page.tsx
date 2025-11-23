@@ -38,6 +38,7 @@ interface PigeFilters {
   city?: string
   postalCode?: string
   type?: "vente" | "location" | "all"
+  sellerType?: "all" | "pro" | "particulier"
   minPrice?: number
   maxPrice?: number
   minSurface?: number
@@ -72,6 +73,7 @@ export default function AnnoncesPage() {
   const { data: session } = useSession()
   const [filters, setFilters] = useState<PigeFilters>({
     type: "all",
+    sellerType: "all",
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -81,12 +83,38 @@ export default function AnnoncesPage() {
 
   const canSearch = !!(filters.postalCode && filters.postalCode.trim() !== "")
 
+  // Filtrer les résultats côté client selon sellerType
+  const filteredListings = results.filter((listing) => {
+    if (filters.sellerType === "all" || !filters.sellerType) {
+      return true // Afficher toutes les annonces
+    }
+    if (filters.sellerType === "pro") {
+      // Uniquement les professionnels (isPro === true)
+      return listing.isPro === true
+    }
+    if (filters.sellerType === "particulier") {
+      // Uniquement les particuliers (isPro === false ou undefined)
+      return listing.isPro === false || listing.isPro === undefined
+    }
+    return true
+  })
+
   function handleSourceToggle(src: string) {
     setSelectedSources(prev =>
       prev.includes(src)
         ? prev.filter(s => s !== src)
         : [...prev, src]
     )
+  }
+
+  function handleSellerTypeToggle(type: "pro" | "particulier") {
+    // Si on clique sur le type déjà sélectionné, on le désactive (retour à "all")
+    if (filters.sellerType === type) {
+      setFilters({ ...filters, sellerType: "all" })
+    } else {
+      // Sinon, on active le type sélectionné
+      setFilters({ ...filters, sellerType: type })
+    }
   }
 
   const handleSearch = async () => {
@@ -97,9 +125,9 @@ export default function AnnoncesPage() {
     if (!canSearch) {
       console.warn("⚠️ [Annonces] Recherche impossible: canSearch = false", { postalCode: filters.postalCode })
       setError("Veuillez renseigner un code postal pour lancer la recherche")
-      return
-    }
-    
+          return
+        }
+
     if (!userId) {
       console.warn("⚠️ [Annonces] Recherche impossible: userId manquant")
       setError("Vous devez être connecté pour effectuer une recherche")
@@ -117,6 +145,9 @@ export default function AnnoncesPage() {
       if (filters.postalCode) cleanFilters.postalCode = filters.postalCode
       if (filters.type && filters.type !== "all") {
         cleanFilters.type = filters.type as "vente" | "location"
+      }
+      if (filters.sellerType && filters.sellerType !== "all") {
+        cleanFilters.sellerType = filters.sellerType as "pro" | "particulier"
       }
       if (filters.minPrice) cleanFilters.minPrice = Number(filters.minPrice)
       if (filters.maxPrice) cleanFilters.maxPrice = Number(filters.maxPrice)
@@ -152,7 +183,7 @@ export default function AnnoncesPage() {
           setError("quota_exceeded")
         } else if (data.message?.includes("trop large")) {
           setError("too_large")
-        } else {
+          } else {
           setError(data.message || "Erreur lors de la recherche")
         }
         return
@@ -162,7 +193,7 @@ export default function AnnoncesPage() {
         console.log("✅ [Annonces] Recherche réussie", { total: data.meta?.total, results: data.data?.length })
         setResults(data.data || [])
         setMeta(data.meta || { total: data.data?.length || 0, pages: 1, hasMore: false })
-      } else {
+          } else {
         console.error("❌ [Annonces] Statut non-ok", { status: data.status, message: data.message })
         setError(data.message || "Erreur lors de la recherche")
       }
@@ -356,6 +387,50 @@ export default function AnnoncesPage() {
                         <SelectItem value="location">Location</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  {/* Seller Type - Toggle Buttons */}
+                  <div>
+                    <Label className="block text-sm font-semibold text-gray-700 mb-3">
+                      Type de vendeur
+                    </Label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <motion.button
+                        type="button"
+                        onClick={() => handleSellerTypeToggle("pro")}
+                        className={`px-4 py-3 rounded-xl border-2 transition-all duration-300 font-medium ${
+                          filters.sellerType === "pro"
+                            ? "bg-gradient-to-r from-primary-600 to-primary-700 text-white border-primary-600 shadow-lg"
+                            : "bg-white text-gray-700 border-gray-200 hover:border-primary-300 hover:bg-primary-50"
+                        }`}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <div className="flex items-center justify-center space-x-2">
+                          <div className={`w-2 h-2 rounded-full ${filters.sellerType === "pro" ? "bg-white" : "bg-gray-400"}`}></div>
+                          <span>Professionnel</span>
+                        </div>
+                      </motion.button>
+                      <motion.button
+                        type="button"
+                        onClick={() => handleSellerTypeToggle("particulier")}
+                        className={`px-4 py-3 rounded-xl border-2 transition-all duration-300 font-medium ${
+                          filters.sellerType === "particulier"
+                            ? "bg-gradient-to-r from-primary-600 to-primary-700 text-white border-primary-600 shadow-lg"
+                            : "bg-white text-gray-700 border-gray-200 hover:border-primary-300 hover:bg-primary-50"
+                        }`}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <div className="flex items-center justify-center space-x-2">
+                          <div className={`w-2 h-2 rounded-full ${filters.sellerType === "particulier" ? "bg-white" : "bg-gray-400"}`}></div>
+                          <span>Particulier</span>
+                        </div>
+                      </motion.button>
+                    </div>
+                    {(!filters.sellerType || filters.sellerType === "all") && (
+                      <p className="text-xs text-gray-500 mt-2 text-center">Tous les vendeurs</p>
+                    )}
                   </div>
 
                   {/* Origin */}
@@ -646,9 +721,9 @@ export default function AnnoncesPage() {
                   )}
 
                   {/* Results */}
-                  {!loading && !error && results.length > 0 && (
+                  {!loading && !error && filteredListings.length > 0 && (
                     <div className="space-y-4">
-                      {results.map((listing, index) => (
+                      {filteredListings.map((listing, index) => (
                         <motion.div
                           key={listing.id}
                           initial={{ opacity: 0, y: 20 }}
@@ -662,13 +737,21 @@ export default function AnnoncesPage() {
                                   <h3 className="text-lg font-semibold text-gray-900 mb-2">
                                     {listing.title}
                                   </h3>
-                                  <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
+                                  <div className="flex items-center gap-4 text-sm text-gray-600 mb-2 flex-wrap">
                                     <span className="font-semibold text-gray-900">
                                       {formatPrice(listing.price)}
                                     </span>
                                     {listing.surface && <span>{listing.surface} m²</span>}
                                     {listing.rooms && (
                                       <span>{listing.rooms} pièce{listing.rooms > 1 ? "s" : ""}</span>
+                                    )}
+                                    {/* Badge Professionnel/Particulier */}
+                                    {listing.isPro !== undefined && (
+                                      <Badge 
+                                        className="text-xs px-2 py-0.5 font-medium bg-gradient-to-r from-primary-600 to-primary-700 text-white border-primary-600 shadow-sm"
+                                      >
+                                        {listing.isPro ? "Professionnel" : "Particulier"}
+                                      </Badge>
                                     )}
                                   </div>
                                   <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -722,7 +805,7 @@ export default function AnnoncesPage() {
                   )}
 
                   {/* Aucun résultat */}
-                  {!loading && !error && results.length === 0 && meta && (
+                  {!loading && !error && filteredListings.length === 0 && (results.length === 0 || meta) && (
                     <Card className="rounded-2xl border border-gray-200">
                       <CardContent className="p-12 text-center">
                         <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" strokeWidth={1.5} />
