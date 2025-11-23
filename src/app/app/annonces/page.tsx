@@ -730,73 +730,111 @@ export default function AnnoncesPage() {
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: index * 0.1 }}
                         >
-                          <Card className="rounded-2xl border border-gray-200 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
-                            <CardContent className="p-6">
-                              <div className="flex items-start justify-between mb-4">
-                                <div className="flex-1">
-                                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                                    {listing.title}
-                                  </h3>
-                                  <div className="flex items-center gap-4 text-sm text-gray-600 mb-2 flex-wrap">
-                                    <span className="font-semibold text-gray-900">
-                                      {formatPrice(listing.price)}
-                                    </span>
-                                    {listing.surface && <span>{listing.surface} m²</span>}
-                                    {listing.rooms && (
-                                      <span>{listing.rooms} pièce{listing.rooms > 1 ? "s" : ""}</span>
-                                    )}
-                                    {/* Badge Professionnel/Particulier */}
-                                    {listing.isPro !== undefined && (
-                                      <Badge 
-                                        className="text-xs px-2 py-0.5 font-medium bg-gradient-to-r from-primary-600 to-primary-700 text-white border-primary-600 shadow-sm"
-                                      >
-                                        {listing.isPro ? "Professionnel" : "Particulier"}
-                                      </Badge>
+                          <Card className="rounded-2xl border border-gray-200 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 overflow-hidden">
+                            <CardContent className="p-0">
+                              <div className="flex flex-col sm:flex-row">
+                                {/* Image */}
+                                {listing.images && listing.images.length > 0 ? (
+                                  <div className="relative w-full sm:w-64 h-48 sm:h-auto flex-shrink-0">
+                                    <img
+                                      src={listing.images[0]}
+                                      alt={listing.title}
+                                      className="w-full h-full object-cover"
+                                      onError={(e) => {
+                                        // Fallback si l'image ne charge pas
+                                        const target = e.target as HTMLImageElement;
+                                        target.style.display = 'none';
+                                      }}
+                                    />
+                                    {/* Badge Nouveau sur l'image */}
+                                    {isRecent(listing.publishedAt) && (
+                                      <div className="absolute top-2 right-2">
+                                        <Badge className="bg-green-100 text-green-700">Nouveau</Badge>
+                                      </div>
                                     )}
                                   </div>
-                                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                                    <MapPin className="h-4 w-4" strokeWidth={1.5} />
-                                    <span>
-                                      {listing.city}
-                                      {listing.postalCode && ` (${listing.postalCode})`}
-                                    </span>
+                                ) : (
+                                  <div className="relative w-full sm:w-64 h-48 sm:h-auto flex-shrink-0 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                                    <div className="text-center p-4">
+                                      <div className="w-16 h-16 mx-auto mb-2 bg-gray-300 rounded-lg flex items-center justify-center">
+                                        <MapPin className="w-8 h-8 text-gray-500" strokeWidth={1.5} />
+                                      </div>
+                                      <p className="text-xs text-gray-500">Aucune image</p>
+                                    </div>
+                                    {isRecent(listing.publishedAt) && (
+                                      <div className="absolute top-2 right-2">
+                                        <Badge className="bg-green-100 text-green-700">Nouveau</Badge>
+                                      </div>
+                                    )}
                                   </div>
-                                </div>
-                                <div className="flex flex-col items-end gap-2">
-                                  {listing.origin && <OriginBadge origin={listing.origin} />}
-                                  {isRecent(listing.publishedAt) && (
-                                    <Badge className="bg-green-100 text-green-700">Nouveau</Badge>
+                                )}
+                                
+                                {/* Contenu */}
+                                <div className="flex-1 p-6">
+                                  <div className="flex items-start justify-between mb-4">
+                                    <div className="flex-1">
+                                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                                        {listing.title}
+                                      </h3>
+                                      <div className="flex items-center gap-4 text-sm text-gray-600 mb-2 flex-wrap">
+                                        <span className="font-semibold text-gray-900">
+                                          {formatPrice(listing.price)}
+                                        </span>
+                                        {listing.surface && <span>{listing.surface} m²</span>}
+                                        {listing.rooms && (
+                                          <span>{listing.rooms} pièce{listing.rooms > 1 ? "s" : ""}</span>
+                                        )}
+                                        {/* Badge Professionnel/Particulier */}
+                                        {listing.isPro !== undefined && (
+                                          <Badge 
+                                            className="text-xs px-2 py-0.5 font-medium bg-gradient-to-r from-primary-600 to-primary-700 text-white border-primary-600 shadow-sm"
+                                          >
+                                            {listing.isPro ? "Professionnel" : "Particulier"}
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                                        <MapPin className="h-4 w-4" strokeWidth={1.5} />
+                                        <span>
+                                          {listing.city}
+                                          {listing.postalCode && ` (${listing.postalCode})`}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <div className="flex flex-col items-end gap-2 ml-4">
+                                      {listing.origin && <OriginBadge origin={listing.origin} />}
+                                    </div>
+                                  </div>
+                                  
+                                  {listing.description && (
+                                    <p className="text-sm text-gray-600 mb-4 line-clamp-2">
+                                      {listing.description}
+                                    </p>
                                   )}
-                                </div>
-              </div>
-              
-                              {listing.description && (
-                                <p className="text-sm text-gray-600 mb-4 line-clamp-2">
-                                  {listing.description}
-                                </p>
-                              )}
 
-                              <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-                                <span className="text-xs text-gray-500">
-                                  Publiée le {formatDate(listing.publishedAt)}
-                                </span>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  asChild
-                                  className="border-gray-300 hover:border-primary-500 hover:text-primary-700"
-                                >
-                                  <a
-                                    href={listing.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-2"
-                                  >
-                                    Voir l'annonce
-                                    <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
-                                  </a>
-                  </Button>
-                </div>
+                                  <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+                                    <span className="text-xs text-gray-500">
+                                      Publiée le {formatDate(listing.publishedAt)}
+                                    </span>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      asChild
+                                      className="border-gray-300 hover:border-primary-500 hover:text-primary-700"
+                                    >
+                                      <a
+                                        href={listing.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-2"
+                                      >
+                                        Voir l'annonce
+                                        <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
+                                      </a>
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
                             </CardContent>
                           </Card>
                         </motion.div>
