@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
-import { Search, Loader2, AlertTriangle, ExternalLink, Sparkles, MapPin, Bell, Mail, TrendingUp, Heart, Zap } from "lucide-react"
+import { Search, Loader2, AlertTriangle, ExternalLink, Sparkles, MapPin, Bell, Mail, TrendingUp, Heart, Zap, ChevronDown, ChevronUp, Save, Bookmark, Trash2, X, Clock } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,6 +17,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { motion } from "framer-motion"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog"
 import {
   LineChart,
   Line,
@@ -48,6 +50,43 @@ interface PigeFilters {
   maxRooms?: number
   sources?: string[]
   dateFilter?: "24h" | "48h" | "7j" | "30j" | "all" // Filtre par date
+  // Filtres optionnels
+  criteria?: string[] // balcon, terrasse, jardin, parking, etc.
+  minPricePerM2?: number
+  maxPricePerM2?: number
+  condition?: string[] // bon état, à rénover, neuf, etc.
+  minBedrooms?: number
+  maxBedrooms?: number
+  minFloor?: number
+  maxFloor?: number
+  propertyType?: string[] // appartement, maison, studio, etc.
+  furnished?: "all" | "furnished" | "unfurnished"
+  orientation?: string[] // nord, sud, est, ouest
+}
+
+interface SavedFilter {
+  id: string
+  name: string
+  filters: PigeFilters
+  createdAt: string
+}
+
+interface SearchHistory {
+  id: string
+  filters: PigeFilters
+  resultsCount: number
+  searchedAt: string
+  city?: string
+  postalCode?: string
+}
+
+interface SearchHistory {
+  id: string
+  filters: PigeFilters
+  resultsCount: number
+  searchedAt: string
+  postalCode?: string
+  city?: string
 }
 
 // Animations
@@ -78,14 +117,122 @@ export default function AnnoncesPage() {
     types: [], // Pour les cases à cocher vente/location
     sellerType: "all",
     dateFilter: "all", // Par défaut, toutes les dates
+    criteria: [],
+    condition: [],
+  })
+  const [openFilters, setOpenFilters] = useState<{ [key: string]: boolean }>({
+    criteria: false,
+    priceM2: false,
+    condition: false,
+    bedrooms: false,
+    floor: false,
+    propertyType: false,
+    furnished: false,
+    orientation: false,
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [results, setResults] = useState<NormalizedListing[]>([])
   const [meta, setMeta] = useState<{ total: number; pages: number; hasMore: boolean } | null>(null)
   const [selectedSources, setSelectedSources] = useState<string[]>([])
+  const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([])
+  const [showSaveDialog, setShowSaveDialog] = useState(false)
+  const [filterName, setFilterName] = useState("")
+  const [showSavedFilters, setShowSavedFilters] = useState(false)
+  const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([])
 
   const canSearch = !!(filters.postalCode && filters.postalCode.trim() !== "")
+
+  // Charger les filtres sauvegardés depuis localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem("sacimo_saved_filters")
+    if (saved) {
+      try {
+        setSavedFilters(JSON.parse(saved))
+      } catch (e) {
+        console.error("Erreur lors du chargement des filtres sauvegardés:", e)
+      }
+    }
+  }, [])
+
+  // Charger l'historique des recherches depuis localStorage
+  useEffect(() => {
+    const history = localStorage.getItem("sacimo_search_history")
+    if (history) {
+      try {
+        const parsed = JSON.parse(history)
+        // Garder seulement les 10 dernières recherches
+        setSearchHistory(parsed.slice(0, 10))
+      } catch (e) {
+        console.error("Erreur lors du chargement de l'historique:", e)
+      }
+    }
+  }, [])
+
+  // Charger l'historique des recherches depuis localStorage
+  useEffect(() => {
+    const history = localStorage.getItem("sacimo_search_history")
+    if (history) {
+      try {
+        setSearchHistory(JSON.parse(history))
+      } catch (e) {
+        console.error("Erreur lors du chargement de l'historique:", e)
+      }
+    }
+  }, [])
+
+  // Sauvegarder un filtre
+  const saveFilter = () => {
+    if (!filterName.trim()) return
+
+    const newFilter: SavedFilter = {
+      id: Date.now().toString(),
+      name: filterName.trim(),
+      filters: { ...filters },
+      createdAt: new Date().toISOString(),
+    }
+
+    const updated = [...savedFilters, newFilter]
+    setSavedFilters(updated)
+    localStorage.setItem("sacimo_saved_filters", JSON.stringify(updated))
+    setFilterName("")
+    setShowSaveDialog(false)
+  }
+
+  // Charger un filtre sauvegardé
+  const loadFilter = (savedFilter: SavedFilter) => {
+    setFilters(savedFilter.filters)
+    setShowSavedFilters(false)
+  }
+
+  // Supprimer un filtre sauvegardé
+  const deleteFilter = (id: string) => {
+    const updated = savedFilters.filter(f => f.id !== id)
+    setSavedFilters(updated)
+    localStorage.setItem("sacimo_saved_filters", JSON.stringify(updated))
+  }
+
+  // Réappliquer une recherche depuis l'historique
+  const replaySearch = (historyEntry: SearchHistory) => {
+    setFilters(historyEntry.filters)
+    // Déclencher automatiquement la recherche
+    setTimeout(() => {
+      handleSearch()
+    }, 100)
+  }
+
+  // Supprimer une entrée de l'historique
+  const deleteHistoryEntry = (id: string) => {
+    const updated = searchHistory.filter(h => h.id !== id)
+    setSearchHistory(updated)
+    localStorage.setItem("sacimo_search_history", JSON.stringify(updated))
+  }
+
+  // Vider l'historique
+  const clearHistory = () => {
+    setSearchHistory([])
+    localStorage.removeItem("sacimo_search_history")
+  }
 
   // Filtrer les résultats côté client selon sellerType et dateFilter
   const filteredListings = results.filter((listing) => {
@@ -122,6 +269,88 @@ export default function AnnoncesPage() {
       }
     }
 
+    // Filtre par critères (balcon, terrasse, etc.) - recherche dans la description
+    if (filters.criteria && filters.criteria.length > 0 && listing.description) {
+      const descriptionLower = listing.description.toLowerCase()
+      const hasAllCriteria = filters.criteria.every(criterion => {
+        const criterionLower = criterion.toLowerCase()
+        return descriptionLower.includes(criterionLower)
+      })
+      if (!hasAllCriteria) return false
+    }
+
+    // Filtre par prix au m²
+    if (listing.price && listing.surface && listing.surface > 0) {
+      const pricePerM2 = listing.price / listing.surface
+      if (filters.minPricePerM2 && pricePerM2 < filters.minPricePerM2) return false
+      if (filters.maxPricePerM2 && pricePerM2 > filters.maxPricePerM2) return false
+    }
+
+    // Filtre par état (bon état, à rénover, neuf) - recherche dans la description
+    if (filters.condition && filters.condition.length > 0 && listing.description) {
+      const descriptionLower = listing.description.toLowerCase()
+      const hasAnyCondition = filters.condition.some(cond => {
+        const condLower = cond.toLowerCase()
+        return descriptionLower.includes(condLower)
+      })
+      if (!hasAnyCondition) return false
+    }
+
+    // Filtre par chambres (utilise rooms comme approximation)
+    if (filters.minBedrooms && listing.rooms && listing.rooms < filters.minBedrooms) return false
+    if (filters.maxBedrooms && listing.rooms && listing.rooms > filters.maxBedrooms) return false
+
+    // Filtre par étage - recherche dans la description
+    if ((filters.minFloor !== undefined || filters.maxFloor !== undefined) && listing.description) {
+      const descriptionLower = listing.description.toLowerCase()
+      // Chercher des patterns comme "1er étage", "2ème étage", "rez-de-chaussée", etc.
+      const floorMatch = descriptionLower.match(/(\d+)(?:er|ème|e)\s*étage|rez[- ]de[- ]chaussée|rdc/i)
+      if (floorMatch) {
+        let floor: number | null = null
+        if (descriptionLower.includes("rez-de-chaussée") || descriptionLower.includes("rdc")) {
+          floor = 0
+        } else {
+          const floorNum = parseInt(floorMatch[1])
+          if (!isNaN(floorNum)) floor = floorNum
+        }
+        if (floor !== null) {
+          if (filters.minFloor !== undefined && floor < filters.minFloor) return false
+          if (filters.maxFloor !== undefined && floor > filters.maxFloor) return false
+        }
+      } else {
+        // Si on cherche un étage spécifique et qu'on ne le trouve pas, on exclut
+        // (optionnel : on peut aussi garder les annonces sans info d'étage)
+      }
+    }
+
+    // Filtre par type de bien - recherche dans le titre et la description
+    if (filters.propertyType && filters.propertyType.length > 0 && (listing.title || listing.description)) {
+      const text = `${listing.title || ""} ${listing.description || ""}`.toLowerCase()
+      const hasAnyType = filters.propertyType.some(type => {
+        const typeLower = type.toLowerCase()
+        return text.includes(typeLower)
+      })
+      if (!hasAnyType) return false
+    }
+
+    // Filtre meublé/non meublé - recherche dans la description
+    if (filters.furnished && filters.furnished !== "all" && listing.description) {
+      const descriptionLower = listing.description.toLowerCase()
+      const isFurnished = descriptionLower.includes("meublé") || descriptionLower.includes("meuble") || descriptionLower.includes("furnished")
+      if (filters.furnished === "furnished" && !isFurnished) return false
+      if (filters.furnished === "unfurnished" && isFurnished) return false
+    }
+
+    // Filtre par orientation - recherche dans la description
+    if (filters.orientation && filters.orientation.length > 0 && listing.description) {
+      const descriptionLower = listing.description.toLowerCase()
+      const hasAnyOrientation = filters.orientation.some(orient => {
+        const orientLower = orient.toLowerCase()
+        return descriptionLower.includes(orientLower)
+      })
+      if (!hasAnyOrientation) return false
+    }
+
     return true
   })
 
@@ -143,7 +372,7 @@ export default function AnnoncesPage() {
         types: newTypes,
         type: newTypes.length === 0 ? "all" : (newTypes.length === 1 ? newTypes[0] : "all")
       })
-    } else {
+          } else {
       // Activer le type
       const newTypes = [...currentTypes, type]
       setFilters({ 
@@ -158,7 +387,7 @@ export default function AnnoncesPage() {
     // Si on clique sur le type déjà sélectionné, on le désactive (retour à "all")
     if (filters.sellerType === type) {
       setFilters({ ...filters, sellerType: "all" })
-    } else {
+          } else {
       // Sinon, on active le type sélectionné
       setFilters({ ...filters, sellerType: type })
     }
@@ -248,6 +477,20 @@ export default function AnnoncesPage() {
         console.log("✅ [Annonces] Recherche réussie", { total: data.meta?.total, results: data.data?.length })
         setResults(data.data || [])
         setMeta(data.meta || { total: data.data?.length || 0, pages: 1, hasMore: false })
+        
+        // Enregistrer dans l'historique
+        const historyEntry: SearchHistory = {
+          id: Date.now().toString(),
+          filters: { ...filters },
+          resultsCount: data.meta?.total || data.data?.length || 0,
+          searchedAt: new Date().toISOString(),
+          postalCode: filters.postalCode,
+          city: filters.city,
+        }
+        
+        const updatedHistory = [historyEntry, ...searchHistory].slice(0, 10) // Garder seulement les 10 dernières
+        setSearchHistory(updatedHistory)
+        localStorage.setItem("sacimo_search_history", JSON.stringify(updatedHistory))
         } else {
         console.error("❌ [Annonces] Statut non-ok", { status: data.status, message: data.message })
         setError(data.message || "Erreur lors de la recherche")
@@ -361,7 +604,7 @@ export default function AnnoncesPage() {
 
       {/* Main Content */}
       <div className="relative z-10 container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
+      {/* Header */}
         <motion.div
           initial="initial"
           animate="animate"
@@ -386,10 +629,144 @@ export default function AnnoncesPage() {
                 </span>
               </div>
             </div>
-            <Badge className="px-4 py-2 bg-gradient-to-r from-primary-50 to-primary-100 rounded-full border border-primary-200">
-              <Sparkles className="w-4 h-4 text-primary-600 mr-2" strokeWidth={1.5} />
-              <span className="text-sm font-medium text-primary-700">Powered by Moteurimmo</span>
+            <div className="flex items-center gap-3">
+              {/* Bouton pour afficher les filtres sauvegardés */}
+              {savedFilters.length > 0 && (
+                <Dialog open={showSavedFilters} onOpenChange={setShowSavedFilters}>
+                  <DialogTrigger asChild>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-primary-200 rounded-lg text-sm font-medium text-primary-700 hover:bg-primary-50 transition-all"
+                    >
+                      <Bookmark className="w-4 h-4" />
+                      <span>Filtres sauvegardés ({savedFilters.length})</span>
+                    </motion.button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                      <DialogTitle>Filtres sauvegardés</DialogTitle>
+                      <DialogDescription>
+                        Cliquez sur un filtre pour l'appliquer en 1 clic
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="mt-4 space-y-2 max-h-[400px] overflow-y-auto">
+                      {savedFilters.map((savedFilter) => (
+                        <motion.div
+                          key={savedFilter.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-all"
+                        >
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-semibold text-gray-900">{savedFilter.name}</h4>
+                              <span className="text-xs text-gray-500">
+                                {new Date(savedFilter.createdAt).toLocaleDateString("fr-FR")}
+                              </span>
+                            </div>
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {savedFilter.filters.city && (
+                                <Badge variant="outline" className="text-xs">{savedFilter.filters.city}</Badge>
+                              )}
+                              {savedFilter.filters.postalCode && (
+                                <Badge variant="outline" className="text-xs">{savedFilter.filters.postalCode}</Badge>
+                              )}
+                              {savedFilter.filters.minPrice && (
+                                <Badge variant="outline" className="text-xs">Prix min: {savedFilter.filters.minPrice}€</Badge>
+                              )}
+                              {savedFilter.filters.maxPrice && (
+                                <Badge variant="outline" className="text-xs">Prix max: {savedFilter.filters.maxPrice}€</Badge>
+                              )}
+                              {savedFilter.filters.sellerType && savedFilter.filters.sellerType !== "all" && (
+                                <Badge variant="outline" className="text-xs">
+                                  {savedFilter.filters.sellerType === "pro" ? "Pro" : "Particulier"}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 ml-4">
+            <Button 
+              size="sm"
+                              onClick={() => loadFilter(savedFilter)}
+                              className="bg-primary-600 hover:bg-primary-700 text-white"
+            >
+                              <Zap className="w-4 h-4 mr-1" />
+                              Appliquer
+            </Button>
+            <Button 
+              size="sm"
+                              variant="outline"
+                              onClick={() => deleteFilter(savedFilter.id)}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              )}
+              
+              {/* Bouton pour sauvegarder les filtres actuels */}
+              <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+                <DialogTrigger asChild>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>Sauvegarder</span>
+                  </motion.button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Sauvegarder les critères de recherche</DialogTitle>
+                    <DialogDescription>
+                      Donnez un nom à ces critères pour les réutiliser facilement
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="mt-4 space-y-4">
+                    <div>
+                      <Label htmlFor="filterName">Nom du filtre</Label>
+                      <Input
+                        id="filterName"
+                        placeholder="Ex: Appartements Paris 2P < 500k€"
+                        value={filterName}
+                        onChange={(e) => setFilterName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && filterName.trim()) {
+                            saveFilter()
+                          }
+                        }}
+                        className="mt-2"
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => setShowSaveDialog(false)}>
+                        Annuler
+            </Button>
+            <Button 
+                        onClick={saveFilter}
+                        disabled={!filterName.trim()}
+                        className="bg-primary-600 hover:bg-primary-700"
+                      >
+                        <Save className="w-4 h-4 mr-2" />
+                        Sauvegarder
+            </Button>
+          </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+              
+              <Badge className="px-4 py-2 bg-gradient-to-r from-primary-50 to-primary-100 rounded-full border border-primary-200">
+                <Sparkles className="w-4 h-4 text-primary-600 mr-2" strokeWidth={1.5} />
+                <span className="text-sm font-medium text-primary-700">Powered by Moteurimmo</span>
                 </Badge>
+            </div>
               </div>
             </motion.div>
 
@@ -620,7 +997,7 @@ export default function AnnoncesPage() {
                     </div>
                   </div>
                 </div>
-
+                
                 {/* Origin - Multi-column layout */}
                 <div className="mt-4">
                   <Label className="block text-xs font-semibold text-gray-700 mb-2">Origine des annonces</Label>
@@ -656,45 +1033,461 @@ export default function AnnoncesPage() {
                       </motion.label>
                     ))}
                   </div>
+              </div>
+              
+                {/* Date Filter et Filtres optionnels - Sur la même ligne */}
+                <div className="mt-4 flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                  {/* Date Filter */}
+                  <div className="flex-1">
+                    <Label className="block text-xs font-semibold text-gray-700 mb-2">Date de publication</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { id: "all", label: "Toutes" },
+                        { id: "24h", label: "24h" },
+                        { id: "48h", label: "48h" },
+                        { id: "7j", label: "7 jours" },
+                        { id: "30j", label: "30 jours" },
+                      ].map((option) => (
+                        <motion.button
+                          key={option.id}
+                          type="button"
+                          onClick={() => setFilters({ ...filters, dateFilter: option.id as "24h" | "48h" | "7j" | "30j" | "all" })}
+                          className={`px-3 py-1.5 rounded-lg border-2 transition-all duration-300 text-xs font-medium ${
+                            filters.dateFilter === option.id
+                              ? "bg-gradient-to-r from-primary-600 to-primary-700 text-white border-primary-600 shadow-lg"
+                              : "bg-white text-gray-700 border-gray-200 hover:border-primary-300 hover:bg-primary-50"
+                          }`}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                        >
+                          {option.label}
+                        </motion.button>
+                      ))}
                 </div>
+              </div>
 
-                {/* Date Filter */}
-                <div className="mt-4">
-                  <Label className="block text-xs font-semibold text-gray-700 mb-2">Date de publication</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      { id: "all", label: "Toutes" },
-                      { id: "24h", label: "24h" },
-                      { id: "48h", label: "48h" },
-                      { id: "7j", label: "7 jours" },
-                      { id: "30j", label: "30 jours" },
-                    ].map((option) => (
-                      <motion.button
-                        key={option.id}
-                        type="button"
-                        onClick={() => setFilters({ ...filters, dateFilter: option.id as "24h" | "48h" | "7j" | "30j" | "all" })}
-                        className={`px-3 py-1.5 rounded-lg border-2 transition-all duration-300 text-xs font-medium ${
-                          filters.dateFilter === option.id
-                            ? "bg-gradient-to-r from-primary-600 to-primary-700 text-white border-primary-600 shadow-lg"
-                            : "bg-white text-gray-700 border-gray-200 hover:border-primary-300 hover:bg-primary-50"
-                        }`}
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                      >
-                        {option.label}
-                      </motion.button>
-                    ))}
+                  {/* Filtres optionnels - Menus déroulants compacts */}
+                  <div className="flex-1 md:max-w-md">
+                    <Label className="block text-xs font-semibold text-gray-700 mb-2">Filtres optionnels</Label>
+                    <div className="flex flex-wrap gap-2">
+                    {/* Critères (balcon, terrasse, etc.) */}
+                    <Collapsible
+                      open={openFilters.criteria}
+                      onOpenChange={(open) => setOpenFilters({ ...openFilters, criteria: open })}
+                    >
+                      <div className="relative">
+                        <CollapsibleTrigger className="flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 border-gray-200 hover:border-primary-300 hover:bg-primary-50 transition-all text-sm font-medium text-gray-700 min-w-[100px]">
+                          <span>Critères</span>
+                          {filters.criteria && filters.criteria.length > 0 && (
+                            <span className="px-1.5 py-0.5 bg-primary-600 text-white rounded-full text-xs font-semibold">
+                              {filters.criteria.length}
+                            </span>
+                          )}
+                          {openFilters.criteria ? (
+                            <ChevronUp className="w-4 h-4 text-gray-500 ml-auto" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4 text-gray-500 ml-auto" />
+                          )}
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="absolute z-50 mt-1 right-0 p-4 bg-white rounded-lg border-2 border-gray-200 shadow-xl max-w-md min-w-[280px]">
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
+                            {[
+                              { id: "balcon", label: "Balcon" },
+                              { id: "terrasse", label: "Terrasse" },
+                              { id: "jardin", label: "Jardin" },
+                              { id: "parking", label: "Parking" },
+                              { id: "cave", label: "Cave" },
+                              { id: "ascenseur", label: "Ascenseur" },
+                              { id: "piscine", label: "Piscine" },
+                              { id: "cheminee", label: "Cheminée" },
+                              { id: "alarme", label: "Alarme" },
+                            ].map((criterion) => (
+                              <motion.label
+                                key={criterion.id}
+                                className="flex items-center p-2 rounded-lg hover:bg-gray-50 transition-all cursor-pointer"
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={filters.criteria?.includes(criterion.id) || false}
+                                  onChange={(e) => {
+                                    const currentCriteria = filters.criteria || []
+                                    if (e.target.checked) {
+                                      setFilters({ ...filters, criteria: [...currentCriteria, criterion.id] })
+                                    } else {
+                                      setFilters({ ...filters, criteria: currentCriteria.filter(c => c !== criterion.id) })
+                                    }
+                                  }}
+                                  className="w-4 h-4 rounded border-2 border-gray-300 text-primary-600 focus:ring-primary-500 focus:ring-2 mr-2"
+                                />
+                                <span className="text-sm text-gray-700">{criterion.label}</span>
+                              </motion.label>
+                            ))}
+                          </div>
+                        </CollapsibleContent>
+                      </div>
+                    </Collapsible>
+
+                    {/* Prix au m² */}
+                    <Collapsible
+                      open={openFilters.priceM2}
+                      onOpenChange={(open) => setOpenFilters({ ...openFilters, priceM2: open })}
+                    >
+                      <div className="relative">
+                        <CollapsibleTrigger className="flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 border-gray-200 hover:border-primary-300 hover:bg-primary-50 transition-all text-sm font-medium text-gray-700 min-w-[100px]">
+                          <span>Prix/m²</span>
+                          {openFilters.priceM2 ? (
+                            <ChevronUp className="w-4 h-4 text-gray-500 ml-auto" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4 text-gray-500 ml-auto" />
+                          )}
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="absolute z-50 mt-1 right-0 p-4 bg-white rounded-lg border-2 border-gray-200 shadow-xl min-w-[280px]">
+                          <div className="flex gap-2">
+                            <Input
+                              type="number"
+                              placeholder="Min €/m²"
+                              value={filters.minPricePerM2 || ""}
+                              onChange={(e) =>
+                                setFilters({
+                                  ...filters,
+                                  minPricePerM2: e.target.value ? Number(e.target.value) : undefined,
+                                })
+                              }
+                              className="w-full px-3 py-2 rounded-lg border-2 border-gray-200 text-sm"
+                            />
+                            <Input
+                              type="number"
+                              placeholder="Max €/m²"
+                              value={filters.maxPricePerM2 || ""}
+                              onChange={(e) =>
+                                setFilters({
+                                  ...filters,
+                                  maxPricePerM2: e.target.value ? Number(e.target.value) : undefined,
+                                })
+                              }
+                              className="w-full px-3 py-2 rounded-lg border-2 border-gray-200 text-sm"
+                            />
+                          </div>
+                        </CollapsibleContent>
+                      </div>
+                    </Collapsible>
+
+                    {/* État */}
+                    <Collapsible
+                      open={openFilters.condition}
+                      onOpenChange={(open) => setOpenFilters({ ...openFilters, condition: open })}
+                    >
+                      <div className="relative">
+                        <CollapsibleTrigger className="flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 border-gray-200 hover:border-primary-300 hover:bg-primary-50 transition-all text-sm font-medium text-gray-700 min-w-[100px]">
+                          <span>État</span>
+                          {filters.condition && filters.condition.length > 0 && (
+                            <span className="px-1.5 py-0.5 bg-primary-600 text-white rounded-full text-xs font-semibold">
+                              {filters.condition.length}
+                            </span>
+                          )}
+                          {openFilters.condition ? (
+                            <ChevronUp className="w-4 h-4 text-gray-500 ml-auto" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4 text-gray-500 ml-auto" />
+                          )}
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="absolute z-50 mt-1 right-0 p-4 bg-white rounded-lg border-2 border-gray-200 shadow-xl max-w-md min-w-[280px]">
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
+                            {[
+                              { id: "bon état", label: "Bon état" },
+                              { id: "excellent état", label: "Excellent état" },
+                              { id: "à rénover", label: "À rénover" },
+                              { id: "neuf", label: "Neuf" },
+                              { id: "rénové", label: "Rénové" },
+                              { id: "refait à neuf", label: "Refait à neuf" },
+                            ].map((cond) => (
+                              <motion.label
+                                key={cond.id}
+                                className="flex items-center p-2 rounded-lg hover:bg-gray-50 transition-all cursor-pointer"
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={filters.condition?.includes(cond.id) || false}
+                                  onChange={(e) => {
+                                    const currentCondition = filters.condition || []
+                                    if (e.target.checked) {
+                                      setFilters({ ...filters, condition: [...currentCondition, cond.id] })
+                                    } else {
+                                      setFilters({ ...filters, condition: currentCondition.filter(c => c !== cond.id) })
+                                    }
+                                  }}
+                                  className="w-4 h-4 rounded border-2 border-gray-300 text-primary-600 focus:ring-primary-500 focus:ring-2 mr-2"
+                                />
+                                <span className="text-sm text-gray-700">{cond.label}</span>
+                              </motion.label>
+                            ))}
+                          </div>
+                        </CollapsibleContent>
+                      </div>
+                    </Collapsible>
+
+                    {/* Chambres */}
+                    <Collapsible
+                      open={openFilters.bedrooms}
+                      onOpenChange={(open) => setOpenFilters({ ...openFilters, bedrooms: open })}
+                    >
+                      <div className="relative">
+                        <CollapsibleTrigger className="flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 border-gray-200 hover:border-primary-300 hover:bg-primary-50 transition-all text-sm font-medium text-gray-700 min-w-[100px]">
+                          <span>Chambres</span>
+                          {openFilters.bedrooms ? (
+                            <ChevronUp className="w-4 h-4 text-gray-500 ml-auto" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4 text-gray-500 ml-auto" />
+                          )}
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="absolute z-50 mt-1 right-0 p-4 bg-white rounded-lg border-2 border-gray-200 shadow-xl min-w-[280px]">
+                          <div className="flex gap-2">
+                            <Input
+                              type="number"
+                              placeholder="Min"
+                              value={filters.minBedrooms || ""}
+                              onChange={(e) =>
+                                setFilters({
+                                  ...filters,
+                                  minBedrooms: e.target.value ? Number(e.target.value) : undefined,
+                                })
+                              }
+                              className="w-full px-3 py-2 rounded-lg border-2 border-gray-200 text-sm"
+                            />
+                            <Input
+                              type="number"
+                              placeholder="Max"
+                              value={filters.maxBedrooms || ""}
+                              onChange={(e) =>
+                                setFilters({
+                                  ...filters,
+                                  maxBedrooms: e.target.value ? Number(e.target.value) : undefined,
+                                })
+                              }
+                              className="w-full px-3 py-2 rounded-lg border-2 border-gray-200 text-sm"
+                            />
+                          </div>
+                        </CollapsibleContent>
+                      </div>
+                    </Collapsible>
+
+                    {/* Étage */}
+                    <Collapsible
+                      open={openFilters.floor}
+                      onOpenChange={(open) => setOpenFilters({ ...openFilters, floor: open })}
+                    >
+                      <div className="relative">
+                        <CollapsibleTrigger className="flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 border-gray-200 hover:border-primary-300 hover:bg-primary-50 transition-all text-sm font-medium text-gray-700 min-w-[100px]">
+                          <span>Étage</span>
+                          {openFilters.floor ? (
+                            <ChevronUp className="w-4 h-4 text-gray-500 ml-auto" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4 text-gray-500 ml-auto" />
+                          )}
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="absolute z-50 mt-1 right-0 p-4 bg-white rounded-lg border-2 border-gray-200 shadow-xl min-w-[280px]">
+                          <div className="flex gap-2">
+                            <Input
+                              type="number"
+                              placeholder="Min"
+                              value={filters.minFloor || ""}
+                              onChange={(e) =>
+                                setFilters({
+                                  ...filters,
+                                  minFloor: e.target.value ? Number(e.target.value) : undefined,
+                                })
+                              }
+                              className="w-full px-3 py-2 rounded-lg border-2 border-gray-200 text-sm"
+                            />
+                            <Input
+                              type="number"
+                              placeholder="Max"
+                              value={filters.maxFloor || ""}
+                              onChange={(e) =>
+                                setFilters({
+                                  ...filters,
+                                  maxFloor: e.target.value ? Number(e.target.value) : undefined,
+                                })
+                              }
+                              className="w-full px-3 py-2 rounded-lg border-2 border-gray-200 text-sm"
+                            />
+                      </div>
+                        </CollapsibleContent>
+                    </div>
+                    </Collapsible>
+
+                    {/* Type de bien */}
+                    <Collapsible
+                      open={openFilters.propertyType}
+                      onOpenChange={(open) => setOpenFilters({ ...openFilters, propertyType: open })}
+                    >
+                      <div className="relative">
+                        <CollapsibleTrigger className="flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 border-gray-200 hover:border-primary-300 hover:bg-primary-50 transition-all text-sm font-medium text-gray-700 min-w-[100px]">
+                          <span>Type</span>
+                          {filters.propertyType && filters.propertyType.length > 0 && (
+                            <span className="px-1.5 py-0.5 bg-primary-600 text-white rounded-full text-xs font-semibold">
+                              {filters.propertyType.length}
+                            </span>
+                          )}
+                          {openFilters.propertyType ? (
+                            <ChevronUp className="w-4 h-4 text-gray-500 ml-auto" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4 text-gray-500 ml-auto" />
+                          )}
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="absolute z-50 mt-1 right-0 p-4 bg-white rounded-lg border-2 border-gray-200 shadow-xl max-w-md min-w-[280px]">
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
+                            {[
+                              { id: "appartement", label: "Appartement" },
+                              { id: "maison", label: "Maison" },
+                              { id: "studio", label: "Studio" },
+                              { id: "loft", label: "Loft" },
+                              { id: "duplex", label: "Duplex" },
+                              { id: "villa", label: "Villa" },
+                            ].map((propType) => (
+                              <motion.label
+                                key={propType.id}
+                                className="flex items-center p-2 rounded-lg hover:bg-gray-50 transition-all cursor-pointer"
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={filters.propertyType?.includes(propType.id) || false}
+                                  onChange={(e) => {
+                                    const currentTypes = filters.propertyType || []
+                                    if (e.target.checked) {
+                                      setFilters({ ...filters, propertyType: [...currentTypes, propType.id] })
+                                    } else {
+                                      setFilters({ ...filters, propertyType: currentTypes.filter(t => t !== propType.id) })
+                                    }
+                                  }}
+                                  className="w-4 h-4 rounded border-2 border-gray-300 text-primary-600 focus:ring-primary-500 focus:ring-2 mr-2"
+                                />
+                                <span className="text-sm text-gray-700">{propType.label}</span>
+                              </motion.label>
+                            ))}
+                      </div>
+                        </CollapsibleContent>
+                    </div>
+                    </Collapsible>
+
+                    {/* Meublé/Non meublé */}
+                    <Collapsible
+                      open={openFilters.furnished}
+                      onOpenChange={(open) => setOpenFilters({ ...openFilters, furnished: open })}
+                    >
+                      <div className="relative">
+                        <CollapsibleTrigger className="flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 border-gray-200 hover:border-primary-300 hover:bg-primary-50 transition-all text-sm font-medium text-gray-700 min-w-[100px]">
+                          <span>Meublé</span>
+                          {filters.furnished && filters.furnished !== "all" && (
+                            <span className="px-1.5 py-0.5 bg-primary-600 text-white rounded-full text-xs font-semibold">
+                              {filters.furnished === "furnished" ? "Oui" : "Non"}
+                            </span>
+                          )}
+                          {openFilters.furnished ? (
+                            <ChevronUp className="w-4 h-4 text-gray-500 ml-auto" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4 text-gray-500 ml-auto" />
+                          )}
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="absolute z-50 mt-1 right-0 p-4 bg-white rounded-lg border-2 border-gray-200 shadow-xl min-w-[200px]">
+                          <div className="flex flex-col gap-2">
+                            {[
+                              { id: "all", label: "Tous" },
+                              { id: "furnished", label: "Meublé" },
+                              { id: "unfurnished", label: "Non meublé" },
+                            ].map((option) => (
+                              <motion.label
+                                key={option.id}
+                                className="flex items-center p-2 rounded-lg hover:bg-gray-50 transition-all cursor-pointer"
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                              >
+                                <input
+                                  type="radio"
+                                  name="furnished"
+                                  checked={filters.furnished === option.id || (!filters.furnished && option.id === "all")}
+                                  onChange={() => setFilters({ ...filters, furnished: option.id as "all" | "furnished" | "unfurnished" })}
+                                  className="w-4 h-4 border-2 border-gray-300 text-primary-600 focus:ring-primary-500 focus:ring-2 mr-2"
+                                />
+                                <span className="text-sm text-gray-700">{option.label}</span>
+                              </motion.label>
+                ))}
+                      </div>
+                        </CollapsibleContent>
+                    </div>
+                    </Collapsible>
+
+                    {/* Orientation */}
+                    <Collapsible
+                      open={openFilters.orientation}
+                      onOpenChange={(open) => setOpenFilters({ ...openFilters, orientation: open })}
+                    >
+                      <div className="relative">
+                        <CollapsibleTrigger className="flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 border-gray-200 hover:border-primary-300 hover:bg-primary-50 transition-all text-sm font-medium text-gray-700 min-w-[100px]">
+                          <span>Orientation</span>
+                          {filters.orientation && filters.orientation.length > 0 && (
+                            <span className="px-1.5 py-0.5 bg-primary-600 text-white rounded-full text-xs font-semibold">
+                              {filters.orientation.length}
+                            </span>
+                          )}
+                          {openFilters.orientation ? (
+                            <ChevronUp className="w-4 h-4 text-gray-500 ml-auto" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4 text-gray-500 ml-auto" />
+                          )}
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="absolute z-50 mt-1 right-0 p-4 bg-white rounded-lg border-2 border-gray-200 shadow-xl max-w-md min-w-[280px]">
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+                            {[
+                              { id: "nord", label: "Nord" },
+                              { id: "sud", label: "Sud" },
+                              { id: "est", label: "Est" },
+                              { id: "ouest", label: "Ouest" },
+                            ].map((orient) => (
+                              <motion.label
+                                key={orient.id}
+                                className="flex items-center p-2 rounded-lg hover:bg-gray-50 transition-all cursor-pointer"
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={filters.orientation?.includes(orient.id) || false}
+                                  onChange={(e) => {
+                                    const currentOrientations = filters.orientation || []
+                                    if (e.target.checked) {
+                                      setFilters({ ...filters, orientation: [...currentOrientations, orient.id] })
+                                    } else {
+                                      setFilters({ ...filters, orientation: currentOrientations.filter(o => o !== orient.id) })
+                                    }
+                                  }}
+                                  className="w-4 h-4 rounded border-2 border-gray-300 text-primary-600 focus:ring-primary-500 focus:ring-2 mr-2"
+                                />
+                                <span className="text-sm text-gray-700">{orient.label}</span>
+                              </motion.label>
+                            ))}
+                      </div>
+                        </CollapsibleContent>
+                    </div>
+                    </Collapsible>
+                    </div>
                   </div>
                 </div>
 
                 {/* Search Button - Full Width at Bottom */}
                 <div className="mt-6 pt-4 border-t border-gray-200">
-                  <motion.div
+                  <motion.div 
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     className="w-full"
                   >
-                    <Button 
+                      <Button 
                       onClick={handleSearch}
                       disabled={!canSearch || loading}
                       className="w-full bg-gradient-to-r from-primary-600 to-primary-700 text-white font-semibold py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
@@ -711,9 +1504,9 @@ export default function AnnoncesPage() {
                         </>
                       )}
                     </Button>
-            </motion.div>
-                </div>
+                  </motion.div>
               </div>
+                </div>
             </CardContent>
           </Card>
           </motion.div>
@@ -729,9 +1522,9 @@ export default function AnnoncesPage() {
               {meta.total >= 140 && (
                 <p className="text-sm text-amber-600 mt-1">
                   Limitée automatiquement pour protéger l'API
-                </p>
-              )}
-            </div>
+                    </p>
+                  )}
+                </div>
           )}
 
           {/* Empty State */}
@@ -754,7 +1547,7 @@ export default function AnnoncesPage() {
                   }}
                 >
                   <Search className="w-24 h-24 text-primary-500 relative z-10" strokeWidth={1.5} />
-                </motion.div>
+                  </motion.div>
                 <h3 className="text-2xl font-bold text-gray-700 mb-3">Prêt à trouver ton bien idéal ?</h3>
                 <p className="text-gray-500 mb-8 max-w-md mx-auto">
                   Configure tes critères de recherche et lance une recherche pour découvrir les meilleures annonces du marché.
@@ -828,20 +1621,20 @@ export default function AnnoncesPage() {
                         {isRecent(listing.publishedAt) && (
                           <div className="absolute top-2 right-2">
                             <Badge className="bg-green-100 text-green-700 text-xs">Nouveau</Badge>
-                      </div>
+                  </div>
                         )}
                         {listing.origin && (
                           <div className="absolute top-2 left-2">
                             <OriginBadge origin={listing.origin} />
-                    </div>
+                  </div>
                         )}
-              </div>
-                    ) : (
+                </div>
+              ) : (
                       <div className="relative w-full h-48 flex-shrink-0 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
                         <div className="text-center p-4">
                           <div className="w-12 h-12 mx-auto mb-2 bg-gray-300 rounded-lg flex items-center justify-center">
                             <MapPin className="w-6 h-6 text-gray-500" strokeWidth={1.5} />
-                          </div>
+                  </div>
                           <p className="text-xs text-gray-500">Aucune image</p>
                         </div>
                         {isRecent(listing.publishedAt) && (
@@ -861,7 +1654,7 @@ export default function AnnoncesPage() {
                     <CardContent className="p-4 flex-1 flex flex-col">
                       <h3 className="text-base font-semibold text-gray-900 mb-2 line-clamp-2">
                         {listing.title}
-                      </h3>
+                  </h3>
                       <div className="flex items-center gap-2 text-sm text-gray-600 mb-2 flex-wrap">
                         <span className="font-semibold text-gray-900">
                           {formatPrice(listing.price)}
@@ -910,7 +1703,7 @@ export default function AnnoncesPage() {
                             Voir
                             <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
                           </a>
-                  </Button>
+                      </Button>
                   </div>
                     </CardContent>
                   </Card>
@@ -933,8 +1726,148 @@ export default function AnnoncesPage() {
               </CardContent>
             </Card>
           )}
-            </div>
-          </div>
         </div>
+
+        {/* Historique des dernières recherches */}
+        {searchHistory.length > 0 && (
+          <motion.div
+            initial="initial"
+            animate="animate"
+            variants={fadeInUp}
+            transition={{ delay: 0.4 }}
+            className="mt-12"
+          >
+            <Card className="bg-white/95 backdrop-blur-xl border-primary-200/50 shadow-xl rounded-3xl overflow-hidden">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-xl font-bold text-gray-900">Historique des recherches</CardTitle>
+                    <CardDescription className="mt-1">
+                      Vos 10 dernières recherches effectuées
+                    </CardDescription>
+                  </div>
+                  <Button 
+                    variant="outline"
+                    size="sm"
+                        onClick={() => {
+                      setSearchHistory([])
+                      localStorage.removeItem("sacimo_search_history")
+                    }}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Effacer
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {searchHistory.map((entry, index) => (
+                    <motion.div
+                      key={entry.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-all cursor-pointer group"
+                      onClick={() => {
+                        setFilters(entry.filters)
+                        // Optionnel : lancer automatiquement la recherche
+                        // handleSearch()
+                      }}
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2">
+                            <MapPin className="w-4 h-4 text-gray-500" />
+                            <span className="font-semibold text-gray-900">
+                              {entry.city || entry.postalCode || "Recherche"}
+                            </span>
+                            {entry.postalCode && entry.city && (
+                              <span className="text-sm text-gray-500">({entry.postalCode})</span>
+                            )}
+                          </div>
+                          <Badge variant="outline" className="text-xs">
+                            {entry.resultsCount} résultat{entry.resultsCount > 1 ? "s" : ""}
+                          </Badge>
+                        </div>
+                        <div className="mt-1 flex flex-wrap gap-1.5">
+                          {entry.filters.types && entry.filters.types.length > 0 && (
+                            <Badge variant="outline" className="text-xs">
+                              {entry.filters.types.join(", ")}
+                            </Badge>
+                          )}
+                          {entry.filters.sellerType && entry.filters.sellerType !== "all" && (
+                            <Badge variant="outline" className="text-xs">
+                              {entry.filters.sellerType === "pro" ? "Professionnel" : "Particulier"}
+                            </Badge>
+                          )}
+                          {entry.filters.minPrice && (
+                            <Badge variant="outline" className="text-xs">
+                              Min: {new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(entry.filters.minPrice)}
+                            </Badge>
+                          )}
+                          {entry.filters.maxPrice && (
+                            <Badge variant="outline" className="text-xs">
+                              Max: {new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(entry.filters.maxPrice)}
+                            </Badge>
+                          )}
+                          {entry.filters.minSurface && (
+                            <Badge variant="outline" className="text-xs">
+                              {entry.filters.minSurface}m² min
+                            </Badge>
+                          )}
+                          {entry.filters.dateFilter && entry.filters.dateFilter !== "all" && (
+                            <Badge variant="outline" className="text-xs">
+                              {entry.filters.dateFilter === "24h" ? "24h" : entry.filters.dateFilter === "48h" ? "48h" : entry.filters.dateFilter === "7j" ? "7 jours" : "30 jours"}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="mt-1 text-xs text-gray-500">
+                          {new Date(entry.searchedAt).toLocaleString("fr-FR", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 ml-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setFilters(entry.filters)
+                            handleSearch()
+                          }}
+                          className="bg-primary-50 hover:bg-primary-100 text-primary-700 border-primary-200"
+                        >
+                          <Zap className="w-4 h-4 mr-1" />
+                          Relancer
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            const updated = searchHistory.filter(h => h.id !== entry.id)
+                            setSearchHistory(updated)
+                            localStorage.setItem("sacimo_search_history", JSON.stringify(updated))
+                          }}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+      </div>
+    </div>
   )
 }

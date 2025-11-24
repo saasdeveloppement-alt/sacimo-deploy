@@ -415,7 +415,7 @@ export default function FacturationPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                   {mockPlans.map((plan, index) => (
                     <motion.div
-                      key={plan.id}
+                  key={plan.id}
                       initial={{ opacity: 0, y: 30 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.4 + index * 0.1 }}

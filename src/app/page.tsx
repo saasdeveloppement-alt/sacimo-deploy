@@ -13,18 +13,18 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { SacimoLogo } from '@/components/SacimoLogo';
-import {
+import { 
   ChevronDown,
   ChevronUp,
   Check,
   ArrowRight,
-  Search,
+  Search, 
   Brain,
   BarChart3,
   Calculator,
   FileText,
   TrendingUp,
-  Users,
+  Users, 
   Building2,
   Briefcase,
   Star,
@@ -89,24 +89,24 @@ export default function HomePage() {
             <Link href="/" className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-gradient-to-br from-[#7C4DFF] to-[#C17EFF] rounded-xl flex items-center justify-center">
                 <SacimoLogo size={32} />
-              </div>
+          </div>
               <span className="text-2xl font-bold text-[#0F0F10]">SACIMO</span>
             </Link>
 
             {/* Menu Desktop */}
             <div className="hidden md:flex items-center space-x-8">
               <Link href="#fonctionnalites" className="text-[#98A2B3] hover:text-[#0F0F10] transition-colors text-sm font-medium">
-                Fonctionnalités
-              </Link>
+              Fonctionnalités
+            </Link>
               <Link href="#tarifs" className="text-[#98A2B3] hover:text-[#0F0F10] transition-colors text-sm font-medium">
-                Tarifs
-              </Link>
+              Tarifs
+            </Link>
               <Link href="#faq" className="text-[#98A2B3] hover:text-[#0F0F10] transition-colors text-sm font-medium">
                 FAQ
               </Link>
               <Link href="/contact" className="text-[#98A2B3] hover:text-[#0F0F10] transition-colors text-sm font-medium">
-                Contact
-              </Link>
+              Contact
+            </Link>
             </div>
 
             {/* CTA */}
@@ -115,13 +115,13 @@ export default function HomePage() {
                 <Button variant="ghost" className="text-[#98A2B3] hover:text-[#0F0F10]">
                   Connexion
                 </Button>
-              </Link>
+            </Link>
               <Link href="#inscription">
                 <Button className="bg-gradient-to-r from-[#7C4DFF] to-[#C17EFF] hover:from-[#6B3EE8] hover:to-[#B06EE8] text-white font-semibold rounded-xl">
                   Essai gratuit
                 </Button>
-              </Link>
-            </div>
+            </Link>
+          </div>
           </div>
         </div>
       </motion.nav>
@@ -133,7 +133,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             {/* Left Content */}
-            <motion.div
+          <motion.div
               initial={{ opacity: 0, x: -50 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.8, delay: 0.2 }}
@@ -153,26 +153,26 @@ export default function HomePage() {
                 >
                   <Link href="#inscription">Essai gratuit 14 jours</Link>
                 </Button>
-                <Button
-                  size="lg"
+                <Button 
+                  size="lg" 
                   variant="outline"
                   className="border-gray-300 text-[#0F0F10] hover:bg-gray-50 px-8 py-6 text-lg rounded-xl"
                   asChild
                 >
                   <Link href="/contact">Voir une démo</Link>
-                </Button>
-              </div>
+              </Button>
+          </div>
             </motion.div>
 
             {/* Right Content - UI Cards Illustration */}
-            <motion.div
-              initial={{ opacity: 0, x: 50 }}
+          <motion.div
+            initial={{ opacity: 0, x: 50 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.8, delay: 0.4 }}
               className="relative"
             >
               {/* Carte Recherche IA */}
-              <motion.div
+                  <motion.div 
                 animate={{ y: [0, -10, 0] }}
                 transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
                 className="absolute -top-8 -left-8 w-80 bg-white border border-gray-200 rounded-2xl p-6 shadow-xl z-20 hover:shadow-2xl transition-shadow"
@@ -190,10 +190,10 @@ export default function HomePage() {
                   </div>
                   <Badge className="bg-green-100 text-green-700 border-green-200">12 résultats</Badge>
                 </div>
-              </motion.div>
+                  </motion.div>
 
               {/* Carte Suivi Concurrents */}
-              <motion.div
+                    <motion.div 
                 animate={{ y: [0, -15, 0] }}
                 transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
                 className="relative bg-white border border-gray-200 rounded-2xl p-6 shadow-xl z-10 mt-8 hover:shadow-2xl transition-shadow"
@@ -232,11 +232,11 @@ export default function HomePage() {
                   <div className="text-3xl font-bold text-[#0F0F10] mb-2">245 000€</div>
                   <p className="text-xs text-[#98A2B3]">Fourchette: 230k€ - 260k€</p>
                   <Badge className="bg-purple-100 text-purple-700 border-purple-200 mt-2">Précision: 87%</Badge>
-                </div>
-              </motion.div>
+                  </div>
             </motion.div>
+          </motion.div>
           </div>
-        </div>
+                  </div>
       </section>
 
       {/* ============================================
@@ -247,7 +247,7 @@ export default function HomePage() {
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
+        viewport={{ once: true }}
             className="text-center mb-16"
           >
             <h2 className="text-4xl md:text-5xl font-bold mb-6 text-[#0F0F10]">
@@ -295,8 +295,8 @@ export default function HomePage() {
                 <p className="text-[#98A2B3] leading-relaxed">{item.desc}</p>
               </motion.div>
             ))}
-          </div>
-        </div>
+                  </div>
+                </div>
       </section>
 
       {/* ============================================
@@ -304,7 +304,7 @@ export default function HomePage() {
           ============================================ */}
       <section id="fonctionnalites" className="py-32 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
+            <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -316,7 +316,7 @@ export default function HomePage() {
             <p className="text-xl text-[#98A2B3] max-w-2xl mx-auto">
               Tout ce dont vous avez besoin pour dominer le marché immobilier
             </p>
-          </motion.div>
+            </motion.div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
@@ -327,7 +327,7 @@ export default function HomePage() {
               { icon: FileText, title: 'Analyse et résumé d\'annonce', desc: 'Transformez des descriptions longues en résumés clairs et actionnables.' },
               { icon: TrendingUp, title: 'Suivi concurrents automatisé', desc: 'Surveillez l\'activité de vos concurrents et restez toujours en avance.' }
             ].map((feature, i) => (
-              <motion.div
+            <motion.div
                 key={i}
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -340,9 +340,9 @@ export default function HomePage() {
                 </div>
                 <h3 className="text-xl font-semibold text-[#0F0F10] mb-2">{feature.title}</h3>
                 <p className="text-[#98A2B3] text-sm leading-relaxed">{feature.desc}</p>
-              </motion.div>
+          </motion.div>
             ))}
-          </div>
+        </div>
         </div>
       </section>
 
@@ -488,12 +488,12 @@ export default function HomePage() {
                     ? 'border-2 border-[#7C4DFF] shadow-xl scale-105'
                     : 'border-gray-200'
                 } hover:shadow-xl transition-all hover:-translate-y-1`}
-              >
-                {plan.popular && (
+                >
+                  {plan.popular && (
                   <div className="absolute -top-4 left-1/2 -translate-x-1/2">
                     <Badge className="bg-gradient-to-r from-[#7C4DFF] to-[#C17EFF] text-white px-4 py-1">
                       Populaire
-                    </Badge>
+                      </Badge>
                   </div>
                 )}
                 <div className="text-center mb-8">
@@ -504,15 +504,15 @@ export default function HomePage() {
                     <span className="text-[#98A2B3] ml-2">{plan.period}</span>
                   </div>
                 </div>
-                <ul className="space-y-3 mb-8">
+                    <ul className="space-y-3 mb-8">
                   {plan.features.map((feature, idx) => (
                     <li key={idx} className="flex items-start space-x-3">
                       <Check className="w-5 h-5 text-[#7C4DFF] mt-0.5 flex-shrink-0" />
                       <span className="text-sm text-[#0F0F10]">{feature}</span>
                     </li>
-                  ))}
-                </ul>
-                <Button
+                      ))}
+                    </ul>
+                      <Button 
                   className={`w-full rounded-xl ${
                     plan.popular
                       ? 'bg-gradient-to-r from-[#7C4DFF] to-[#C17EFF] hover:from-[#6B3EE8] hover:to-[#B06EE8] text-white'
@@ -521,7 +521,7 @@ export default function HomePage() {
                   asChild
                 >
                   <Link href="/auth/signup">Choisir ce plan</Link>
-                </Button>
+                      </Button>
               </motion.div>
             ))}
           </div>
@@ -582,7 +582,7 @@ export default function HomePage() {
                   ))}
                 </div>
                 <p className="text-[#0F0F10] mb-6 leading-relaxed">"{testimonial.content}"</p>
-                <div>
+                  <div>
                   <div className="font-semibold text-[#0F0F10]">{testimonial.name}</div>
                   <div className="text-sm text-[#98A2B3]">{testimonial.role}</div>
                 </div>
@@ -630,7 +630,7 @@ export default function HomePage() {
                   )}
                 </button>
                 {openFaq === i && (
-                  <motion.div
+                        <motion.div 
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
@@ -638,7 +638,7 @@ export default function HomePage() {
                     className="px-6 pb-6"
                   >
                     <p className="text-[#98A2B3] leading-relaxed">{item.answer}</p>
-                  </motion.div>
+                        </motion.div>
                 )}
               </motion.div>
             ))}
@@ -651,7 +651,7 @@ export default function HomePage() {
           ============================================ */}
       <section id="inscription" className="py-32 bg-gradient-to-br from-[#7C4DFF] to-[#C17EFF]">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <motion.div
+          <motion.div 
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -670,8 +670,8 @@ export default function HomePage() {
               >
                 <Link href="/auth/signup">Essai gratuit</Link>
               </Button>
-              <Button
-                size="lg"
+              <Button 
+                size="lg" 
                 variant="outline"
                 className="border-white/20 text-white hover:bg-white/10 px-8 py-6 text-lg rounded-xl"
                 asChild
@@ -680,7 +680,7 @@ export default function HomePage() {
               </Button>
             </div>
           </motion.div>
-        </div>
+            </div>
       </section>
 
       {/* ============================================
@@ -695,7 +695,7 @@ export default function HomePage() {
             <div className="flex items-center space-x-6">
               <Link href="#fonctionnalites" className="text-[#98A2B3] hover:text-[#0F0F10] text-sm transition-colors">
                 Fonctionnalités
-              </Link>
+                      </Link>
               <Link href="#tarifs" className="text-[#98A2B3] hover:text-[#0F0F10] text-sm transition-colors">
                 Tarifs
               </Link>
@@ -705,10 +705,10 @@ export default function HomePage() {
               <Link href="/contact" className="text-[#98A2B3] hover:text-[#0F0F10] text-sm transition-colors">
                 Contact
               </Link>
-            </div>
-          </div>
-        </div>
-      </footer>
     </div>
+          </div>
+          </div>
+      </footer>
+        </div>
   );
 }
