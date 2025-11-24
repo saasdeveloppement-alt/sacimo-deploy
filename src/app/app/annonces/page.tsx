@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
-import { Search, Loader2, AlertTriangle, ExternalLink, Sparkles, MapPin, Bell, Mail, TrendingUp, Heart, Zap, ChevronDown, ChevronUp, Save, Bookmark, Trash2, X, Clock } from "lucide-react"
+import { Search, Loader2, AlertTriangle, ExternalLink, Sparkles, MapPin, Bell, Mail, TrendingUp, Heart, Zap, ChevronDown, ChevronUp, Save, Bookmark, Trash2, X, Clock, Navigation, Calculator, Phone, User, Copy, Check } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -140,6 +140,10 @@ export default function AnnoncesPage() {
   const [filterName, setFilterName] = useState("")
   const [showSavedFilters, setShowSavedFilters] = useState(false)
   const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([])
+  const [selectedListingForLocation, setSelectedListingForLocation] = useState<NormalizedListing | null>(null)
+  const [selectedListingForEstimation, setSelectedListingForEstimation] = useState<NormalizedListing | null>(null)
+  const [selectedListingForContact, setSelectedListingForContact] = useState<NormalizedListing | null>(null)
+  const [copiedField, setCopiedField] = useState<string | null>(null)
 
   const canSearch = !!(filters.postalCode && filters.postalCode.trim() !== "")
 
@@ -521,6 +525,59 @@ export default function AnnoncesPage() {
       hour: "2-digit",
       minute: "2-digit",
     }).format(new Date(date))
+  }
+
+  // Extraire le téléphone depuis la description
+  const extractPhone = (text: string | undefined): string | null => {
+    if (!text) return null
+    // Formats français : 06 12 34 56 78, 0612345678, 01 23 45 67 89, +33 6 12 34 56 78, etc.
+    const phoneRegex = /(?:\+33|0)[1-9](?:[\s.-]?\d{2}){4}/g
+    const matches = text.match(phoneRegex)
+    if (matches && matches.length > 0) {
+      // Prendre le premier numéro trouvé et le formater
+      let phone = matches[0].replace(/[\s.-]/g, '')
+      if (phone.startsWith('+33')) {
+        phone = '0' + phone.substring(3)
+      }
+      // Formater en 06 12 34 56 78
+      if (phone.length === 10) {
+        return `${phone.substring(0, 2)} ${phone.substring(2, 4)} ${phone.substring(4, 6)} ${phone.substring(6, 8)} ${phone.substring(8, 10)}`
+      }
+      return phone
+    }
+    return null
+  }
+
+  // Extraire l'email depuis la description
+  const extractEmail = (text: string | undefined): string | null => {
+    if (!text) return null
+    const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g
+    const matches = text.match(emailRegex)
+    if (matches && matches.length > 0) {
+      return matches[0]
+    }
+    return null
+  }
+
+  // Extraire le nom du vendeur/agence depuis la description
+  const extractSellerName = (listing: NormalizedListing): string | null => {
+    // D'abord utiliser le publisher si disponible
+    if (listing.publisher) return listing.publisher
+    
+    // Sinon, chercher dans la description
+    if (listing.description) {
+      // Chercher des patterns comme "EXCLUSIVITE [NOM]", "Agence [NOM]", etc.
+      const exclusivityMatch = listing.description.match(/EXCLUSIVIT[ÉE]\s+([A-Z][A-Za-z\s]+)/i)
+      if (exclusivityMatch) return exclusivityMatch[1].trim()
+      
+      const agenceMatch = listing.description.match(/[Aa]gence\s+([A-Z][A-Za-z\s]+)/i)
+      if (agenceMatch) return agenceMatch[1].trim()
+      
+      const contactMatch = listing.description.match(/Contact[:\s]+([A-Z][A-Za-z\s]+)/i)
+      if (contactMatch) return contactMatch[1].trim()
+    }
+    
+    return null
   }
 
   const isRecent = (date: Date | null) => {
@@ -1684,27 +1741,60 @@ export default function AnnoncesPage() {
                         </p>
                       )}
 
-                      <div className="flex items-center justify-between pt-3 border-t border-gray-200 mt-auto">
-                        <span className="text-xs text-gray-500">
-                          {formatDate(listing.publishedAt)}
-                        </span>
-                      <Button 
-                          variant="outline"
-                          size="sm"
-                          asChild
-                          className="border-gray-300 hover:border-primary-500 hover:text-primary-700 text-xs h-7"
-                        >
-                          <a
-                            href={listing.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1"
+                      <div className="pt-3 border-t border-gray-200 mt-auto space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-500">
+                            {formatDate(listing.publishedAt)}
+                          </span>
+                          <Button 
+                            variant="outline"
+                            size="sm"
+                            asChild
+                            className="border-gray-300 hover:border-primary-500 hover:text-primary-700 text-xs h-7"
                           >
-                            Voir
-                            <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
-                          </a>
-                      </Button>
-                  </div>
+                            <a
+                              href={listing.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1"
+                            >
+                              Voir
+                              <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
+                            </a>
+                          </Button>
+                        </div>
+                        
+                        {/* Boutons d'action */}
+                        <div className="grid grid-cols-3 gap-1.5">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setSelectedListingForLocation(listing)}
+                            className="text-xs h-8 border-gray-200 hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700"
+                          >
+                            <Navigation className="w-3 h-3 mr-1" />
+                            Localiser
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setSelectedListingForEstimation(listing)}
+                            className="text-xs h-8 border-gray-200 hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700"
+                          >
+                            <Calculator className="w-3 h-3 mr-1" />
+                            Estimer
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setSelectedListingForContact(listing)}
+                            className="text-xs h-8 border-gray-200 hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700"
+                          >
+                            <Phone className="w-3 h-3 mr-1" />
+                            Contact
+                          </Button>
+                        </div>
+                      </div>
                     </CardContent>
                   </Card>
           </motion.div>
@@ -1867,6 +1957,288 @@ export default function AnnoncesPage() {
             </Card>
           </motion.div>
         )}
+
+        {/* Dialog Localiser */}
+        <Dialog open={!!selectedListingForLocation} onOpenChange={(open) => !open && setSelectedListingForLocation(null)}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Localiser le bien</DialogTitle>
+              <DialogDescription>
+                {selectedListingForLocation?.title}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="mt-4 space-y-4">
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <MapPin className="w-4 h-4 text-primary-600" />
+                  <span className="font-semibold">Adresse</span>
+                </div>
+                <p className="text-sm text-gray-700">
+                  {selectedListingForLocation?.city}
+                  {selectedListingForLocation?.postalCode && ` (${selectedListingForLocation.postalCode})`}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => {
+                    const address = `${selectedListingForLocation?.city} ${selectedListingForLocation?.postalCode || ""}`.trim()
+                    window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`, "_blank")
+                  }}
+                  className="flex-1 bg-primary-600 hover:bg-primary-700"
+                >
+                  <Navigation className="w-4 h-4 mr-2" />
+                  Ouvrir dans Google Maps
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    window.location.href = `/app/localisation?address=${encodeURIComponent(`${selectedListingForLocation?.city} ${selectedListingForLocation?.postalCode || ""}`.trim())}`
+                  }}
+                  className="flex-1"
+                >
+                  Localisation IA
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog Estimer */}
+        <Dialog open={!!selectedListingForEstimation} onOpenChange={(open) => !open && setSelectedListingForEstimation(null)}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Estimer le bien</DialogTitle>
+              <DialogDescription>
+                Obtenez une estimation précise basée sur les données du marché
+              </DialogDescription>
+            </DialogHeader>
+            <div className="mt-4 space-y-4">
+              <div className="p-4 bg-gray-50 rounded-lg space-y-2">
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-primary-600" />
+                  <span className="font-semibold">Localisation</span>
+                </div>
+                <p className="text-sm text-gray-700">
+                  {selectedListingForEstimation?.city}
+                  {selectedListingForEstimation?.postalCode && ` (${selectedListingForEstimation.postalCode})`}
+                </p>
+                {selectedListingForEstimation?.surface && (
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold">Surface:</span>
+                    <span className="text-sm text-gray-700">{selectedListingForEstimation.surface} m²</span>
+                  </div>
+                )}
+                {selectedListingForEstimation?.rooms && (
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold">Pièces:</span>
+                    <span className="text-sm text-gray-700">{selectedListingForEstimation.rooms}</span>
+                  </div>
+                )}
+                {selectedListingForEstimation?.price && (
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold">Prix annoncé:</span>
+                    <span className="text-sm text-gray-700">{formatPrice(selectedListingForEstimation.price)}</span>
+                  </div>
+                )}
+              </div>
+              <Button
+                onClick={() => {
+                  const params = new URLSearchParams()
+                  if (selectedListingForEstimation?.city) params.set("city", selectedListingForEstimation.city)
+                  if (selectedListingForEstimation?.postalCode) params.set("postalCode", selectedListingForEstimation.postalCode)
+                  if (selectedListingForEstimation?.surface) params.set("surface", selectedListingForEstimation.surface.toString())
+                  if (selectedListingForEstimation?.rooms) params.set("rooms", selectedListingForEstimation.rooms.toString())
+                  window.location.href = `/app/estimation?${params.toString()}`
+                }}
+                className="w-full bg-primary-600 hover:bg-primary-700"
+              >
+                <Calculator className="w-4 h-4 mr-2" />
+                Aller à la page d'estimation
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog Coordonnées */}
+        <Dialog open={!!selectedListingForContact} onOpenChange={(open) => !open && setSelectedListingForContact(null)}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Coordonnées {selectedListingForContact?.isPro ? "de l'agence" : "du propriétaire"}</DialogTitle>
+              <DialogDescription>
+                {selectedListingForContact?.title}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="mt-4 space-y-4">
+              {selectedListingForContact && (() => {
+                const sellerName = extractSellerName(selectedListingForContact)
+                const phone = extractPhone(selectedListingForContact.description)
+                const email = extractEmail(selectedListingForContact.description)
+                
+                return (
+                  <>
+                    {/* Nom du vendeur/agence */}
+                    {sellerName && (
+                      <div className="p-4 bg-gray-50 rounded-lg space-y-3">
+                        <div className="flex items-center gap-2">
+                          <User className="w-4 h-4 text-primary-600" />
+                          <span className="font-semibold">{sellerName}</span>
+                          {selectedListingForContact?.isPro && (
+                            <Badge className="bg-primary-100 text-primary-700 text-xs">Professionnel</Badge>
+                          )}
+                          {!selectedListingForContact?.isPro && (
+                            <Badge variant="outline" className="text-xs">Particulier</Badge>
+                          )}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          {selectedListingForContact?.isPro ? "Agence immobilière" : "Vendeur particulier"}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Téléphone */}
+                    {phone ? (
+                      <div className="p-4 bg-gray-50 rounded-lg space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Phone className="w-4 h-4 text-primary-600" />
+                          <span className="font-semibold text-sm">Téléphone</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <a
+                            href={`tel:${phone.replace(/\s/g, '')}`}
+                            className="text-primary-700 hover:text-primary-800 font-medium hover:underline"
+                          >
+                            {phone}
+                          </a>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={async () => {
+                              await navigator.clipboard.writeText(phone.replace(/\s/g, ''))
+                              setCopiedField('phone')
+                              setTimeout(() => setCopiedField(null), 2000)
+                            }}
+                            className="h-7 text-xs"
+                          >
+                            {copiedField === 'phone' ? (
+                              <>
+                                <Check className="w-3 h-3 mr-1" />
+                                Copié
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3 h-3 mr-1" />
+                                Copier
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-gray-50 rounded-lg">
+                        <div className="flex items-center gap-2 text-gray-500">
+                          <Phone className="w-4 h-4" />
+                          <span className="text-sm">Téléphone non disponible dans l'annonce</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Email */}
+                    {email ? (
+                      <div className="p-4 bg-gray-50 rounded-lg space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Mail className="w-4 h-4 text-primary-600" />
+                          <span className="font-semibold text-sm">Email</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <a
+                            href={`mailto:${email}`}
+                            className="text-primary-700 hover:text-primary-800 font-medium hover:underline break-all"
+                          >
+                            {email}
+                          </a>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={async () => {
+                              await navigator.clipboard.writeText(email)
+                              setCopiedField('email')
+                              setTimeout(() => setCopiedField(null), 2000)
+                            }}
+                            className="h-7 text-xs"
+                          >
+                            {copiedField === 'email' ? (
+                              <>
+                                <Check className="w-3 h-3 mr-1" />
+                                Copié
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3 h-3 mr-1" />
+                                Copier
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-gray-50 rounded-lg">
+                        <div className="flex items-center gap-2 text-gray-500">
+                          <Mail className="w-4 h-4" />
+                          <span className="text-sm">Email non disponible dans l'annonce</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Annonce originale */}
+                    <div className="p-4 bg-gray-50 rounded-lg space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <ExternalLink className="w-4 h-4 text-gray-500" />
+                          <span className="text-sm font-medium">Annonce originale</span>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          asChild
+                        >
+                          <a
+                            href={selectedListingForContact?.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            Voir l'annonce
+                          </a>
+                        </Button>
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {!phone && !email && "Les coordonnées complètes sont généralement disponibles sur la page de l'annonce originale."}
+                        {(phone || email) && "Consultez l'annonce originale pour d'autres informations de contact."}
+                      </div>
+                    </div>
+
+                    {/* Source */}
+                    {selectedListingForContact?.origin && (
+                      <div className="p-4 bg-gray-50 rounded-lg">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Sparkles className="w-4 h-4 text-primary-600" />
+                          <span className="font-semibold text-sm">Source</span>
+                        </div>
+                        <OriginBadge origin={selectedListingForContact.origin} />
+                      </div>
+                    )}
+                  </>
+                )
+              })()}
+              {!selectedListingForContact && (
+                <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
+                  <p className="text-sm text-amber-800">
+                    Aucune information disponible.
+                  </p>
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   )
