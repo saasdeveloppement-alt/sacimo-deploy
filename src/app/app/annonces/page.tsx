@@ -62,6 +62,7 @@ interface PigeFilters {
   minFloor?: number
   maxFloor?: number
   propertyType?: string[] // appartement, maison, studio, etc.
+  bienType?: "appartement" | "maison" | "terrain" | "all" // Nouveau filtre simple Type de bien
   furnished?: "all" | "furnished" | "unfurnished"
   orientation?: string[] // nord, sud, est, ouest
 }
@@ -121,8 +122,10 @@ export default function AnnoncesPage() {
     dateFilter: "all", // Par défaut, toutes les dates
     criteria: [],
     condition: [],
+    bienType: "all", // Par défaut, tous les types de biens
   })
   const [openFilters, setOpenFilters] = useState<{ [key: string]: boolean }>({
+    bienType: false,
     criteria: false,
     priceM2: false,
     condition: false,
@@ -350,7 +353,14 @@ export default function AnnoncesPage() {
       }
     }
 
-    // Filtre par type de bien - recherche dans le titre et la description
+    // Filtre par type de bien (nouveau filtre simple)
+    if (filters.bienType && filters.bienType !== "all" && (listing.title || listing.description)) {
+      const text = `${listing.title || ""} ${listing.description || ""}`.toLowerCase()
+      const bienTypeLower = filters.bienType.toLowerCase()
+      if (!text.includes(bienTypeLower)) return false
+    }
+
+    // Filtre par type de bien (ancien filtre multi-sélection) - recherche dans le titre et la description
     if (filters.propertyType && filters.propertyType.length > 0 && (listing.title || listing.description)) {
       const text = `${listing.title || ""} ${listing.description || ""}`.toLowerCase()
       const hasAnyType = filters.propertyType.some(type => {
@@ -871,8 +881,8 @@ export default function AnnoncesPage() {
           transition={{ delay: 0.2 }}
           className="mb-8"
         >
-          <Card className="bg-white/95 backdrop-blur-xl border-primary-200/50 shadow-xl rounded-3xl overflow-hidden">
-            <CardContent className="p-6">
+          <Card className="bg-white/95 backdrop-blur-xl border-primary-200/50 shadow-xl rounded-3xl overflow-visible">
+            <CardContent className="p-6 overflow-visible">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* City */}
                 <div>
@@ -929,9 +939,9 @@ export default function AnnoncesPage() {
                           className="flex items-center bg-primary-100 text-primary-700 px-3 py-1 rounded-full text-sm font-medium border border-primary-200"
                         >
                           {code}
-                          <button
+                  <button 
                             type="button"
-                            onClick={() => {
+                    onClick={() => {
                               const newCodes = postalCodes.filter((c) => c !== code)
                               setPostalCodes(newCodes)
                               setFilters({ 
@@ -944,8 +954,8 @@ export default function AnnoncesPage() {
                             aria-label={`Supprimer ${code}`}
                           >
                             ×
-                          </button>
-                        </div>
+                  </button>
+              </div>
                       ))}
                     </div>
                   )}
@@ -1047,7 +1057,7 @@ export default function AnnoncesPage() {
                   <div>
                     <Label className="block text-xs font-semibold text-gray-700 mb-2">Surface (m²)</Label>
                     <div className="flex gap-2">
-                      <Input
+                    <Input
                         type="number"
                         placeholder="Min"
                         value={filters.minSurface || ""}
@@ -1070,10 +1080,10 @@ export default function AnnoncesPage() {
                           })
                         }
                         className="w-full px-3 py-2 rounded-lg border-2 border-gray-200 text-sm"
-                      />
+                    />
+                  </div>
                 </div>
-              </div>
-
+                
                   {/* Price Range */}
                   <div>
                     <Label className="block text-xs font-semibold text-gray-700 mb-2">Prix</Label>
@@ -1136,6 +1146,7 @@ export default function AnnoncesPage() {
                     </div>
                   </div>
                 </div>
+              </div>
                 
                 {/* Origin - Multi-column layout */}
                 <div className="mt-4">
@@ -1203,12 +1214,60 @@ export default function AnnoncesPage() {
                         </motion.button>
                       ))}
                 </div>
-              </div>
-
+                </div>
+                
                   {/* Filtres optionnels - Menus déroulants compacts */}
-                  <div className="flex-1 md:max-w-md">
+                  <div className="flex-1">
                     <Label className="block text-xs font-semibold text-gray-700 mb-2">Filtres optionnels</Label>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="grid grid-cols-5 gap-2 relative">
+                    {/* Type de bien - Premier filtre */}
+                    <Collapsible
+                      open={openFilters.bienType}
+                      onOpenChange={(open) => setOpenFilters({ ...openFilters, bienType: open })}
+                    >
+                      <div className="relative z-10">
+                        <CollapsibleTrigger className="flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 border-gray-200 hover:border-primary-300 hover:bg-primary-50 transition-all text-sm font-medium text-gray-700 min-w-[100px]">
+                          <span>Bien</span>
+                          {filters.bienType && filters.bienType !== "all" && (
+                            <span className="px-1.5 py-0.5 bg-primary-600 text-white rounded-full text-xs font-semibold">
+                              1
+                            </span>
+                          )}
+                          {openFilters.bienType ? (
+                            <ChevronUp className="w-4 h-4 text-gray-500 ml-auto" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4 text-gray-500 ml-auto" />
+                          )}
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="absolute z-50 mt-1 left-0 p-4 bg-white rounded-lg border-2 border-gray-200 shadow-xl min-w-[200px] max-h-[300px] overflow-y-auto">
+                          <div className="flex flex-col gap-2">
+                            {[
+                              { id: "all", label: "Tous" },
+                              { id: "appartement", label: "Appartement" },
+                              { id: "maison", label: "Maison" },
+                              { id: "terrain", label: "Terrain" },
+                            ].map((option) => (
+                              <motion.label
+                                key={option.id}
+                                className="flex items-center p-2 rounded-lg hover:bg-gray-50 transition-all cursor-pointer"
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                              >
+                                <input
+                                  type="radio"
+                                  name="bienType"
+                                  checked={filters.bienType === option.id || (!filters.bienType && option.id === "all")}
+                                  onChange={() => setFilters({ ...filters, bienType: option.id as "appartement" | "maison" | "terrain" | "all" })}
+                                  className="w-4 h-4 border-2 border-gray-300 text-primary-600 focus:ring-primary-500 focus:ring-2 mr-2"
+                                />
+                                <span className="text-sm text-gray-700">{option.label}</span>
+                              </motion.label>
+                            ))}
+              </div>
+                        </CollapsibleContent>
+                      </div>
+                    </Collapsible>
+
                     {/* Critères (balcon, terrasse, etc.) */}
                     <Collapsible
                       open={openFilters.criteria}
@@ -1263,9 +1322,9 @@ export default function AnnoncesPage() {
                                 <span className="text-sm text-gray-700">{criterion.label}</span>
                               </motion.label>
                             ))}
-                          </div>
+                </div>
                         </CollapsibleContent>
-                      </div>
+              </div>
                     </Collapsible>
 
                     {/* Prix au m² */}
@@ -1308,9 +1367,9 @@ export default function AnnoncesPage() {
                               }
                               className="w-full px-3 py-2 rounded-lg border-2 border-gray-200 text-sm"
                             />
-                          </div>
+                </div>
                         </CollapsibleContent>
-                      </div>
+              </div>
                     </Collapsible>
 
                     {/* État */}
@@ -1615,6 +1674,9 @@ export default function AnnoncesPage() {
                         </CollapsibleContent>
                     </div>
                     </Collapsible>
+                    
+                    {/* Case vide pour compléter la 5e colonne de la ligne 2 */}
+                    <div></div>
                     </div>
                   </div>
                 </div>
@@ -1644,10 +1706,9 @@ export default function AnnoncesPage() {
                       )}
                     </Button>
             </motion.div>
-              </div>
                 </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
           </motion.div>
 
         {/* Results Area - Grid 3 columns */}
