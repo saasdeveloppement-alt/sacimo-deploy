@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
-import { Search, Loader2, AlertTriangle, ExternalLink, Sparkles, MapPin, Bell, Mail, TrendingUp, Heart, Zap, ChevronDown, ChevronUp, Save, Bookmark, Trash2, X, Clock, Navigation, Calculator, Phone, User, Copy, Check } from "lucide-react"
+import { Search, Loader2, AlertTriangle, ExternalLink, Sparkles, MapPin, Bell, Mail, TrendingUp, Heart, Zap, ChevronDown, ChevronUp, Save, Bookmark, Trash2, X, Clock, Navigation, Calculator, Phone, User, Copy, Check, Brain } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -35,10 +35,12 @@ import {
 } from "recharts"
 import type { NormalizedListing } from "@/lib/piges/normalize"
 import OriginBadge from "@/components/piges/OriginBadge"
+import { QuickAnalysisPanel } from "@/components/analysis/QuickAnalysisPanel"
 
 interface PigeFilters {
   city?: string
-  postalCode?: string
+  postalCode?: string // Conservé pour compatibilité
+  postalCodes?: string[] // Nouveau: liste de codes postaux
   type?: "vente" | "location" | "all"
   types?: ("vente" | "location")[] // Pour gérer les cases à cocher
   sellerType?: "all" | "pro" | "particulier"
@@ -143,9 +145,22 @@ export default function AnnoncesPage() {
   const [selectedListingForLocation, setSelectedListingForLocation] = useState<NormalizedListing | null>(null)
   const [selectedListingForEstimation, setSelectedListingForEstimation] = useState<NormalizedListing | null>(null)
   const [selectedListingForContact, setSelectedListingForContact] = useState<NormalizedListing | null>(null)
+  const [selectedListingForAnalysis, setSelectedListingForAnalysis] = useState<NormalizedListing | null>(null)
+  const [isAnalysisOpen, setIsAnalysisOpen] = useState(false)
   const [copiedField, setCopiedField] = useState<string | null>(null)
+  const [postalCodes, setPostalCodes] = useState<string[]>([])
+  const [postalInput, setPostalInput] = useState("")
 
-  const canSearch = !!(filters.postalCode && filters.postalCode.trim() !== "")
+  // Initialiser postalCodes depuis filters.postalCode si présent (pour compatibilité)
+  useEffect(() => {
+    if (filters.postalCode && !filters.postalCodes && postalCodes.length === 0) {
+      setPostalCodes([filters.postalCode])
+    } else if (filters.postalCodes && postalCodes.length === 0) {
+      setPostalCodes(filters.postalCodes)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const canSearch = postalCodes.length > 0 || !!(filters.postalCode && filters.postalCode.trim() !== "")
 
   // Charger les filtres sauvegardés depuis localStorage
   useEffect(() => {
@@ -206,6 +221,14 @@ export default function AnnoncesPage() {
   // Charger un filtre sauvegardé
   const loadFilter = (savedFilter: SavedFilter) => {
     setFilters(savedFilter.filters)
+    // Initialiser postalCodes si présent dans les filtres
+    if (savedFilter.filters.postalCodes && Array.isArray(savedFilter.filters.postalCodes)) {
+      setPostalCodes(savedFilter.filters.postalCodes)
+    } else if (savedFilter.filters.postalCode) {
+      setPostalCodes([savedFilter.filters.postalCode])
+    } else {
+      setPostalCodes([])
+    }
     setShowSavedFilters(false)
   }
 
@@ -403,8 +426,8 @@ export default function AnnoncesPage() {
     console.log("🔍 [Annonces] handleSearch appelé", { canSearch, userId, filters, selectedSources })
     
     if (!canSearch) {
-      console.warn("⚠️ [Annonces] Recherche impossible: canSearch = false", { postalCode: filters.postalCode })
-      setError("Veuillez renseigner un code postal pour lancer la recherche")
+      console.warn("⚠️ [Annonces] Recherche impossible: canSearch = false", { postalCodes, postalCode: filters.postalCode })
+      setError("Veuillez renseigner au moins un code postal pour lancer la recherche")
           return
         }
 
@@ -422,7 +445,13 @@ export default function AnnoncesPage() {
     try {
       const cleanFilters: PigeFilters = {}
       if (filters.city) cleanFilters.city = filters.city
-      if (filters.postalCode) cleanFilters.postalCode = filters.postalCode
+      // Priorité à postalCodes (nouveau système)
+      if (postalCodes.length > 0) {
+        cleanFilters.postalCodes = postalCodes
+      } else if (filters.postalCode) {
+        // Fallback pour compatibilité
+        cleanFilters.postalCode = filters.postalCode
+      }
       // Gérer les types (cases à cocher)
       if (filters.types && filters.types.length > 0) {
         if (filters.types.length === 1) {
@@ -485,10 +514,10 @@ export default function AnnoncesPage() {
         // Enregistrer dans l'historique
         const historyEntry: SearchHistory = {
           id: Date.now().toString(),
-          filters: { ...filters },
+          filters: { ...filters, postalCodes: postalCodes.length > 0 ? postalCodes : undefined },
           resultsCount: data.meta?.total || data.data?.length || 0,
           searchedAt: new Date().toISOString(),
-          postalCode: filters.postalCode,
+          postalCode: postalCodes.length > 0 ? postalCodes.join(", ") : filters.postalCode,
           city: filters.city,
         }
         
@@ -556,8 +585,8 @@ export default function AnnoncesPage() {
     if (matches && matches.length > 0) {
       return matches[0]
     }
-    return null
-  }
+            return null
+          }
 
   // Extraire le nom du vendeur/agence depuis la description
   const extractSellerName = (listing: NormalizedListing): string | null => {
@@ -726,7 +755,14 @@ export default function AnnoncesPage() {
                               {savedFilter.filters.city && (
                                 <Badge variant="outline" className="text-xs">{savedFilter.filters.city}</Badge>
                               )}
-                              {savedFilter.filters.postalCode && (
+                              {savedFilter.filters.postalCodes && savedFilter.filters.postalCodes.length > 0 && (
+                                <Badge variant="outline" className="text-xs">
+                                  {savedFilter.filters.postalCodes.length > 1 
+                                    ? `${savedFilter.filters.postalCodes.length} CP` 
+                                    : savedFilter.filters.postalCodes[0]}
+                                </Badge>
+                              )}
+                              {!savedFilter.filters.postalCodes && savedFilter.filters.postalCode && (
                                 <Badge variant="outline" className="text-xs">{savedFilter.filters.postalCode}</Badge>
                               )}
                               {savedFilter.filters.minPrice && (
@@ -855,18 +891,64 @@ export default function AnnoncesPage() {
                   </div>
                 </div>
                 
-                {/* Postal Code */}
+                {/* Postal Code - Multi-sélection */}
                 <div>
                   <Label htmlFor="postalCode" className="block text-xs font-semibold text-gray-700 mb-2">
                     Code postal
                   </Label>
                   <Input
                     id="postalCode"
-                    placeholder="75001"
-                    value={filters.postalCode || ""}
-                    onChange={(e) => setFilters({ ...filters, postalCode: e.target.value })}
+                    type="text"
+                    placeholder="75008"
+                    value={postalInput}
+                    onChange={(e) => setPostalInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault()
+                        const code = postalInput.trim()
+                        
+                        // Validation: uniquement 5 chiffres
+                        if (/^\d{5}$/.test(code)) {
+                          if (!postalCodes.includes(code)) {
+                            const newCodes = [...postalCodes, code]
+                            setPostalCodes(newCodes)
+                            setFilters({ ...filters, postalCodes: newCodes, postalCode: undefined })
+                          }
+                          setPostalInput("")
+                        }
+                      }
+                    }}
                     className="w-full px-3 py-2 rounded-lg border-2 border-gray-200 text-sm"
                   />
+                  {/* Tags des codes postaux */}
+                  {postalCodes.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {postalCodes.map((code) => (
+                        <div
+                          key={code}
+                          className="flex items-center bg-primary-100 text-primary-700 px-3 py-1 rounded-full text-sm font-medium border border-primary-200"
+                        >
+                          {code}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newCodes = postalCodes.filter((c) => c !== code)
+                              setPostalCodes(newCodes)
+                              setFilters({ 
+                                ...filters, 
+                                postalCodes: newCodes.length > 0 ? newCodes : undefined,
+                                postalCode: undefined 
+                              })
+                            }}
+                            className="ml-2 text-primary-600 hover:text-primary-800 font-bold text-base leading-none"
+                            aria-label={`Supprimer ${code}`}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Type */}
@@ -1561,7 +1643,7 @@ export default function AnnoncesPage() {
                         </>
                       )}
                     </Button>
-                  </motion.div>
+            </motion.div>
               </div>
                 </div>
             </CardContent>
@@ -1678,14 +1760,14 @@ export default function AnnoncesPage() {
                         {isRecent(listing.publishedAt) && (
                           <div className="absolute top-2 right-2">
                             <Badge className="bg-green-100 text-green-700 text-xs">Nouveau</Badge>
-                  </div>
+                      </div>
                         )}
                         {listing.origin && (
                           <div className="absolute top-2 left-2">
                             <OriginBadge origin={listing.origin} />
-                  </div>
+                    </div>
                         )}
-                </div>
+              </div>
               ) : (
                       <div className="relative w-full h-48 flex-shrink-0 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
                         <div className="text-center p-4">
@@ -1709,9 +1791,29 @@ export default function AnnoncesPage() {
                     
                     {/* Content */}
                     <CardContent className="p-4 flex-1 flex flex-col">
-                      <h3 className="text-base font-semibold text-gray-900 mb-2 line-clamp-2">
-                        {listing.title}
-                  </h3>
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <h3 className="text-base font-semibold text-gray-900 leading-tight flex-1 line-clamp-2">
+                          {listing.title}
+                        </h3>
+                        {listing.url && (
+                          <Button 
+                            variant="outline"
+                            size="sm"
+                            asChild
+                            className="border-gray-300 hover:border-primary-500 hover:text-primary-700 text-xs h-7 flex-shrink-0"
+                          >
+                            <a
+                              href={listing.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1"
+                            >
+                              Voir
+                              <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
+                            </a>
+                          </Button>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2 text-sm text-gray-600 mb-2 flex-wrap">
                         <span className="font-semibold text-gray-900">
                           {formatPrice(listing.price)}
@@ -1738,31 +1840,15 @@ export default function AnnoncesPage() {
                       {listing.description && (
                         <p className="text-xs text-gray-600 mb-3 line-clamp-2 flex-1">
                           {listing.description}
-                        </p>
-                      )}
+                    </p>
+                  )}
 
                       <div className="pt-3 border-t border-gray-200 mt-auto space-y-2">
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center">
                           <span className="text-xs text-gray-500">
                             {formatDate(listing.publishedAt)}
                           </span>
-                          <Button 
-                            variant="outline"
-                            size="sm"
-                            asChild
-                            className="border-gray-300 hover:border-primary-500 hover:text-primary-700 text-xs h-7"
-                          >
-                            <a
-                              href={listing.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-1"
-                            >
-                              Voir
-                              <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
-                            </a>
-                          </Button>
-                        </div>
+                </div>
                         
                         {/* Boutons d'action */}
                         <div className="grid grid-cols-3 gap-1.5">
@@ -1794,10 +1880,23 @@ export default function AnnoncesPage() {
                             Contact
                           </Button>
                         </div>
+                        
+                        {/* Bouton Analyse rapide - Full width */}
+                        <Button
+                          onClick={() => {
+                            setSelectedListingForAnalysis(listing)
+                            setIsAnalysisOpen(true)
+                          }}
+                          variant="outline"
+                          className="w-full mt-2 border-2 border-primary-200 bg-primary-50 hover:bg-primary-100 text-primary-700 hover:text-primary-800 text-sm font-semibold py-2 rounded-xl flex items-center justify-center gap-2 transition-all"
+                        >
+                          <Brain className="w-4 h-4" />
+                          Analyse rapide
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
-          </motion.div>
+                  </motion.div>
               ))}
         </div>
           )}
@@ -1809,7 +1908,7 @@ export default function AnnoncesPage() {
                 <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" strokeWidth={1.5} />
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">
                   Aucune annonce trouvée
-                </h3>
+                  </h3>
                 <p className="text-sm text-gray-600">
                   Aucune annonce ne correspond à tes critères de recherche.
                 </p>
@@ -1861,6 +1960,14 @@ export default function AnnoncesPage() {
                       className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-all cursor-pointer group"
                       onClick={() => {
                         setFilters(entry.filters)
+                        // Initialiser postalCodes si présent dans les filtres
+                        if (entry.filters.postalCodes && Array.isArray(entry.filters.postalCodes)) {
+                          setPostalCodes(entry.filters.postalCodes)
+                        } else if (entry.filters.postalCode) {
+                          setPostalCodes([entry.filters.postalCode])
+                        } else {
+                          setPostalCodes([])
+                        }
                         // Optionnel : lancer automatiquement la recherche
                         // handleSearch()
                       }}
@@ -1874,12 +1981,12 @@ export default function AnnoncesPage() {
                             </span>
                             {entry.postalCode && entry.city && (
                               <span className="text-sm text-gray-500">({entry.postalCode})</span>
-                            )}
-                          </div>
+                    )}
+                  </div>
                           <Badge variant="outline" className="text-xs">
                             {entry.resultsCount} résultat{entry.resultsCount > 1 ? "s" : ""}
                           </Badge>
-                        </div>
+                </div>
                         <div className="mt-1 flex flex-wrap gap-1.5">
                           {entry.filters.types && entry.filters.types.length > 0 && (
                             <Badge variant="outline" className="text-xs">
@@ -1929,6 +2036,14 @@ export default function AnnoncesPage() {
                           onClick={(e) => {
                             e.stopPropagation()
                             setFilters(entry.filters)
+                            // Initialiser postalCodes si présent dans les filtres
+                            if (entry.filters.postalCodes && Array.isArray(entry.filters.postalCodes)) {
+                              setPostalCodes(entry.filters.postalCodes)
+                            } else if (entry.filters.postalCode) {
+                              setPostalCodes([entry.filters.postalCode])
+                            } else {
+                              setPostalCodes([])
+                            }
                             handleSearch()
                           }}
                           className="bg-primary-50 hover:bg-primary-100 text-primary-700 border-primary-200"
@@ -1998,7 +2113,7 @@ export default function AnnoncesPage() {
                 >
                   Localisation IA
                 </Button>
-              </div>
+                  </div>
             </div>
           </DialogContent>
         </Dialog>
@@ -2032,7 +2147,7 @@ export default function AnnoncesPage() {
                   <div className="flex items-center gap-2">
                     <span className="font-semibold">Pièces:</span>
                     <span className="text-sm text-gray-700">{selectedListingForEstimation.rooms}</span>
-                  </div>
+        </div>
                 )}
                 {selectedListingForEstimation?.price && (
                   <div className="flex items-center gap-2">
@@ -2074,7 +2189,7 @@ export default function AnnoncesPage() {
                 const phone = extractPhone(selectedListingForContact.description)
                 const email = extractEmail(selectedListingForContact.description)
                 
-                return (
+  return (
                   <>
                     {/* Nom du vendeur/agence */}
                     {sellerName && (
@@ -2088,11 +2203,11 @@ export default function AnnoncesPage() {
                           {!selectedListingForContact?.isPro && (
                             <Badge variant="outline" className="text-xs">Particulier</Badge>
                           )}
-                        </div>
+            </div>
                         <div className="text-sm text-gray-600">
                           {selectedListingForContact?.isPro ? "Agence immobilière" : "Vendeur particulier"}
-                        </div>
-                      </div>
+          </div>
+        </div>
                     )}
 
                     {/* Téléphone */}
@@ -2239,6 +2354,18 @@ export default function AnnoncesPage() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Dialog Analyse rapide */}
+        <QuickAnalysisPanel
+          listing={selectedListingForAnalysis}
+          open={isAnalysisOpen}
+          onOpenChange={(open) => {
+            setIsAnalysisOpen(open)
+            if (!open) {
+              setSelectedListingForAnalysis(null)
+            }
+          }}
+        />
       </div>
     </div>
   )

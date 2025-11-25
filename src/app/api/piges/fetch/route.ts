@@ -32,11 +32,15 @@ export async function POST(req: NextRequest) {
     }
 
     // Validation des filtres (code postal obligatoire pour MoteurImmo)
-    if (!filters.postalCode || filters.postalCode.trim() === "") {
+    // Priorité à postalCodes (nouveau système)
+    const hasPostalCodes = filters.postalCodes && Array.isArray(filters.postalCodes) && filters.postalCodes.length > 0;
+    const hasPostalCode = filters.postalCode && filters.postalCode.trim() !== "";
+    
+    if (!hasPostalCodes && !hasPostalCode) {
       return NextResponse.json(
         {
           status: "error",
-          message: "Le code postal est obligatoire pour utiliser MoteurImmo.",
+          message: "Au moins un code postal est obligatoire pour utiliser MoteurImmo.",
         },
         { status: 400 }
       );

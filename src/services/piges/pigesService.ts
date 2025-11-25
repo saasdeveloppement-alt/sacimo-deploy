@@ -15,7 +15,8 @@ const MAX_SCANS_PER_HOUR = 20;
 
 export interface PigeSearchFilters {
   city?: string;
-  postalCode?: string;
+  postalCode?: string; // Conservé pour compatibilité
+  postalCodes?: string[]; // Nouveau: liste de codes postaux
   minPrice?: number;
   maxPrice?: number;
   minSurface?: number;
@@ -55,37 +56,53 @@ function mapTypeToMoteurImmo(type: string | undefined): string[] {
  * - CP générique (75000, 33000, etc.) → departmentCode
  * - CP réel (75001, etc.) → postalCode
  * - Code postal obligatoire (la ville est ignorée)
+ * - Supporte maintenant plusieurs codes postaux
  */
 function buildMoteurImmoLocations(
-  postalCode: string
+  postalCodes: string[]
 ): Array<{ postalCode?: string; departmentCode?: number }> {
   const locations: Array<{ postalCode?: string; departmentCode?: number }> = [];
 
   // Code postal obligatoire
-  if (!postalCode || postalCode.trim() === "") {
-    throw new Error("Le code postal est obligatoire pour utiliser MoteurImmo.");
+  if (!postalCodes || postalCodes.length === 0) {
+    throw new Error("Au moins un code postal est obligatoire pour utiliser MoteurImmo.");
   }
 
-  const trimmed = postalCode.trim();
+  // Traiter chaque code postal
+  for (const postalCode of postalCodes) {
+    const trimmed = postalCode.trim();
 
-  // Cas CP générique (33000, 75000, 13000, etc.) → departmentCode
-  if (/^\d{5}$/.test(trimmed) && trimmed.endsWith("000")) {
-    const dep = Number(trimmed.substring(0, 2));
-    if (!isNaN(dep) && dep >= 1 && dep <= 95) {
-      locations.push({ departmentCode: dep });
-      console.log(`📍 [Piges] CP générique ${trimmed} → département ${dep}`);
-    } else {
-      throw new Error("Code postal invalide : département non reconnu.");
+    if (!trimmed) continue;
+
+    // Cas CP générique (33000, 75000, 13000, etc.) → departmentCode
+    if (/^\d{5}$/.test(trimmed) && trimmed.endsWith("000")) {
+      const dep = Number(trimmed.substring(0, 2));
+      if (!isNaN(dep) && dep >= 1 && dep <= 95) {
+        // Éviter les doublons de département
+        if (!locations.some(loc => loc.departmentCode === dep)) {
+          locations.push({ departmentCode: dep });
+          console.log(`📍 [Piges] CP générique ${trimmed} → département ${dep}`);
+        }
+      } else {
+        throw new Error(`Code postal invalide : département non reconnu (${trimmed}).`);
+      }
+    } 
+    // Cas CP réel normal (75001, etc.) → postalCode
+    else if (/^\d{5}$/.test(trimmed)) {
+      // Éviter les doublons
+      if (!locations.some(loc => loc.postalCode === trimmed)) {
+        locations.push({ postalCode: trimmed });
+        console.log(`📍 [Piges] CP réel: ${trimmed}`);
+      }
+    } 
+    // CP invalide
+    else {
+      throw new Error(`Code postal invalide: ${trimmed}. Veuillez entrer un code postal à 5 chiffres (ex: 75001, 75000).`);
     }
-  } 
-  // Cas CP réel normal (75001, etc.) → postalCode
-  else if (/^\d{5}$/.test(trimmed)) {
-    locations.push({ postalCode: trimmed });
-    console.log(`📍 [Piges] CP réel: ${trimmed}`);
-  } 
-  // CP invalide
-  else {
-    throw new Error("Code postal invalide. Veuillez entrer un code postal à 5 chiffres (ex: 75001, 75000).");
+  }
+
+  if (locations.length === 0) {
+    throw new Error("Aucun code postal valide fourni.");
   }
 
   return locations;
@@ -97,8 +114,11 @@ function buildMoteurImmoLocations(
  */
 function validateFilters(filters: PigeSearchFilters): void {
   // Code postal obligatoire pour MoteurImmo
-  if (!filters.postalCode || filters.postalCode.trim() === "") {
-    throw new Error("Le code postal est obligatoire pour utiliser MoteurImmo.");
+  // Priorité à postalCodes (nouveau système)
+  if (filters.postalCodes && filters.postalCodes.length > 0) {
+    // Validation déjà faite dans buildMoteurImmoLocations
+  } else if (!filters.postalCode || filters.postalCode.trim() === "") {
+    throw new Error("Au moins un code postal est obligatoire pour utiliser MoteurImmo.");
   }
 
   // Validation des prix
@@ -158,7 +178,15 @@ export async function runPigeSearch(
 
   // Préparer les paramètres MoteurImmo
   const types = mapTypeToMoteurImmo(filters.type);
-  const locations = buildMoteurImmoLocations(filters.postalCode!);
+  
+  // Priorité à postalCodes (nouveau système)
+  const postalCodesToUse = filters.postalCodes && filters.postalCodes.length > 0 
+    ? filters.postalCodes 
+    : filters.postalCode 
+      ? [filters.postalCode] 
+      : [];
+  
+  const locations = buildMoteurImmoLocations(postalCodesToUse);
 
   // Pagination jusqu'à MAX_PAGES ou MAX_TOTAL_RESULTS
   while (page <= MAX_PAGES && results.length < MAX_TOTAL_RESULTS && hasMore) {
