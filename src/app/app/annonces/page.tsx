@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useSession } from "next-auth/react"
+import { useSearchParams } from "next/navigation"
 import { Search, Loader2, AlertTriangle, ExternalLink, Sparkles, MapPin, Bell, Mail, TrendingUp, Heart, Zap, ChevronDown, ChevronUp, Save, Bookmark, Trash2, X, Clock, Navigation, Calculator, Phone, User, Copy, Check, Brain } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -36,6 +37,7 @@ import {
 import type { NormalizedListing } from "@/lib/piges/normalize"
 import OriginBadge from "@/components/piges/OriginBadge"
 import { QuickAnalysisPanel } from "@/components/analysis/QuickAnalysisPanel"
+import { filterByState } from "@/lib/piges/filterByState"
 
 interface PigeFilters {
   city?: string
@@ -56,7 +58,8 @@ interface PigeFilters {
   criteria?: string[] // balcon, terrasse, jardin, parking, etc.
   minPricePerM2?: number
   maxPricePerM2?: number
-  condition?: string[] // bon état, à rénover, neuf, etc.
+  condition?: string[] // bon état, à rénover, neuf, etc. (ancien filtre, conservé pour compatibilité)
+  state?: string[] // État du bien: neuf, ancien, recent, vefa, travaux
   minBedrooms?: number
   maxBedrooms?: number
   minFloor?: number
@@ -115,6 +118,7 @@ const staggerChildren = {
 
 export default function AnnoncesPage() {
   const { data: session } = useSession()
+  const searchParams = useSearchParams()
   const [filters, setFilters] = useState<PigeFilters>({
     type: "all",
     types: [], // Pour les cases à cocher vente/location
@@ -129,6 +133,7 @@ export default function AnnoncesPage() {
     criteria: false,
     priceM2: false,
     condition: false,
+    state: false,
     bedrooms: false,
     floor: false,
     propertyType: false,
@@ -139,12 +144,16 @@ export default function AnnoncesPage() {
   const [error, setError] = useState<string | null>(null)
   const [results, setResults] = useState<NormalizedListing[]>([])
   const [meta, setMeta] = useState<{ total: number; pages: number; hasMore: boolean } | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const PAGE_SIZE = 30 // 30 annonces par page côté UI
   const [selectedSources, setSelectedSources] = useState<string[]>([])
   const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([])
   const [showSaveDialog, setShowSaveDialog] = useState(false)
   const [filterName, setFilterName] = useState("")
   const [showSavedFilters, setShowSavedFilters] = useState(false)
   const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([])
+  const [historyPage, setHistoryPage] = useState(1)
+  const historyItemsPerPage = 5
   const [selectedListingForLocation, setSelectedListingForLocation] = useState<NormalizedListing | null>(null)
   const [selectedListingForEstimation, setSelectedListingForEstimation] = useState<NormalizedListing | null>(null)
   const [selectedListingForContact, setSelectedListingForContact] = useState<NormalizedListing | null>(null)
@@ -153,15 +162,143 @@ export default function AnnoncesPage() {
   const [copiedField, setCopiedField] = useState<string | null>(null)
   const [postalCodes, setPostalCodes] = useState<string[]>([])
   const [postalInput, setPostalInput] = useState("")
+  const [agencyFilter, setAgencyFilter] = useState<string | null>(null)
+  const [autoSearchTriggered, setAutoSearchTriggered] = useState(false)
+  const handleSearchRef = useRef<((overridePostalCodes?: string[]) => Promise<void>) | null>(null)
+  const lastSearchParamsRef = useRef<string>("") // Pour éviter les déclenchements multiples pour les mêmes paramètres
 
-  // Initialiser postalCodes depuis filters.postalCode si présent (pour compatibilité)
+  // Lire les paramètres de l'URL (agency et postalCodes) et lancer la recherche automatiquement
   useEffect(() => {
-    if (filters.postalCode && !filters.postalCodes && postalCodes.length === 0) {
-      setPostalCodes([filters.postalCode])
-    } else if (filters.postalCodes && postalCodes.length === 0) {
-      setPostalCodes(filters.postalCodes)
+    const agencyParam = searchParams.get('agency')
+    const postalCodesParam = searchParams.get('postalCodes')
+    
+    // Si on a les deux paramètres, c'est qu'on vient de la page concurrentiel
+    if (agencyParam && postalCodesParam) {
+      // Créer une clé unique pour ces paramètres
+      const searchKey = `${agencyParam}|${postalCodesParam}`
+      
+      // Vérifier si on a déjà lancé la recherche pour ces paramètres
+      if (lastSearchParamsRef.current === searchKey) {
+        console.log("⏸️ [Annonces] Recherche déjà lancée pour ces paramètres, on skip", { searchKey })
+        return
+      }
+      
+      // Mettre à jour les états
+      setAgencyFilter(agencyParam)
+      const codes = postalCodesParam.split(',').filter(c => c.trim().length > 0)
+      if (codes.length > 0) {
+        setPostalCodes(codes)
+        console.log("✅ [Annonces] Codes postaux mis à jour depuis l'URL", { codes })
+      }
+      
+      // Marquer ces paramètres comme traités
+      lastSearchParamsRef.current = searchKey
+      
+      // Lancer la recherche automatiquement UNE SEULE FOIS
+      // Fonction pour tenter la recherche (appelée une seule fois)
+      const attemptSearch = () => {
+        // Vérifier que tout est prêt
+        if (session?.user && !loading && handleSearchRef.current && codes.length > 0) {
+          console.log("🚀 [Annonces] Lancement automatique depuis les paramètres URL", { 
+            agency: agencyParam, 
+            postalCodesFromURL: codes,
+            sessionUser: !!session?.user,
+            loading,
+            hasHandleSearch: !!handleSearchRef.current
+          })
+          setAutoSearchTriggered(true) // Marquer comme déclenché AVANT l'appel
+          
+          // Appeler handleSearch avec les codes postaux directement (évite le problème de timing)
+          if (handleSearchRef.current) {
+            console.log("🔍 [Annonces] Appel immédiat de handleSearch avec codes postaux depuis URL", { codes })
+            handleSearchRef.current(codes)
+          }
+          return true
+        } else {
+          console.log("⏳ [Annonces] Conditions non remplies", {
+            hasSession: !!session?.user,
+            loading,
+            hasHandleSearch: !!handleSearchRef.current,
+            codesLength: codes.length
+          })
+        }
+        return false
+      }
+      
+      // Essayer immédiatement, puis après un délai si ça n'a pas fonctionné
+      if (!attemptSearch()) {
+        const timer = setTimeout(() => {
+          if (!attemptSearch()) {
+            console.log("⏳ [Annonces] Échec après délai, réessai...")
+            // Dernier essai après un délai plus long
+            setTimeout(() => {
+              attemptSearch()
+            }, 1000)
+          }
+        }, 800)
+        
+        return () => clearTimeout(timer)
+      }
+    } else {
+      // Pas de paramètres URL, comportement normal
+      if (agencyParam) {
+        setAgencyFilter(agencyParam)
+      } else {
+        setAgencyFilter(null)
+      }
+      
+      if (postalCodesParam) {
+        // Exclure 75008 des paramètres URL
+        const codes = postalCodesParam.split(',').filter(c => {
+          const trimmed = c.trim()
+          return trimmed.length > 0 && trimmed !== "75008"
+        })
+        if (codes.length > 0) {
+          setPostalCodes(codes)
+        }
+      }
+    }
+  }, [searchParams, session?.user, loading, autoSearchTriggered]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Nettoyer 75008 des filtres au montage (si présent par erreur dans l'état initial ou localStorage)
+  useEffect(() => {
+    let needsUpdate = false
+    const updatedFilters = { ...filters }
+    
+    // Supprimer 75008 des filtres s'il est présent
+    if (filters.postalCode === "75008") {
+      updatedFilters.postalCode = undefined
+      needsUpdate = true
+    }
+    if (filters.postalCodes && Array.isArray(filters.postalCodes) && filters.postalCodes.includes("75008")) {
+      const cleanedCodes = filters.postalCodes.filter(code => code !== "75008")
+      updatedFilters.postalCodes = cleanedCodes.length > 0 ? cleanedCodes : undefined
+      needsUpdate = true
+    }
+    
+    if (needsUpdate) {
+      setFilters(updatedFilters)
+    }
+    
+    // Initialiser postalCodes depuis filters.postalCode si présent (pour compatibilité)
+    // MAIS NE PAS FORCER 75008 ou toute autre valeur par défaut
+    // IMPORTANT: Ne charger que si postalCodes est vraiment vide (pas déjà initialisé)
+    if (postalCodes.length === 0) {
+      if (updatedFilters.postalCode && !updatedFilters.postalCodes) {
+        // Ne pas charger si c'est 75008 (probablement une valeur par défaut indésirable)
+        if (updatedFilters.postalCode !== "75008") {
+          setPostalCodes([updatedFilters.postalCode])
+        }
+      } else if (updatedFilters.postalCodes && Array.isArray(updatedFilters.postalCodes)) {
+        // Filtrer 75008 des codes postaux chargés
+        const filteredCodes = updatedFilters.postalCodes.filter(code => code !== "75008")
+        if (filteredCodes.length > 0) {
+          setPostalCodes(filteredCodes)
+        }
+      }
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
 
   const canSearch = postalCodes.length > 0 || !!(filters.postalCode && filters.postalCode.trim() !== "")
 
@@ -210,7 +347,11 @@ export default function AnnoncesPage() {
     const newFilter: SavedFilter = {
       id: Date.now().toString(),
       name: filterName.trim(),
-      filters: { ...filters },
+      filters: { 
+        ...filters,
+        // Inclure les sources sélectionnées dans le filtre sauvegardé
+        sources: selectedSources.length > 0 ? selectedSources : undefined
+      },
       createdAt: new Date().toISOString(),
     }
 
@@ -223,14 +364,36 @@ export default function AnnoncesPage() {
 
   // Charger un filtre sauvegardé
   const loadFilter = (savedFilter: SavedFilter) => {
-    setFilters(savedFilter.filters)
-    // Initialiser postalCodes si présent dans les filtres
+    // Ne pas charger la ville depuis les filtres sauvegardés si elle est "Paris" (valeur par défaut indésirable)
+    const filtersToLoad = { ...savedFilter.filters }
+    if (filtersToLoad.city === "Paris" || filtersToLoad.city === "paris") {
+      delete filtersToLoad.city // Supprimer la ville si c'est "Paris"
+    }
+    // Ne pas charger 75008 depuis les filtres sauvegardés (valeur par défaut indésirable)
+    if (filtersToLoad.postalCode === "75008") {
+      delete filtersToLoad.postalCode
+    }
+    if (filtersToLoad.postalCodes && Array.isArray(filtersToLoad.postalCodes)) {
+      filtersToLoad.postalCodes = filtersToLoad.postalCodes.filter(code => code !== "75008")
+      if (filtersToLoad.postalCodes.length === 0) {
+        delete filtersToLoad.postalCodes
+      }
+    }
+    setFilters(filtersToLoad)
+    // Initialiser postalCodes si présent dans les filtres (en excluant 75008)
     if (savedFilter.filters.postalCodes && Array.isArray(savedFilter.filters.postalCodes)) {
-      setPostalCodes(savedFilter.filters.postalCodes)
-    } else if (savedFilter.filters.postalCode) {
+      const filteredCodes = savedFilter.filters.postalCodes.filter(code => code !== "75008")
+      setPostalCodes(filteredCodes)
+    } else if (savedFilter.filters.postalCode && savedFilter.filters.postalCode !== "75008") {
       setPostalCodes([savedFilter.filters.postalCode])
     } else {
       setPostalCodes([])
+    }
+    // Restaurer les sources sélectionnées si présentes dans le filtre sauvegardé
+    if (savedFilter.filters.sources && Array.isArray(savedFilter.filters.sources)) {
+      setSelectedSources(savedFilter.filters.sources)
+    } else {
+      setSelectedSources([]) // Réinitialiser si pas de sources dans le filtre sauvegardé
     }
     setShowSavedFilters(false)
   }
@@ -244,7 +407,31 @@ export default function AnnoncesPage() {
 
   // Réappliquer une recherche depuis l'historique
   const replaySearch = (historyEntry: SearchHistory) => {
-    setFilters(historyEntry.filters)
+    // Ne pas charger la ville depuis l'historique si elle est "Paris" (valeur par défaut indésirable)
+    const filtersToLoad = { ...historyEntry.filters }
+    if (filtersToLoad.city === "Paris" || filtersToLoad.city === "paris") {
+      delete filtersToLoad.city // Supprimer la ville si c'est "Paris"
+    }
+    // Ne pas charger 75008 depuis l'historique (valeur par défaut indésirable)
+    if (filtersToLoad.postalCode === "75008") {
+      delete filtersToLoad.postalCode
+    }
+    if (filtersToLoad.postalCodes && Array.isArray(filtersToLoad.postalCodes)) {
+      filtersToLoad.postalCodes = filtersToLoad.postalCodes.filter(code => code !== "75008")
+      if (filtersToLoad.postalCodes.length === 0) {
+        delete filtersToLoad.postalCodes
+      }
+    }
+    setFilters(filtersToLoad)
+    // Mettre à jour postalCodes aussi (en excluant 75008)
+    if (historyEntry.filters.postalCodes && Array.isArray(historyEntry.filters.postalCodes)) {
+      const filteredCodes = historyEntry.filters.postalCodes.filter(code => code !== "75008")
+      setPostalCodes(filteredCodes)
+    } else if (historyEntry.filters.postalCode && historyEntry.filters.postalCode !== "75008") {
+      setPostalCodes([historyEntry.filters.postalCode])
+    } else {
+      setPostalCodes([])
+    }
     // Déclencher automatiquement la recherche
     setTimeout(() => {
       handleSearch()
@@ -256,16 +443,55 @@ export default function AnnoncesPage() {
     const updated = searchHistory.filter(h => h.id !== id)
     setSearchHistory(updated)
     localStorage.setItem("sacimo_search_history", JSON.stringify(updated))
+    // Réinitialiser la page si nécessaire
+    const newTotalPages = Math.ceil(updated.length / historyItemsPerPage)
+    if (historyPage > newTotalPages && newTotalPages > 0) {
+      setHistoryPage(newTotalPages)
+    }
   }
 
   // Vider l'historique
   const clearHistory = () => {
     setSearchHistory([])
+    setHistoryPage(1)
     localStorage.removeItem("sacimo_search_history")
   }
 
-  // Filtrer les résultats côté client selon sellerType et dateFilter
-  const filteredListings = results.filter((listing) => {
+  // Appliquer le filtre par état EN LOCAL (ne jamais envoyer à l'API)
+  let listingsAfterStateFilter = results
+  if (filters.state && filters.state.length > 0) {
+    listingsAfterStateFilter = filterByState(results, filters.state)
+  }
+
+  // Filtrer les résultats côté client selon sellerType, dateFilter et agencyFilter
+  const allFilteredListings = listingsAfterStateFilter.filter((listing) => {
+    // Filtre par agence (si agencyFilter est défini)
+    if (agencyFilter && agencyFilter.trim().length > 0) {
+      const listingPublisher = (listing.publisher || "").trim()
+      const filterValue = agencyFilter.trim().toLowerCase()
+      
+      if (listingPublisher.length === 0) {
+        // Si l'annonce n'a pas de publisher, l'exclure si on filtre par agence
+        return false
+      }
+      
+      // Matching plus flexible : recherche dans le nom de l'agence
+      // Normaliser les deux chaînes pour améliorer le matching
+      const publisherLower = listingPublisher.toLowerCase()
+      const normalizedPublisher = publisherLower.replace(/[^a-z0-9]/g, '')
+      const normalizedFilter = filterValue.replace(/[^a-z0-9]/g, '')
+      
+      // Vérifier si le filtre est contenu dans le publisher (ou l'inverse pour plus de flexibilité)
+      const matches = publisherLower.includes(filterValue) || 
+                      normalizedPublisher.includes(normalizedFilter) ||
+                      filterValue.includes(publisherLower) ||
+                      normalizedFilter.includes(normalizedPublisher)
+      
+      if (!matches) {
+        return false
+      }
+    }
+
     // Filtre par type de vendeur
     if (filters.sellerType === "all" || !filters.sellerType) {
       // Pas de filtre sur le type de vendeur
@@ -391,6 +617,34 @@ export default function AnnoncesPage() {
     return true
   })
 
+  // Pagination locale : calculer les annonces à afficher pour la page actuelle
+  const totalPages = Math.ceil(allFilteredListings.length / PAGE_SIZE)
+  const startIndex = (currentPage - 1) * PAGE_SIZE
+  const endIndex = startIndex + PAGE_SIZE
+  const filteredListings = allFilteredListings.slice(startIndex, endIndex)
+
+  // Fonctions de navigation de pagination
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
+
+  const goToPrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
+
+  const goToPage = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
+
   function handleSourceToggle(src: string) {
     setSelectedSources(prev =>
       prev.includes(src)
@@ -430,16 +684,30 @@ export default function AnnoncesPage() {
     }
   }
 
-  const handleSearch = async () => {
+  const handleSearchInternal = async (overridePostalCodes?: string[]) => {
     const userId = (session?.user as { id?: string })?.id
     
-    console.log("🔍 [Annonces] handleSearch appelé", { canSearch, userId, filters, selectedSources })
+    // Utiliser les codes postaux passés en paramètre ou ceux de l'état
+    const codesToUse = overridePostalCodes || postalCodes
     
-    if (!canSearch) {
-      console.warn("⚠️ [Annonces] Recherche impossible: canSearch = false", { postalCodes, postalCode: filters.postalCode })
+    // Vérifier directement les codes postaux (plus fiable que canSearch qui peut être obsolète)
+    const hasPostalCodes = codesToUse.length > 0 || !!(filters.postalCode && filters.postalCode.trim() !== "")
+    
+    console.log("🔍 [Annonces] handleSearch appelé", { 
+      hasPostalCodes, 
+      postalCodes: codesToUse, 
+      postalCode: filters.postalCode,
+      overridePostalCodes,
+      userId, 
+      filters, 
+      selectedSources 
+    })
+    
+    if (!hasPostalCodes) {
+      console.warn("⚠️ [Annonces] Recherche impossible: pas de code postal", { postalCodes: codesToUse, postalCode: filters.postalCode })
       setError("Veuillez renseigner au moins un code postal pour lancer la recherche")
-          return
-        }
+      return
+    }
 
     if (!userId) {
       console.warn("⚠️ [Annonces] Recherche impossible: userId manquant")
@@ -451,13 +719,16 @@ export default function AnnoncesPage() {
     setError(null)
     setResults([])
     setMeta(null)
+    setCurrentPage(1) // Réinitialiser à la page 1 lors d'une nouvelle recherche
 
     try {
       const cleanFilters: PigeFilters = {}
-      if (filters.city) cleanFilters.city = filters.city
-      // Priorité à postalCodes (nouveau système)
-      if (postalCodes.length > 0) {
-        cleanFilters.postalCodes = postalCodes
+      // Ne pas envoyer la ville si elle est vide ou si elle n'est pas nécessaire
+      // La ville n'est pas utilisée par l'API, seul le code postal compte
+      // if (filters.city && filters.city.trim() !== "") cleanFilters.city = filters.city
+      // Priorité à postalCodes (nouveau système) - utiliser les codes passés en paramètre ou ceux de l'état
+      if (codesToUse.length > 0) {
+        cleanFilters.postalCodes = codesToUse
       } else if (filters.postalCode) {
         // Fallback pour compatibilité
         cleanFilters.postalCode = filters.postalCode
@@ -484,9 +755,16 @@ export default function AnnoncesPage() {
       if (filters.maxRooms) cleanFilters.maxRooms = Number(filters.maxRooms)
       if (selectedSources.length > 0) {
         cleanFilters.sources = selectedSources
+        console.log("🔍 [Annonces] Filtre de sources actif:", selectedSources)
+      } else {
+        console.log("✅ [Annonces] Aucun filtre de sources - toutes les sources seront affichées")
       }
 
-      console.log("📤 [Annonces] Envoi requête à /api/piges/fetch", { filters: cleanFilters })
+      console.log("📤 [Annonces] Envoi requête à /api/piges/fetch", { 
+        filters: cleanFilters,
+        selectedSources,
+        hasSourceFilter: selectedSources.length > 0
+      })
 
       const response = await fetch("/api/piges/fetch", {
         method: "POST",
@@ -517,9 +795,58 @@ export default function AnnoncesPage() {
       }
 
       if (data.status === "ok") {
-        console.log("✅ [Annonces] Recherche réussie", { total: data.meta?.total, results: data.data?.length })
-        setResults(data.data || [])
-        setMeta(data.meta || { total: data.data?.length || 0, pages: 1, hasMore: false })
+        const listings = data.data || []
+        // Analyser les sources des annonces retournées
+        const sourcesCount: Record<string, number> = {}
+        listings.forEach((listing: NormalizedListing) => {
+          const origin = listing.origin || "inconnu"
+          sourcesCount[origin] = (sourcesCount[origin] || 0) + 1
+        })
+        
+        console.log("✅ [Annonces] Recherche réussie", { 
+          total: data.meta?.total, 
+          results: listings.length,
+          agencyFilter,
+          selectedSources,
+          selectedSourcesLength: selectedSources.length,
+          sourcesBreakdown: sourcesCount,
+          uniqueSources: Object.keys(sourcesCount),
+          samplePublishers: listings.slice(0, 5).map((l: NormalizedListing) => l.publisher).filter(Boolean),
+          sampleOrigins: listings.slice(0, 10).map((l: NormalizedListing) => l.origin).filter(Boolean)
+        })
+        
+        // Avertir si un filtre de sources est actif mais qu'on ne voit qu'une seule source
+        if (selectedSources.length > 0) {
+          console.warn("⚠️ [Annonces] Filtre de sources actif:", selectedSources)
+        } else if (Object.keys(sourcesCount).length === 1) {
+          const onlySource = Object.keys(sourcesCount)[0]
+          console.warn(`⚠️ [Annonces] PROBLÈME: Aucun filtre de sources actif mais une seule source détectée: "${onlySource}" (${sourcesCount[onlySource]} annonces)`)
+          console.warn("⚠️ [Annonces] Cela peut indiquer que l'API MoteurImmo ne retourne que cette source pour cette recherche, ou qu'un filtre est appliqué ailleurs.")
+        }
+        setResults(listings)
+        setMeta(data.meta || { total: listings.length || 0, pages: 1, hasMore: false })
+        
+        // Log pour déboguer le filtre d'agence
+        if (agencyFilter && listings.length > 0) {
+          const matchingListings = listings.filter((listing: NormalizedListing) => {
+            const listingPublisher = (listing.publisher || "").trim()
+            const filterValue = agencyFilter.trim().toLowerCase()
+            if (listingPublisher.length === 0) return false
+            const publisherLower = listingPublisher.toLowerCase()
+            const normalizedPublisher = publisherLower.replace(/[^a-z0-9]/g, '')
+            const normalizedFilter = filterValue.replace(/[^a-z0-9]/g, '')
+            return publisherLower.includes(filterValue) || 
+                   normalizedPublisher.includes(normalizedFilter) ||
+                   filterValue.includes(publisherLower) ||
+                   normalizedFilter.includes(normalizedPublisher)
+          })
+          console.log("🔍 [Annonces] Filtre agence", { 
+            agencyFilter, 
+            totalResults: listings.length, 
+            matchingResults: matchingListings.length,
+            samplePublishers: listings.slice(0, 10).map((l: NormalizedListing) => l.publisher).filter(Boolean)
+          })
+        }
         
         // Enregistrer dans l'historique
         const historyEntry: SearchHistory = {
@@ -545,6 +872,62 @@ export default function AnnoncesPage() {
       setLoading(false)
     }
   }
+  
+  // Wrapper pour les appels depuis les boutons (sans paramètre)
+  const handleSearch = () => {
+    return handleSearchInternal()
+  }
+  
+  // Mettre à jour la ref quand handleSearch change
+  useEffect(() => {
+    handleSearchRef.current = handleSearchInternal
+  }, [handleSearchInternal])
+
+  // Lancer automatiquement la recherche si agency et postalCodes sont présents (fallback pour autres cas)
+  useEffect(() => {
+    // Vérifier que la session est chargée
+    if (!session?.user) {
+      return
+    }
+    
+    // Ne pas lancer si déjà en cours de chargement
+    if (loading) {
+      return
+    }
+    
+    // Ne pas relancer si déjà déclenché
+    if (autoSearchTriggered) {
+      return
+    }
+    
+    // Vérifier si les paramètres viennent de l'URL (déjà géré dans le useEffect précédent)
+    const agencyParam = searchParams.get('agency')
+    const postalCodesParam = searchParams.get('postalCodes')
+    
+    // Si les paramètres viennent de l'URL, ne pas relancer ici (déjà géré)
+    if (agencyParam && postalCodesParam) {
+      return
+    }
+    
+    // Sinon, lancer si les conditions sont remplies (pour les autres cas, sans paramètres URL)
+    const hasAgency = agencyFilter && agencyFilter.trim().length > 0
+    const hasPostalCodes = postalCodes.length > 0
+    
+    if (hasAgency && hasPostalCodes) {
+      console.log("🚀 [Annonces] Conditions remplies (sans paramètres URL), lancement de la recherche automatique", { 
+        agencyFilter, 
+        postalCodes,
+        sessionUser: !!session?.user 
+      })
+      setAutoSearchTriggered(true)
+      
+      const timer = setTimeout(() => {
+        console.log("🔍 [Annonces] Recherche automatique déclenchée (sans paramètres URL)", { agencyFilter, postalCodes })
+        handleSearch()
+      }, 500)
+      return () => clearTimeout(timer)
+    }
+  }, [agencyFilter, postalCodes.length, session?.user, autoSearchTriggered, loading, searchParams]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const formatPrice = (price: number | null) => {
     if (!price) return "Prix non communiqué"
@@ -584,8 +967,8 @@ export default function AnnoncesPage() {
       }
       return phone
     }
-    return null
-  }
+            return null
+          }
 
   // Extraire l'email depuis la description
   const extractEmail = (text: string | undefined): string | null => {
@@ -892,9 +1275,12 @@ export default function AnnoncesPage() {
                   <div className="relative">
                     <Input
                       id="city"
-                      placeholder="Paris"
+                      placeholder="Ville (optionnel)"
                       value={filters.city || ""}
-                      onChange={(e) => setFilters({ ...filters, city: e.target.value })}
+                      onChange={(e) => {
+                        const value = e.target.value.trim()
+                        setFilters({ ...filters, city: value === "" ? undefined : value })
+                      }}
                       className="w-full px-3 py-2 rounded-lg border-2 border-gray-200 text-sm"
                     />
                     <MapPin className="absolute right-2 top-2.5 w-4 h-4 text-gray-400" strokeWidth={1.5} />
@@ -909,7 +1295,7 @@ export default function AnnoncesPage() {
                   <Input
                     id="postalCode"
                     type="text"
-                    placeholder="75008"
+                    placeholder="Ex: 33360"
                     value={postalInput}
                     onChange={(e) => setPostalInput(e.target.value)}
                     onKeyDown={(e) => {
@@ -1183,8 +1569,8 @@ export default function AnnoncesPage() {
                       </motion.label>
                     ))}
                   </div>
-              </div>
-              
+                </div>
+                
                 {/* Date Filter et Filtres optionnels - Sur la même ligne */}
                 <div className="mt-4 flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                   {/* Date Filter */}
@@ -1213,13 +1599,58 @@ export default function AnnoncesPage() {
                           {option.label}
                         </motion.button>
                       ))}
+                    </div>
+              </div>
+              
+                  {/* Filtre Agence */}
+                  <div className="flex-1">
+                    <Label className="block text-xs font-semibold text-gray-700 mb-2">
+                      <User className="w-4 h-4 inline mr-1" />
+                      Agence immobilière
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        type="text"
+                        placeholder="Filtrer par nom d'agence..."
+                        value={agencyFilter || ""}
+                        onChange={(e) => {
+                          const value = e.target.value.trim()
+                          setAgencyFilter(value || null)
+                          // Mettre à jour l'URL
+                          const params = new URLSearchParams(window.location.search)
+                          if (value) {
+                            params.set('agency', value)
+                          } else {
+                            params.delete('agency')
+                          }
+                          window.history.replaceState({}, '', `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`)
+                        }}
+                        className="w-full border-gray-200 focus:border-primary-500 focus:ring-primary-500"
+                      />
+                      {agencyFilter && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 p-0 hover:bg-gray-100"
+                          onClick={() => {
+                            setAgencyFilter(null)
+                            const params = new URLSearchParams(window.location.search)
+                            params.delete('agency')
+                            window.history.replaceState({}, '', `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`)
+                          }}
+                        >
+                          <X className="w-3 h-3 text-gray-500" />
+                  </Button>
+                      )}
                 </div>
+              </div>
                 </div>
                 
-                  {/* Filtres optionnels - Menus déroulants compacts */}
+                {/* Filtres optionnels - Menus déroulants compacts */}
+                <div className="mt-4">
                   <div className="flex-1">
                     <Label className="block text-xs font-semibold text-gray-700 mb-2">Filtres optionnels</Label>
-                    <div className="grid grid-cols-5 gap-2 relative">
+                    <div className="grid grid-cols-5 gap-y-1 gap-x-0 relative">
                     {/* Type de bien - Premier filtre */}
                     <Collapsible
                       open={openFilters.bienType}
@@ -1367,25 +1798,25 @@ export default function AnnoncesPage() {
                               }
                               className="w-full px-3 py-2 rounded-lg border-2 border-gray-200 text-sm"
                             />
-                </div>
+              </div>
                         </CollapsibleContent>
               </div>
                     </Collapsible>
 
-                    {/* État */}
+                    {/* État du bien */}
                     <Collapsible
-                      open={openFilters.condition}
-                      onOpenChange={(open) => setOpenFilters({ ...openFilters, condition: open })}
+                      open={openFilters.state}
+                      onOpenChange={(open) => setOpenFilters({ ...openFilters, state: open })}
                     >
                       <div className="relative">
                         <CollapsibleTrigger className="flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 border-gray-200 hover:border-primary-300 hover:bg-primary-50 transition-all text-sm font-medium text-gray-700 min-w-[100px]">
                           <span>État</span>
-                          {filters.condition && filters.condition.length > 0 && (
+                          {filters.state && filters.state.length > 0 && (
                             <span className="px-1.5 py-0.5 bg-primary-600 text-white rounded-full text-xs font-semibold">
-                              {filters.condition.length}
+                              {filters.state.length}
                             </span>
                           )}
-                          {openFilters.condition ? (
+                          {openFilters.state ? (
                             <ChevronUp className="w-4 h-4 text-gray-500 ml-auto" />
                           ) : (
                             <ChevronDown className="w-4 h-4 text-gray-500 ml-auto" />
@@ -1394,33 +1825,32 @@ export default function AnnoncesPage() {
                         <CollapsibleContent className="absolute z-50 mt-1 right-0 p-4 bg-white rounded-lg border-2 border-gray-200 shadow-xl max-w-md min-w-[280px]">
                           <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
                             {[
-                              { id: "bon état", label: "Bon état" },
-                              { id: "excellent état", label: "Excellent état" },
-                              { id: "à rénover", label: "À rénover" },
                               { id: "neuf", label: "Neuf" },
-                              { id: "rénové", label: "Rénové" },
-                              { id: "refait à neuf", label: "Refait à neuf" },
-                            ].map((cond) => (
+                              { id: "ancien", label: "Ancien" },
+                              { id: "recent", label: "Récent" },
+                              { id: "vefa", label: "VEFA" },
+                              { id: "travaux", label: "Travaux" },
+                            ].map((state) => (
                               <motion.label
-                                key={cond.id}
+                                key={state.id}
                                 className="flex items-center p-2 rounded-lg hover:bg-gray-50 transition-all cursor-pointer"
                                 whileHover={{ scale: 1.02 }}
                                 whileTap={{ scale: 0.98 }}
                               >
                                 <input
                                   type="checkbox"
-                                  checked={filters.condition?.includes(cond.id) || false}
+                                  checked={filters.state?.includes(state.id) || false}
                                   onChange={(e) => {
-                                    const currentCondition = filters.condition || []
+                                    const currentState = filters.state || []
                                     if (e.target.checked) {
-                                      setFilters({ ...filters, condition: [...currentCondition, cond.id] })
+                                      setFilters({ ...filters, state: [...currentState, state.id] })
                                     } else {
-                                      setFilters({ ...filters, condition: currentCondition.filter(c => c !== cond.id) })
+                                      setFilters({ ...filters, state: currentState.filter(s => s !== state.id) })
                                     }
                                   }}
                                   className="w-4 h-4 rounded border-2 border-gray-300 text-primary-600 focus:ring-primary-500 focus:ring-2 mr-2"
                                 />
-                                <span className="text-sm text-gray-700">{cond.label}</span>
+                                <span className="text-sm text-gray-700">{state.label}</span>
                               </motion.label>
                             ))}
                           </div>
@@ -1706,7 +2136,7 @@ export default function AnnoncesPage() {
                       )}
                     </Button>
             </motion.div>
-                </div>
+              </div>
               </CardContent>
             </Card>
           </motion.div>
@@ -1714,17 +2144,68 @@ export default function AnnoncesPage() {
         {/* Results Area - Grid 3 columns */}
         <div className="space-y-6">
           {/* Results count */}
-          {meta && (
+          {results.length > 0 && (
             <div className="mb-4">
               <h2 className="text-2xl font-semibold text-gray-900">
-                {meta.total} résultat{meta.total > 1 ? "s" : ""}
+                {allFilteredListings.length} annonce{allFilteredListings.length > 1 ? "s" : ""}
+                {meta && meta.total && meta.total > allFilteredListings.length && (
+                  <span className="text-lg font-normal text-gray-600 ml-2">
+                    (sur {meta.total} disponibles sur MoteurImmo)
+                  </span>
+                )}
               </h2>
-              {meta.total >= 140 && (
-                <p className="text-sm text-amber-600 mt-1">
-                  Limitée automatiquement pour protéger l'API
-                    </p>
+              {meta && meta.total && (
+                <p className="text-xs text-gray-500 mt-1">
+                  {allFilteredListings.length} annonces correspondent aux filtres sélectionnés sur {meta.total} annonces disponibles sur MoteurImmo.
+                  {results.length < meta.total && (
+                    <span className="block mt-1 text-amber-600">
+                      ⚠️ {results.length} annonces récupérées sur {meta.total} disponibles (limite de 10 pages par code postal).
+                    </span>
                   )}
-                </div>
+                </p>
+              )}
+              {(() => {
+                // Analyser les sources uniques dans les résultats
+                const uniqueSources = new Set<string>()
+                results.forEach((listing: NormalizedListing) => {
+                  if (listing.origin) uniqueSources.add(listing.origin)
+                })
+                const sourcesArray = Array.from(uniqueSources)
+                
+                // Avertir si une seule source est présente et qu'aucun filtre n'est actif
+                if (sourcesArray.length === 1 && selectedSources.length === 0) {
+                  return (
+                    <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-sm text-blue-800">
+                        <span className="font-semibold">Note :</span> L'API MoteurImmo ne retourne que des annonces de <span className="font-semibold">"{sourcesArray[0]}"</span> pour cette recherche. 
+                        {results.length > 0 && ` Aucun filtre de source n'est actif.`}
+                        <br />
+                        <span className="text-xs text-blue-700 mt-1 block">
+                          💡 MoteurImmo est un agrégateur qui ne couvre pas nécessairement 100% des annonces disponibles directement sur chaque plateforme (LeBonCoin, SeLoger, etc.).
+                        </span>
+                      </p>
+                    </div>
+                  )
+                }
+                
+                // Avertir si le total réel est différent du nombre de résultats récupérés
+                if (meta && meta.total && meta.total > results.length) {
+                  return (
+                    <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                      <p className="text-sm text-amber-800">
+                        <span className="font-semibold">⚠️ Limitation :</span> {results.length} annonces récupérées sur {meta.total} disponibles sur MoteurImmo.
+                        <br />
+                        <span className="text-xs text-amber-700 mt-1 block">
+                          Limite de 10 pages par code postal (1000 annonces max par CP). 
+                          {meta.total > results.length && ` Il reste ${meta.total - results.length} annonces disponibles non récupérées.`}
+                        </span>
+                      </p>
+                    </div>
+                  )
+                }
+                return null
+              })()}
+            </div>
           )}
 
           {/* Empty State */}
@@ -1796,6 +2277,55 @@ export default function AnnoncesPage() {
           )}
 
           {/* Results Grid */}
+          {/* Badge filtre sources actif */}
+          {selectedSources.length > 0 && (
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-4"
+            >
+              <Badge className="bg-blue-100 text-blue-700 border-blue-200 px-4 py-2 text-sm">
+                <MapPin className="w-4 h-4 mr-2" />
+                Filtre actif : Sources {selectedSources.join(", ")}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="ml-2 h-auto p-0 text-blue-700 hover:text-blue-900"
+                  onClick={() => setSelectedSources([])}
+                >
+                  <X className="w-3 h-3" />
+                </Button>
+              </Badge>
+            </motion.div>
+          )}
+          {/* Badge filtre agence actif */}
+          {agencyFilter && (
+                        <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-4"
+            >
+              <Badge className="bg-indigo-100 text-indigo-700 border-indigo-200 px-4 py-2 text-sm">
+                <User className="w-4 h-4 mr-2" />
+                Filtre actif : Agence "{agencyFilter}"
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="ml-2 h-auto p-0 text-indigo-700 hover:text-indigo-900"
+                  onClick={() => {
+                    setAgencyFilter(null)
+                    // Nettoyer l'URL
+                    const params = new URLSearchParams(window.location.search)
+                    params.delete('agency')
+                    window.history.replaceState({}, '', `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`)
+                  }}
+                >
+                  <X className="w-3 h-3" />
+                </Button>
+              </Badge>
+                  </motion.div>
+          )}
+
           {!loading && !error && filteredListings.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredListings.map((listing, index) => (
@@ -1855,7 +2385,7 @@ export default function AnnoncesPage() {
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <h3 className="text-base font-semibold text-gray-900 leading-tight flex-1 line-clamp-2">
                           {listing.title}
-                        </h3>
+                  </h3>
                         {listing.url && (
                           <Button 
                             variant="outline"
@@ -1882,6 +2412,14 @@ export default function AnnoncesPage() {
                         {listing.surface && <span>{listing.surface} m²</span>}
                         {listing.rooms && (
                           <span>{listing.rooms} pièce{listing.rooms > 1 ? "s" : ""}</span>
+                        )}
+                        {listing.bedrooms && listing.bedrooms > 0 && (
+                          <span className="text-xs">{listing.bedrooms} chambre{listing.bedrooms > 1 ? "s" : ""}</span>
+                        )}
+                        {listing.category && (
+                          <Badge variant="outline" className="text-xs">
+                            {listing.category}
+                          </Badge>
                         )}
                         {/* Badge Pro/Particulier - toujours affiché */}
                         <Badge 
@@ -1913,7 +2451,7 @@ export default function AnnoncesPage() {
                         
                         {/* Boutons d'action */}
                         <div className="grid grid-cols-3 gap-1.5">
-                          <Button
+                      <Button 
                             size="sm"
                             variant="outline"
                             onClick={() => setSelectedListingForLocation(listing)}
@@ -1921,7 +2459,7 @@ export default function AnnoncesPage() {
                           >
                             <Navigation className="w-3 h-3 mr-1" />
                             Localiser
-                          </Button>
+                      </Button>
                           <Button
                             size="sm"
                             variant="outline"
@@ -1943,8 +2481,8 @@ export default function AnnoncesPage() {
                         </div>
                         
                         {/* Bouton Analyse rapide - Full width */}
-                        <Button
-                          onClick={() => {
+                  <Button 
+                        onClick={() => {
                             setSelectedListingForAnalysis(listing)
                             setIsAnalysisOpen(true)
                           }}
@@ -1953,30 +2491,132 @@ export default function AnnoncesPage() {
                         >
                           <Brain className="w-4 h-4" />
                           Analyse rapide
-                        </Button>
+                  </Button>
                       </div>
                     </CardContent>
                   </Card>
                   </motion.div>
               ))}
-        </div>
+            </div>
           )}
 
+          {/* Pagination */}
+          {!loading && !error && allFilteredListings.length > 0 && totalPages > 1 && (
+            <div className="mt-8 flex items-center justify-center gap-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={goToPrevPage}
+              disabled={currentPage === 1}
+              className="disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Précédent
+            </Button>
+
+            {/* Numéros de page */}
+            <div className="flex items-center gap-1">
+              {Array.from({ length: Math.min(totalPages, 10) }, (_, i) => {
+                let pageNum: number
+                if (totalPages <= 10) {
+                  // Si moins de 10 pages, afficher toutes
+                  pageNum = i + 1
+                } else if (currentPage <= 5) {
+                  // Si on est au début, afficher les 8 premières + ... + dernière
+                  if (i < 8) {
+                    pageNum = i + 1
+                  } else if (i === 8) {
+                    return <span key="ellipsis1" className="px-2 text-gray-500">...</span>
+                  } else {
+                    pageNum = totalPages
+                  }
+                } else if (currentPage >= totalPages - 4) {
+                  // Si on est à la fin, afficher première + ... + 8 dernières
+                  if (i === 0) {
+                    pageNum = 1
+                  } else if (i === 1) {
+                    return <span key="ellipsis2" className="px-2 text-gray-500">...</span>
+                  } else {
+                    pageNum = totalPages - (9 - i)
+                  }
+                } else {
+                  // Si on est au milieu, afficher première + ... + 5 autour de current + ... + dernière
+                  if (i === 0) {
+                    pageNum = 1
+                  } else if (i === 1) {
+                    return <span key="ellipsis3" className="px-2 text-gray-500">...</span>
+                  } else if (i < 7) {
+                    pageNum = currentPage - 3 + (i - 2)
+                  } else if (i === 7) {
+                    return <span key="ellipsis4" className="px-2 text-gray-500">...</span>
+                  } else {
+                    pageNum = totalPages
+                  }
+                }
+                
+                return (
+                  <Button
+                    key={pageNum}
+                    variant={currentPage === pageNum ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => goToPage(pageNum)}
+                    className={currentPage === pageNum 
+                      ? "bg-primary-600 text-white hover:bg-primary-700" 
+                      : ""}
+                  >
+                    {pageNum}
+                  </Button>
+                )
+              })}
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={goToNextPage}
+              disabled={currentPage === totalPages || totalPages === 0}
+              className="disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Suivant
+            </Button>
+
+            <span className="text-sm text-gray-600 ml-4">
+              Page {currentPage} / {totalPages || 1} • {allFilteredListings.length} annonce{allFilteredListings.length > 1 ? "s" : ""}
+            </span>
+          </div>
+        )}
+
           {/* Aucun résultat */}
-          {!loading && !error && filteredListings.length === 0 && (results.length === 0 || meta) && (
+          {!loading && !error && allFilteredListings.length === 0 && (results.length === 0 || meta) && (
             <Card className="rounded-2xl border border-gray-200">
               <CardContent className="p-12 text-center">
                 <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" strokeWidth={1.5} />
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  Aucune annonce trouvée
+                  {results.length > 0 && agencyFilter ? "Aucune annonce trouvée pour cette agence" : "Aucune annonce trouvée"}
                   </h3>
                 <p className="text-sm text-gray-600">
-                  Aucune annonce ne correspond à tes critères de recherche.
+                  {results.length > 0 && agencyFilter 
+                    ? `${results.length} annonce(s) trouvée(s) mais aucune ne correspond au filtre d'agence "${agencyFilter}". Essayez de modifier le nom de l'agence.`
+                    : "Aucune annonce ne correspond à tes critères de recherche."}
                 </p>
+                {results.length > 0 && agencyFilter && (
+                      <Button 
+                    variant="outline"
+                    className="mt-4"
+                    onClick={() => {
+                      setAgencyFilter(null)
+                      const params = new URLSearchParams(window.location.search)
+                      params.delete('agency')
+                      window.history.replaceState({}, '', `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`)
+                    }}
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Retirer le filtre d'agence
+                      </Button>
+                )}
               </CardContent>
             </Card>
-          )}
-        </div>
+                    )}
+                  </div>
 
         {/* Historique des dernières recherches */}
         {searchHistory.length > 0 && (
@@ -1993,9 +2633,9 @@ export default function AnnoncesPage() {
                   <div>
                     <CardTitle className="text-xl font-bold text-gray-900">Historique des recherches</CardTitle>
                     <CardDescription className="mt-1">
-                      Vos 10 dernières recherches effectuées
+                      {searchHistory.length} recherche{searchHistory.length > 1 ? "s" : ""} effectuée{searchHistory.length > 1 ? "s" : ""} • {historyItemsPerPage} par page
                     </CardDescription>
-                  </div>
+                </div>
                   <Button 
                     variant="outline"
                     size="sm"
@@ -2011,8 +2651,17 @@ export default function AnnoncesPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
-                  {searchHistory.map((entry, index) => (
+                {(() => {
+                  // Calculer la pagination
+                  const totalPages = Math.ceil(searchHistory.length / historyItemsPerPage)
+                  const startIndex = (historyPage - 1) * historyItemsPerPage
+                  const endIndex = startIndex + historyItemsPerPage
+                  const paginatedHistory = searchHistory.slice(startIndex, endIndex)
+                  
+                  return (
+                    <div>
+                      <div className="space-y-2">
+                        {paginatedHistory.map((entry, index) => (
                     <motion.div
                       key={entry.id}
                       initial={{ opacity: 0, y: 10 }}
@@ -2022,9 +2671,11 @@ export default function AnnoncesPage() {
                       onClick={() => {
                         setFilters(entry.filters)
                         // Initialiser postalCodes si présent dans les filtres
+                        // Exclure 75008 lors du chargement depuis l'historique
                         if (entry.filters.postalCodes && Array.isArray(entry.filters.postalCodes)) {
-                          setPostalCodes(entry.filters.postalCodes)
-                        } else if (entry.filters.postalCode) {
+                          const filteredCodes = entry.filters.postalCodes.filter(code => code !== "75008")
+                          setPostalCodes(filteredCodes)
+                        } else if (entry.filters.postalCode && entry.filters.postalCode !== "75008") {
                           setPostalCodes([entry.filters.postalCode])
                         } else {
                           setPostalCodes([])
@@ -2096,11 +2747,23 @@ export default function AnnoncesPage() {
                           variant="outline"
                           onClick={(e) => {
                             e.stopPropagation()
-                            setFilters(entry.filters)
-                            // Initialiser postalCodes si présent dans les filtres
+                            // Exclure 75008 lors du chargement depuis l'historique
+                            const filtersToLoad = { ...entry.filters }
+                            if (filtersToLoad.postalCode === "75008") {
+                              delete filtersToLoad.postalCode
+                            }
+                            if (filtersToLoad.postalCodes && Array.isArray(filtersToLoad.postalCodes)) {
+                              filtersToLoad.postalCodes = filtersToLoad.postalCodes.filter(code => code !== "75008")
+                              if (filtersToLoad.postalCodes.length === 0) {
+                                delete filtersToLoad.postalCodes
+                              }
+                            }
+                            setFilters(filtersToLoad)
+                            // Initialiser postalCodes si présent dans les filtres (en excluant 75008)
                             if (entry.filters.postalCodes && Array.isArray(entry.filters.postalCodes)) {
-                              setPostalCodes(entry.filters.postalCodes)
-                            } else if (entry.filters.postalCode) {
+                              const filteredCodes = entry.filters.postalCodes.filter(code => code !== "75008")
+                              setPostalCodes(filteredCodes)
+                            } else if (entry.filters.postalCode && entry.filters.postalCode !== "75008") {
                               setPostalCodes([entry.filters.postalCode])
                             } else {
                               setPostalCodes([])
@@ -2127,8 +2790,58 @@ export default function AnnoncesPage() {
                         </Button>
                       </div>
                     </motion.div>
-                  ))}
-                </div>
+                        ))}
+                      </div>
+                      
+                      {/* Pagination */}
+                      {totalPages > 1 && (
+                        <div className="mt-4 flex items-center justify-between border-t border-gray-200 pt-4">
+                          <div className="text-sm text-gray-600">
+                            Page {historyPage} sur {totalPages}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setHistoryPage(prev => Math.max(1, prev - 1))}
+                              disabled={historyPage === 1}
+                              className="disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              Précédent
+                            </Button>
+                            
+                            {/* Numéros de page */}
+                            <div className="flex items-center gap-1">
+                              {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                                <Button
+                                  key={pageNum}
+                                  variant={historyPage === pageNum ? "default" : "outline"}
+                                  size="sm"
+                                  onClick={() => setHistoryPage(pageNum)}
+                                  className={historyPage === pageNum 
+                                    ? "bg-primary-600 text-white hover:bg-primary-700" 
+                                    : ""}
+                                >
+                                  {pageNum}
+                                </Button>
+                              ))}
+                            </div>
+                            
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setHistoryPage(prev => Math.min(totalPages, prev + 1))}
+                              disabled={historyPage === totalPages}
+                              className="disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              Suivant
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
               </CardContent>
             </Card>
           </motion.div>

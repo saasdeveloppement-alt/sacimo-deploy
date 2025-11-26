@@ -11,6 +11,7 @@ export interface NormalizedListing {
   price: number | null;
   surface: number | null;
   rooms: number | null;
+  bedrooms?: number | null; // Nombre de chambres (si disponible)
   city: string;
   postalCode: string;
   publishedAt: Date | null;
@@ -21,6 +22,9 @@ export interface NormalizedListing {
   origin?: string; // Plateforme source (leboncoin, seloger, bienici, etc.)
   publisher?: string; // Nom du vendeur/agence
   isPro: boolean; // true si vendeur professionnel, false si particulier (toujours défini)
+  category?: string; // Type de bien (appartement, maison, terrain, etc.)
+  type?: "sale" | "rental"; // Type de transaction
+  state?: string | null; // État du bien (neuf, ancien, récent, VEFA, travaux, etc.)
 }
 
 /**
@@ -148,12 +152,31 @@ export function normalizeMoteurImmo(ad: MoteurImmoAd): NormalizedListing {
     }
   }
 
+  // Extraire l'état du bien depuis les données brutes MoteurImmo
+  // Priorité: ad.property.condition > ad.tags > autres champs
+  const rawAd = ad as any;
+  const state = rawAd.property?.condition || 
+                (rawAd.tags && Array.isArray(rawAd.tags) && rawAd.tags.length > 0 
+                  ? rawAd.tags.find((tag: string) => 
+                      ["neuf", "ancien", "recent", "vefa", "travaux"].some(s => 
+                        tag.toLowerCase().includes(s)
+                      )
+                    ) || null
+                  : null) ||
+                rawAd.property_state || 
+                rawAd.building_state ||
+                rawAd.condition ||
+                rawAd.characteristics?.state || 
+                rawAd.state || 
+                null;
+
   return {
     id: ad.uniqueId,
     title: ad.title || "Bien immobilier",
     price: ad.price ?? null,
     surface: ad.surface ?? null,
     rooms: ad.rooms ?? null,
+    bedrooms: ad.bedrooms ?? null, // Nombre de chambres
     city: ad.location?.city || "",
     postalCode: ad.location?.postalCode || "",
     publishedAt,
@@ -164,6 +187,9 @@ export function normalizeMoteurImmo(ad: MoteurImmoAd): NormalizedListing {
     origin: ad.origin ? ad.origin.toLowerCase().trim() : undefined,
     publisher: publisher || undefined,
     isPro, // Toujours défini maintenant (true ou false)
+    category: ad.category || undefined, // Type de bien
+    type: ad.type || undefined, // Type de transaction (sale/rental)
+    state: state || null, // État du bien (neuf, ancien, récent, VEFA, travaux, etc.)
   };
 }
 

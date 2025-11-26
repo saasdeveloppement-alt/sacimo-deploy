@@ -60,6 +60,10 @@ export interface MoteurImmoAd {
   lastChangeDate?: string;
   description?: string;
   origin?: string; // Plateforme source (leboncoin, seloger, bienici, etc.)
+  property?: {
+    condition?: string; // "neuf", "ancien", "recent", "VEFA", "travaux"
+  };
+  tags?: string[]; // Tags alternatifs pour l'état
 }
 
 export interface MoteurImmoSearchResponse {
@@ -67,10 +71,110 @@ export interface MoteurImmoSearchResponse {
   count?: number;
   page?: number;
   maxLength?: number;
+  stats?: {
+    total?: number; // Total disponible sur MoteurImmo
+  };
 }
 
 /**
- * Recherche d'annonces via MoteurImmo API
+ * Recherche SIMPLE d'annonces via MoteurImmo API (POST sans filtres)
+ * Utilisée pour récupérer TOUTES les annonces sans filtres
+ * POST https://moteurimmo.fr/api/ads avec seulement: apiKey, page, maxLength, locations (postcode)
+ */
+export async function moteurImmoSearchSimple(
+  page: number,
+  perPage: number,
+  postcode: string
+): Promise<MoteurImmoSearchResponse> {
+  const apiKey = process.env.MOTEURIMMO_API_KEY;
+
+  if (!apiKey) {
+    throw new Error("MOTEURIMMO_API_KEY manquante dans les variables d'environnement");
+  }
+
+  // Validation
+  const validPage = Math.max(1, Math.min(10, page));
+  const validPerPage = Math.max(1, Math.min(100, perPage));
+
+  // Construction du body JSON - SEULEMENT les paramètres essentiels, AUCUN FILTRE
+  const body: any = {
+    apiKey,
+    page: validPage,
+    maxLength: validPerPage,
+    // TOUS les types (vente ET location) - pas de filtre
+    types: ["sale", "rental"],
+    // Seulement le code postal dans locations
+    locations: [{ postalCode: postcode }],
+    // Activer le comptage sur la première page pour avoir stats.total
+    withCount: page === 1,
+  };
+
+  // AUCUN AUTRE FILTRE : pas de priceMin, priceMax, surfaceMin, surfaceMax, roomsMin, roomsMax, etc.
+
+  console.log(`🔍 [MoteurImmo] POST /api/ads (SANS FILTRES)`, {
+    page: validPage,
+    maxLength: validPerPage,
+    postcode,
+    hasFilters: false,
+  });
+
+  try {
+    const response = await fetch(`${MOTEURIMMO_BASE_URL}/api/ads`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorMessage = `Erreur MoteurImmo API (${response.status})`;
+      
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage += `: ${errorJson.error || errorJson.message || errorText}`;
+      } catch {
+        errorMessage += `: ${errorText}`;
+      }
+
+      if (response.status === 400) {
+        throw new Error(`Requête invalide: ${errorMessage}`);
+      }
+      if (response.status === 401 || response.status === 403) {
+        throw new Error(`Clé API invalide ou expirée: ${errorMessage}`);
+      }
+      if (response.status === 429) {
+        throw new Error(`Quota dépassé (300 req/min max): ${errorMessage}`);
+      }
+
+      throw new Error(errorMessage);
+    }
+
+    const data = await response.json();
+
+    console.log(`✅ [MoteurImmo] Page ${validPage}: ${data.ads?.length ?? 0} annonces`);
+
+    return {
+      ads: data.ads || [],
+      count: data.count,
+      page: data.page ?? validPage,
+      maxLength: data.maxLength ?? validPerPage,
+      stats: data.stats || (data.count ? { total: data.count } : undefined),
+    };
+  } catch (error: any) {
+    console.error("❌ [MoteurImmo] Erreur lors de la recherche:", error);
+    
+    if (error.message?.includes("Erreur MoteurImmo API")) {
+      throw error;
+    }
+    
+    throw new Error(`Erreur lors de l'appel à MoteurImmo: ${error.message}`);
+  }
+}
+
+/**
+ * Recherche d'annonces via MoteurImmo API (POST - méthode originale conservée pour compatibilité)
  * POST https://moteurimmo.fr/api/ads
  */
 export async function moteurImmoSearch(

@@ -978,7 +978,14 @@ export default function ConcurrentsPage() {
                         transition={{ delay: index * 0.05 }}
                         whileHover={{ backgroundColor: "#F9FAFB" }}
                         className="border-b border-gray-100 transition-all duration-300 cursor-pointer"
-                        onClick={() => router.push(`/app/annonces?agency=${encodeURIComponent(agency.name)}`)}
+                        onClick={() => {
+                          const params = new URLSearchParams()
+                          params.set('agency', agency.name)
+                          if (postalCodes.length > 0) {
+                            params.set('postalCodes', postalCodes.join(','))
+                          }
+                          router.push(`/app/annonces?${params.toString()}`)
+                        }}
                       >
                         <TableCell>
                           <div className="flex items-center gap-2">

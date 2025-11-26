@@ -3,14 +3,16 @@
  * Utilise MoteurImmo comme unique provider
  */
 
-import { moteurImmoSearch } from "@/lib/providers/moteurimmoClient";
+import { moteurImmoSearch, moteurImmoSearchSimple } from "@/lib/providers/moteurimmoClient";
 import { normalizeMoteurImmoListings } from "@/lib/piges/normalize";
 import { throttleUser } from "@/lib/piges/throttle";
 import type { NormalizedListing } from "@/lib/piges/normalize";
+import { harmonizeAdsWithMoteurImmoUI } from "@/lib/piges/harmonize";
+import { filterByState } from "@/lib/piges/filterByState";
 
-// Hardcaps de sécurité
-const MAX_TOTAL_RESULTS = 150;
-const MAX_PAGES = 3;
+// Configuration de pagination
+const MAX_PAGES = 10; // Maximum 10 pages par code postal (comme demandé)
+const PER_PAGE_API = 100; // 100 annonces par page API
 const MAX_SCANS_PER_HOUR = 20;
 
 export interface PigeSearchFilters {
@@ -26,6 +28,7 @@ export interface PigeSearchFilters {
   type?: "vente" | "location" | "all" | "";
   sellerType?: "all" | "pro" | "particulier";
   sources?: string[]; // Origines des annonces à filtrer (leboncoin, seloger, etc.)
+  state?: string[]; // État du bien: neuf, ancien, recent, vefa, travaux (filtrage LOCAL uniquement)
 }
 
 export interface PigeSearchResult {
@@ -169,125 +172,239 @@ export async function runPigeSearch(
     console.warn("⚠️ [Piges] Erreur de throttling, continuation sans limitation:", error.message);
   }
 
-  const results: NormalizedListing[] = [];
-  let page = 1;
-  let hasMore = true;
-
   console.log(`🔍 [Piges] Démarrage recherche MoteurImmo pour utilisateur ${userId}`);
-  console.log(`📋 [Piges] Filtres:`, filters);
+  console.log(`📋 [Piges] Filtres demandés par l'utilisateur:`, filters);
+  console.log(`📋 [Piges] IMPORTANT: Tous les filtres seront appliqués LOCALEMENT après récupération de toutes les annonces`);
 
-  // Préparer les paramètres MoteurImmo
-  const types = mapTypeToMoteurImmo(filters.type);
-  
   // Priorité à postalCodes (nouveau système)
   const postalCodesToUse = filters.postalCodes && filters.postalCodes.length > 0 
     ? filters.postalCodes 
     : filters.postalCode 
       ? [filters.postalCode] 
       : [];
-  
-  const locations = buildMoteurImmoLocations(postalCodesToUse);
 
-  // Pagination jusqu'à MAX_PAGES ou MAX_TOTAL_RESULTS
-  while (page <= MAX_PAGES && results.length < MAX_TOTAL_RESULTS && hasMore) {
-    try {
-      console.log(`📄 [Piges] Récupération page ${page}...`);
-
-      const response = await moteurImmoSearch({
-        page,
-        maxLength: 50, // Maximum autorisé par page
-        types,
-        locations,
-        priceMin: filters.minPrice ?? null,
-        priceMax: filters.maxPrice ?? null,
-        surfaceMin: filters.minSurface ?? null,
-        surfaceMax: filters.maxSurface ?? null,
-        roomsMin: filters.minRooms ?? null,
-        roomsMax: filters.maxRooms ?? null,
-        withCount: false, // Plus rapide
-      });
-
-      // Normaliser les résultats depuis response.ads
-      let normalized = normalizeMoteurImmoListings(response.ads || []);
-      
-      // Filtrer par sources si spécifié
-      if (filters.sources && filters.sources.length > 0) {
-        const normalizedSources = filters.sources.map((s) => s.toLowerCase().trim());
-        normalized = normalized.filter((ad) => {
-          if (!ad.origin) return false;
-          // L'origine est déjà normalisée en minuscules dans normalizeMoteurImmo
-          return normalizedSources.some((source) => {
-            // Correspondance exacte ou partielle
-            return (
-              ad.origin === source ||
-              ad.origin.includes(source) ||
-              source.includes(ad.origin)
-            );
-          });
-        });
-        console.log(
-          `🔍 [Piges] Filtrage par sources: ${filters.sources.join(", ")} → ${normalized.length} résultats après filtrage`
-        );
-      }
-
-      // Filtrer par type de vendeur si spécifié
-      if (filters.sellerType && filters.sellerType !== "all") {
-        const beforeFilter = normalized.length;
-        normalized = normalized.filter((ad) => {
-          // Si isPro n'est pas défini, on ne peut pas filtrer (on garde l'annonce)
-          if (ad.isPro === undefined) return true;
-          
-          if (filters.sellerType === "pro") {
-            return ad.isPro === true;
-          } else if (filters.sellerType === "particulier") {
-            return ad.isPro === false;
-          }
-          return true;
-        });
-        console.log(
-          `🔍 [Piges] Filtrage par type de vendeur: ${filters.sellerType} → ${normalized.length} résultats (${beforeFilter} avant filtrage)`
-        );
-      }
-      
-      results.push(...normalized);
-
-      console.log(
-        `✅ [Piges] Page ${page}: ${normalized.length} résultats (total: ${results.length})`
-      );
-
-      // Vérifier s'il y a plus de pages
-      // Si on a reçu moins de maxLength résultats, c'est la dernière page
-      hasMore = normalized.length === 50 && results.length < MAX_TOTAL_RESULTS;
-
-      // Si pas de résultats, arrêter
-      if (normalized.length === 0) {
-        hasMore = false;
-      }
-
-      page++;
-    } catch (error: any) {
-      console.error(`❌ [Piges] Erreur page ${page}:`, error);
-      // En cas d'erreur, arrêter la pagination
-      hasMore = false;
-      if (page === 1) {
-        // Si c'est la première page qui échoue, propager l'erreur
-        throw error;
-      }
-    }
+  if (postalCodesToUse.length === 0) {
+    throw new Error("Au moins un code postal est obligatoire");
   }
 
-  // Limiter au maximum autorisé
-  const finalResults = results.slice(0, MAX_TOTAL_RESULTS);
+  // ============================================
+  // ÉTAPE 1 : RÉCUPÉRER TOUTES LES ANNONCES SANS FILTRES
+  // ============================================
+  // On récupère TOUTES les annonces disponibles pour chaque code postal
+  // SANS AUCUN FILTRE - Seulement page, per_page, postcode
+  // GET https://moteurimmo.fr/api/ads?page=X&per_page=100&postcode=XXXX
+  
+  console.log(`📥 [Piges] Récupération de TOUTES les annonces pour le(s) code(s) postal(aux): ${postalCodesToUse.join(", ")}`);
+  console.log(`📥 [Piges] AUCUN FILTRE envoyé à l'API MoteurImmo (récupération brute)`);
 
+  const allRawResults: NormalizedListing[] = []; // Toutes les annonces brutes récupérées
+  let totalCountFromAPI: number | undefined = undefined; // Total réel depuis l'API (stats.total)
+  let totalPagesLoaded = 0;
+
+  // Boucler sur chaque code postal
+  for (const postalCode of postalCodesToUse) {
+    console.log(`\n📍 [Piges] Traitement du code postal: ${postalCode}`);
+    
+    const postalCodeResults: NormalizedListing[] = [];
+    let pagesLoadedForCP = 0;
+
+    // Pagination : 1 à 10 pages maximum par code postal
+    for (let page = 1; page <= MAX_PAGES; page++) {
+      try {
+        console.log(`📄 [Piges] Code postal ${postalCode} - Récupération page ${page}...`);
+
+        // REQUÊTE GET SIMPLE - Seulement page, per_page, postcode
+        const response = await moteurImmoSearchSimple(
+          page,
+          PER_PAGE_API, // 100 annonces par page
+          postalCode
+        );
+
+        // Stocker le total réel depuis l'API (stats.total) sur la première page du premier CP
+        if (totalCountFromAPI === undefined && response.stats?.total !== undefined) {
+          totalCountFromAPI = response.stats.total;
+          console.log(`📊 [Piges] Total disponible sur MoteurImmo: ${totalCountFromAPI} annonces`);
+        }
+
+        // Normaliser les résultats depuis response.ads (SANS FILTRAGE)
+        const normalized = normalizeMoteurImmoListings(response.ads || []);
+        
+        console.log(`📄 [Piges] Code postal ${postalCode} - Page ${page}: ${normalized.length} annonces brutes reçues`);
+
+        // FUSIONNER correctement avec push(...) - IMPORTANT: ne pas écraser
+        postalCodeResults.push(...normalized);
+        pagesLoadedForCP++;
+
+        console.log(`✅ [Piges] Code postal ${postalCode} - Page ${page}: ${normalized.length} annonces ajoutées (total pour ce CP: ${postalCodeResults.length})`);
+
+        // Si la page renvoie moins de PER_PAGE_API résultats, c'est la dernière page
+        if (normalized.length < PER_PAGE_API) {
+          console.log(`🛑 [Piges] Code postal ${postalCode} - Dernière page atteinte (${normalized.length} < ${PER_PAGE_API})`);
+          break;
+        }
+
+        // Petite pause pour éviter de surcharger l'API
+        if (page < MAX_PAGES) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      } catch (error: any) {
+        console.error(`❌ [Piges] Code postal ${postalCode} - Erreur page ${page}:`, error);
+        // En cas d'erreur, arrêter la pagination pour ce CP mais continuer avec les autres
+        if (page === 1) {
+          // Si c'est la première page qui échoue, propager l'erreur
+          throw error;
+        }
+        break; // Arrêter la pagination pour ce CP
+      }
+    }
+
+    // Fusionner les résultats de ce code postal avec les résultats globaux
+    allRawResults.push(...postalCodeResults);
+    totalPagesLoaded += pagesLoadedForCP;
+
+    console.log(`✅ [Piges] Code postal ${postalCode} terminé: ${postalCodeResults.length} annonces récupérées sur ${pagesLoadedForCP} pages`);
+  }
+
+  // Logs de debug complets
+  const countPublisher = allRawResults.filter(ad => ad.publisher && ad.publisher.trim().length > 0).length;
+  const countNoPublisher = allRawResults.length - countPublisher;
+
+  console.info(`\n[SACIMO] ➜ Total annonces récupérées : ${allRawResults.length}`);
+  console.info(`[SACIMO] ➜ Pages complètes : ${totalPagesLoaded}`);
+  console.info(`[SACIMO] ➜ Exemple titres :`, allRawResults.slice(0, 5).map(a => a.title));
+  console.info(`[SACIMO] ➜ Nombre d'annonces avec publisher : ${countPublisher}`);
+  console.info(`[SACIMO] ➜ Nombre d'annonces sans publisher : ${countNoPublisher}`);
+  console.info(`[SACIMO] ➜ Total disponible sur MoteurImmo : ${totalCountFromAPI ?? "non disponible"}`);
+
+  // ============================================
+  // ÉTAPE 2 : APPLIQUER TOUS LES FILTRES EN LOCAL
+  // ============================================
+  // Maintenant que nous avons TOUTES les annonces brutes, on applique les filtres localement
+  
+  console.log(`🔍 [Piges] Application des filtres en local sur ${allRawResults.length} annonces brutes...`);
+  
+  let filteredResults = [...allRawResults]; // Copie pour appliquer les filtres
+  
+  // Filtrer par type (vente/location)
+  if (filters.type && filters.type !== "all") {
+    const beforeFilter = filteredResults.length;
+    if (filters.type === "vente") {
+      filteredResults = filteredResults.filter(ad => ad.type === "sale");
+    } else if (filters.type === "location") {
+      filteredResults = filteredResults.filter(ad => ad.type === "rental");
+    }
+    console.log(`🔍 [Piges] Filtrage par type (${filters.type}): ${filteredResults.length} résultats (${beforeFilter} avant filtrage)`);
+  }
+  
+  // Filtrer par sources si spécifié
+  if (filters.sources && filters.sources.length > 0) {
+    const beforeFilter = filteredResults.length;
+    const normalizedSources = filters.sources.map((s) => s.toLowerCase().trim());
+    filteredResults = filteredResults.filter((ad) => {
+      if (!ad.origin) return false;
+      // L'origine est déjà normalisée en minuscules dans normalizeMoteurImmo
+      return normalizedSources.some((source) => {
+        // Correspondance exacte ou partielle
+        return (
+          ad.origin === source ||
+          ad.origin.includes(source) ||
+          source.includes(ad.origin)
+        );
+      });
+    });
+    console.log(
+      `🔍 [Piges] Filtrage par sources (${filters.sources.join(", ")}): ${filteredResults.length} résultats (${beforeFilter} avant filtrage)`
+    );
+  }
+
+  // ============================================
+  // ÉTAPE 3 : HARMONISATION AVEC MOTEURIMMO UI
+  // ============================================
+  // Appliquer les règles d'harmonisation MoteurImmo UI pour obtenir des résultats identiques
+  console.log(`🔄 [Piges] Application de l'harmonisation MoteurImmo UI...`);
+  
+  const harmonizationFilters = {
+    postalCodes: postalCodesToUse,
+    state: undefined, // TODO: Ajouter le filtre state si disponible dans les filtres utilisateur
+    vendor: filters.sellerType && filters.sellerType !== "all" ? filters.sellerType : undefined,
+  };
+  
+  const beforeHarmonization = filteredResults.length;
+  filteredResults = harmonizeAdsWithMoteurImmoUI(filteredResults, harmonizationFilters);
   console.log(
-    `🎉 [Piges] Recherche terminée: ${finalResults.length} résultats sur ${page - 1} page(s)`
+    `✅ [Piges] Harmonisation terminée: ${filteredResults.length} résultats (${beforeHarmonization} avant harmonisation)`
   );
+  
+  // Filtrer par prix
+  if (filters.minPrice) {
+    const beforeFilter = filteredResults.length;
+    filteredResults = filteredResults.filter(ad => ad.price !== null && ad.price >= filters.minPrice!);
+    console.log(`🔍 [Piges] Filtrage par prix min (${filters.minPrice}€): ${filteredResults.length} résultats (${beforeFilter} avant filtrage)`);
+  }
+  if (filters.maxPrice) {
+    const beforeFilter = filteredResults.length;
+    filteredResults = filteredResults.filter(ad => ad.price !== null && ad.price <= filters.maxPrice!);
+    console.log(`🔍 [Piges] Filtrage par prix max (${filters.maxPrice}€): ${filteredResults.length} résultats (${beforeFilter} avant filtrage)`);
+  }
+  
+  // Filtrer par surface
+  if (filters.minSurface) {
+    const beforeFilter = filteredResults.length;
+    filteredResults = filteredResults.filter(ad => ad.surface !== null && ad.surface >= filters.minSurface!);
+    console.log(`🔍 [Piges] Filtrage par surface min (${filters.minSurface}m²): ${filteredResults.length} résultats (${beforeFilter} avant filtrage)`);
+  }
+  if (filters.maxSurface) {
+    const beforeFilter = filteredResults.length;
+    filteredResults = filteredResults.filter(ad => ad.surface !== null && ad.surface <= filters.maxSurface!);
+    console.log(`🔍 [Piges] Filtrage par surface max (${filters.maxSurface}m²): ${filteredResults.length} résultats (${beforeFilter} avant filtrage)`);
+  }
+  
+  // Filtrer par nombre de pièces
+  if (filters.minRooms) {
+    const beforeFilter = filteredResults.length;
+    filteredResults = filteredResults.filter(ad => ad.rooms !== null && ad.rooms >= filters.minRooms!);
+    console.log(`🔍 [Piges] Filtrage par pièces min (${filters.minRooms}): ${filteredResults.length} résultats (${beforeFilter} avant filtrage)`);
+  }
+  if (filters.maxRooms) {
+    const beforeFilter = filteredResults.length;
+    filteredResults = filteredResults.filter(ad => ad.rooms !== null && ad.rooms <= filters.maxRooms!);
+    console.log(`🔍 [Piges] Filtrage par pièces max (${filters.maxRooms}): ${filteredResults.length} résultats (${beforeFilter} avant filtrage)`);
+  }
+
+  // Filtrer par état du bien (LOCAL uniquement, jamais envoyé à l'API)
+  if (filters.state && filters.state.length > 0) {
+    const beforeFilter = filteredResults.length;
+    filteredResults = filterByState(filteredResults, filters.state);
+    console.log(`🔍 [Piges] Filtrage par état (${filters.state.join(", ")}): ${filteredResults.length} résultats (${beforeFilter} avant filtrage)`);
+  }
+
+  // Utiliser le total réel de l'API (stats.total) si disponible, sinon le nombre récupéré brut
+  const totalToReturn = totalCountFromAPI !== undefined ? totalCountFromAPI : allRawResults.length;
+  
+  console.log(
+    `🎉 [Piges] Récupération terminée: ${allRawResults.length} annonces brutes récupérées sur ${totalPagesLoaded} page(s)`
+  );
+  console.log(
+    `✅ [Piges] Après filtrage local: ${filteredResults.length} annonces correspondant aux critères`
+  );
+  
+  if (totalCountFromAPI !== undefined) {
+    console.log(`📊 [Piges] Total disponible sur MoteurImmo: ${totalCountFromAPI} annonces`);
+    if (totalCountFromAPI > allRawResults.length) {
+      console.warn(
+        `⚠️ [Piges] ${allRawResults.length} annonces récupérées sur ${totalCountFromAPI} disponibles. ` +
+        `Limite de ${MAX_PAGES} pages par code postal atteinte.`
+      );
+    }
+  } else {
+    console.warn(`⚠️ [Piges] Total disponible non disponible (stats.total non retourné par l'API)`);
+  }
 
   return {
-    listings: finalResults,
-    total: finalResults.length,
-    pages: page - 1,
-    hasMore,
+    listings: filteredResults, // Résultats APRÈS filtrage local
+    total: totalToReturn, // Total disponible sur MoteurImmo (stats.total) si disponible, sinon nombre récupéré
+    pages: totalPagesLoaded,
+    hasMore: totalCountFromAPI !== undefined && allRawResults.length < totalCountFromAPI,
   };
 }
 
