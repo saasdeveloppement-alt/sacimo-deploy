@@ -2,13 +2,29 @@
 
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
+import { useRouter } from "next/navigation"
 
 import { DashboardSidebar } from "@/components/DashboardSidebar"
 import { DashboardHeader } from "@/components/DashboardHeader"
+import { Loader2 } from "lucide-react"
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession()
+  const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
+  const [loadingTimeout, setLoadingTimeout] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+    
+    // Timeout de sécurité : si le chargement prend plus de 5 secondes, forcer l'affichage
+    const timeout = setTimeout(() => {
+      setLoadingTimeout(true)
+    }, 5000)
+    
+    return () => clearTimeout(timeout)
+  }, [])
 
   // Fermer le menu mobile si on clique en dehors
   useEffect(() => {
@@ -25,13 +41,29 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [sidebarOpen])
 
-  // Attendre que la session soit chargée pour éviter les erreurs
-  if (status === "loading") {
+  // Rediriger vers la page de connexion si non authentifié (après chargement)
+  useEffect(() => {
+    if (mounted && status === "unauthenticated" && !loadingTimeout) {
+      router.push("/auth/signin")
+    }
+  }, [mounted, status, router, loadingTimeout])
+
+  // Afficher un loader uniquement pendant le chargement initial (max 5 secondes)
+  if (!mounted || (status === "loading" && !loadingTimeout)) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-500">Chargement...</div>
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 text-indigo-600 animate-spin" />
+          <div className="text-gray-600 text-sm">Chargement...</div>
+        </div>
       </div>
     )
+  }
+
+  // Si timeout ou si pas de session après chargement, afficher quand même (pour éviter l'écran grisé)
+  // L'utilisateur pourra toujours naviguer même si la session n'est pas chargée
+  if (status === "unauthenticated" && !loadingTimeout) {
+    return null
   }
 
   return (
