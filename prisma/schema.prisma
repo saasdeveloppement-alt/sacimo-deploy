@@ -286,3 +286,16 @@ model UserScan {
   @@index([userId, hour])
   @@map("user_scans")
 }
+
+model SavedAnalysis {
+  id          String   @id @default(cuid())
+  userId      String
+  label       String
+  postalCodes String[]
+  data        Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@map("saved_analyses")
+}
