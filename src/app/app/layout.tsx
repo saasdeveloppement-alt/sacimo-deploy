@@ -44,7 +44,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
   }, [mounted, status, router])
 
-  // Afficher un loader uniquement pendant le chargement initial très court (max 1 seconde)
+  // Afficher le contenu immédiatement sans attendre la session
+  // La session se chargera en arrière-plan et la redirection se fera si nécessaire
   if (!mounted) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -56,7 +57,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     )
   }
 
-  // Si pas de session, afficher quand même le layout (la redirection se fera en arrière-plan)
+  // Toujours afficher le layout, même si la session n'est pas encore chargée
   // Cela évite l'écran grisé bloquant
   return (
     <div className="min-h-screen bg-gray-50">
