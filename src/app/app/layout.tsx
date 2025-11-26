@@ -13,17 +13,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
-  const [loadingTimeout, setLoadingTimeout] = useState(false)
 
   useEffect(() => {
     setMounted(true)
-    
-    // Timeout de sécurité : si le chargement prend plus de 5 secondes, forcer l'affichage
-    const timeout = setTimeout(() => {
-      setLoadingTimeout(true)
-    }, 5000)
-    
-    return () => clearTimeout(timeout)
   }, [])
 
   // Fermer le menu mobile si on clique en dehors
@@ -41,15 +33,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [sidebarOpen])
 
-  // Rediriger vers la page de connexion si non authentifié (après chargement)
+  // Rediriger vers la page de connexion si non authentifié (seulement après un délai pour éviter les redirections trop rapides)
   useEffect(() => {
-    if (mounted && status === "unauthenticated" && !loadingTimeout) {
-      router.push("/auth/signin")
+    if (mounted && status === "unauthenticated") {
+      // Attendre un peu pour éviter les redirections pendant le chargement initial
+      const timer = setTimeout(() => {
+        router.push("/auth/signin")
+      }, 1000)
+      return () => clearTimeout(timer)
     }
-  }, [mounted, status, router, loadingTimeout])
+  }, [mounted, status, router])
 
-  // Afficher un loader uniquement pendant le chargement initial (max 5 secondes)
-  if (!mounted || (status === "loading" && !loadingTimeout)) {
+  // Afficher un loader uniquement pendant le chargement initial très court (max 1 seconde)
+  if (!mounted) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
@@ -60,12 +56,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     )
   }
 
-  // Si timeout ou si pas de session après chargement, afficher quand même (pour éviter l'écran grisé)
-  // L'utilisateur pourra toujours naviguer même si la session n'est pas chargée
-  if (status === "unauthenticated" && !loadingTimeout) {
-    return null
-  }
-
+  // Si pas de session, afficher quand même le layout (la redirection se fera en arrière-plan)
+  // Cela évite l'écran grisé bloquant
   return (
     <div className="min-h-screen bg-gray-50">
       <DashboardSidebar
