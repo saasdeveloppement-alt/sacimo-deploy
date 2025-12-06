@@ -153,7 +153,7 @@ async function generateCoarseCandidates(
   input: LocalisationInput,
   hints?: LocalizationUserHints
 ): Promise<LocationCandidateRaw[]> {
-  const candidates: LocationCandidateRaw[] = []
+  let candidates: LocationCandidateRaw[] = []
 
   // Si on a une ville/code postal, utiliser Google Geocoding
   if (extracted.city || extracted.postalCode) {
