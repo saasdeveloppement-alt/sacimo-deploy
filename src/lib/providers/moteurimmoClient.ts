@@ -93,7 +93,8 @@ export async function moteurImmoSearchSimple(
   }
 
   // Validation
-  const validPage = Math.max(1, Math.min(10, page));
+  // Pas de limite sur page pour permettre la pagination infinie (gérée par adsEngine)
+  const validPage = Math.max(1, page);
   const validPerPage = Math.max(1, Math.min(100, perPage));
 
   // Construction du body JSON - SEULEMENT les paramètres essentiels, AUCUN FILTRE

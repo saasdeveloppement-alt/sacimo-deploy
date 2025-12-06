@@ -238,9 +238,10 @@ export default function ListingCard({
               <div className="flex items-center gap-2 text-slate-600">
                 <MapPin className="h-3 w-3 text-slate-400" />
                 <span>{listing.city} ({listing.postalCode})</span>
-                <Badge variant="outline" className="text-xs h-4 border-slate-200 text-slate-600">
+                {/* Suppression du badge type (house/flat) – affichage non souhaité */}
+                {/* <Badge variant="outline" className="text-xs h-4 border-slate-200 text-slate-600">
                   {getTypeLabel(listing.type)}
-                </Badge>
+                </Badge> */}
               </div>
             </div>
 
@@ -538,9 +539,10 @@ export default function ListingCard({
         <div className="flex items-center gap-2 text-xs text-slate-600">
           <MapPin className="h-3 w-3 text-slate-400" />
           <span>{listing.city} ({listing.postalCode})</span>
-          <Badge variant="outline" className="text-xs h-4 border-slate-200 text-slate-600">
+          {/* Suppression du badge type (house/flat) – affichage non souhaité */}
+          {/* <Badge variant="outline" className="text-xs h-4 border-slate-200 text-slate-600">
             {getTypeLabel(listing.type)}
-          </Badge>
+          </Badge> */}
         </div>
 
         {/* Section milieu - Ligne 3 : ⭐ Score + "Quartier recherché" */}

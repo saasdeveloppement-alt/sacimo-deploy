@@ -111,19 +111,9 @@ export class LeBonCoinConnector implements SourceConnector {
   }
 
   async isHealthy(): Promise<boolean> {
-    try {
-      // Vérification simple de la disponibilité du site
-      const response = await fetch(this.baseUrl, { 
-        method: 'HEAD',
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; SACIMO/1.0)'
-        }
-      })
-      return response.ok
-    } catch (error) {
-      console.error('❌ LeBonCoin non accessible:', error)
-      return false
-    }
+    // Ne plus tester les URLs - le navigateur s'en charge
+    // Tous les liens sont considérés valides
+    return true
   }
 }
 

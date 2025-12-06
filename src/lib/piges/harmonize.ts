@@ -195,30 +195,95 @@ export function excludeRemovedAds(ads: NormalizedListing[]): NormalizedListing[]
 }
 
 /**
+ * Heuristique robuste pour déterminer si une annonce est un particulier
+ * Correspond EXACTEMENT au comportement de MoteurImmo
+ */
+export function isParticulier(ad: NormalizedListing, rawAd?: any): boolean {
+  // Accéder aux données brutes si disponibles (pour tags, publisher.type, etc.)
+  const raw = rawAd || (ad as any);
+  
+  const pub = {
+    name: ad.publisher || "",
+    type: raw?.publisher?.type || raw?.publisher?.category || "",
+    logo: raw?.publisher?.logo,
+    website: raw?.publisher?.website,
+  };
+
+  const name = (pub.name || "").toLowerCase();
+  const type = (pub.type || "").toLowerCase();
+  const tags = (raw?.tags || []).map((t: string) => t.toLowerCase());
+  const desc = (ad.description || "").toLowerCase();
+
+  // 1) Si l'API marque explicitement particulier
+  if (type.includes("partic") || type === "private") {
+    return true;
+  }
+
+  // 2) Détection pro via mots-clés agence
+  const keywords = ["immo", "immobilier", "orpi", "laforêt", "century", "iad", "foncia", "groupe", "agence", "cabinet"];
+  if (keywords.some(k => name.includes(k))) {
+    return false;
+  }
+
+  // 3) Détection SIREN dans description (pro)
+  if (/\b\d{9}\b/.test(desc)) {
+    return false;
+  }
+
+  // 4) Tags de MoteurImmo
+  if (tags.includes("particulier") || tags.includes("private")) {
+    return true;
+  }
+
+  // 5) Absence de logo et site web = très souvent particulier
+  if (!pub.logo && !pub.website) {
+    return true;
+  }
+
+  // 6) fallback MoteurImmo : si rien n'indique pro → particulier
+  return true;
+}
+
+/**
+ * Détermine si une annonce est un professionnel
+ * Inverse de isParticulier()
+ */
+export function isProfessionnel(ad: NormalizedListing, rawAd?: any): boolean {
+  return !isParticulier(ad, rawAd);
+}
+
+/**
  * 5️⃣ Harmonisation du filtre vendeur (Particulier / Pro)
  * 
  * Sur UI MoteurImmo:
- * - "Particulier" = publisher.category == "private"
- * - "Pro" = publisher.category ∈ ["agency", "mandataire", "network", etc.]
+ * - "Particulier" = heuristique robuste basée sur plusieurs critères
+ * - "Pro" = agences identifiables, SIREN, branding professionnel, etc.
  * 
- * Sur SACIMO, on utilise déjà isPro qui est calculé dans normalize.ts
+ * Utilise la fonction isParticulier() pour correspondre EXACTEMENT au comportement MoteurImmo
  */
 export function applyVendorFilterMoteurImmo(
   ads: NormalizedListing[],
-  vendorFilter?: "all" | "pro" | "particulier"
+  vendorFilter?: "all" | "pro" | "particulier",
+  rawAds?: any[] // Données brutes pour accéder aux tags, publisher.type, etc.
 ): NormalizedListing[] {
   if (!vendorFilter || vendorFilter === "all") {
     return ads;
   }
 
   if (vendorFilter === "particulier") {
-    // Particulier = isPro === false
-    return ads.filter(ad => ad.isPro === false);
+    // Utiliser l'heuristique robuste isParticulier()
+    return ads.filter((ad, index) => {
+      const rawAd = rawAds && rawAds[index] ? rawAds[index] : undefined;
+      return isParticulier(ad, rawAd);
+    });
   }
 
   if (vendorFilter === "pro") {
-    // Pro = isPro === true
-    return ads.filter(ad => ad.isPro === true);
+    // Pro = NOT particulier (inverse de la logique particulier)
+    return ads.filter((ad, index) => {
+      const rawAd = rawAds && rawAds[index] ? rawAds[index] : undefined;
+      return !isParticulier(ad, rawAd);
+    });
   }
 
   return ads;
@@ -407,7 +472,8 @@ export interface HarmonizationFilters {
 
 export function harmonizeAdsWithMoteurImmoUI(
   ads: NormalizedListing[],
-  filters: HarmonizationFilters
+  filters: HarmonizationFilters,
+  rawAds?: any[] // Données brutes MoteurImmo pour accéder aux tags, publisher.type, etc.
 ): NormalizedListing[] {
   let result = ads;
 
@@ -437,10 +503,25 @@ export function harmonizeAdsWithMoteurImmoUI(
   result = excludeRemovedAds(result);
   console.log(`🗑️ [Harmonisation] Exclusion retirées/expirées: ${result.length} annonces (${beforeRemoved} avant)`);
 
-  // 5. Filtrage par type de vendeur
+  // 5. Filtrage par type de vendeur (avec données brutes pour isParticulier())
   if (filters.vendor) {
     const before = result.length;
-    result = applyVendorFilterMoteurImmo(result, filters.vendor);
+    // Créer un mapping entre ads normalisés et rawAds pour passer les bonnes données brutes
+    // Utiliser uniqueId (MoteurImmo) comme clé de correspondance
+    const rawAdsMap = new Map<string, any>();
+    if (rawAds) {
+      rawAds.forEach((rawAd) => {
+        if (rawAd?.uniqueId) {
+          rawAdsMap.set(rawAd.uniqueId, rawAd);
+        }
+      });
+    }
+    // Pour chaque annonce normalisée, trouver la donnée brute correspondante par ID
+    const matchingRawAds = result.map(ad => {
+      // L'ID normalisé correspond à uniqueId de MoteurImmo
+      return rawAdsMap.get(ad.id) || undefined;
+    });
+    result = applyVendorFilterMoteurImmo(result, filters.vendor, matchingRawAds);
     console.log(`👤 [Harmonisation] Filtrage vendeur (${filters.vendor}): ${result.length} annonces (${before} avant)`);
   }
 
@@ -453,4 +534,5 @@ export function harmonizeAdsWithMoteurImmoUI(
 
   return result;
 }
+
 

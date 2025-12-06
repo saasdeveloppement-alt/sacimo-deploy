@@ -4,6 +4,9 @@
  */
 
 import type { MoteurImmoAd } from "@/lib/providers/moteurimmoClient";
+import { determineVendorTypeSync } from "./vendorType";
+
+import type { VendorType } from "./vendorType";
 
 export interface NormalizedListing {
   id: string;
@@ -19,9 +22,11 @@ export interface NormalizedListing {
   provider: "moteurimmo";
   description?: string;
   images?: string[];
-  origin?: string; // Plateforme source (leboncoin, seloger, bienici, etc.)
+  origin?: string; // Plateforme source brute (leboncoin, seloger, bienici, etc.)
+  source?: string; // Source normalisée: "leboncoin" | "seloger" | "bienici" | "pap" | "logicimmo" | "autre" | null
   publisher?: string; // Nom du vendeur/agence
-  isPro: boolean; // true si vendeur professionnel, false si particulier (toujours défini)
+  isPro: boolean; // true si vendeur professionnel, false si particulier (toujours défini) - DEPRECATED: utiliser vendorType
+  vendorType?: VendorType; // Type de vendeur déterminé de manière fiable: "particulier" | "professionnel" | "inconnu"
   category?: string; // Type de bien (appartement, maison, terrain, etc.)
   type?: "sale" | "rental"; // Type de transaction
   state?: string | null; // État du bien (neuf, ancien, récent, VEFA, travaux, etc.)
@@ -170,7 +175,8 @@ export function normalizeMoteurImmo(ad: MoteurImmoAd): NormalizedListing {
                 rawAd.state || 
                 null;
 
-  return {
+  // Construire l'objet normalisé de base
+  const normalizedBase: NormalizedListing = {
     id: ad.uniqueId,
     title: ad.title || "Bien immobilier",
     price: ad.price ?? null,
@@ -186,11 +192,18 @@ export function normalizeMoteurImmo(ad: MoteurImmoAd): NormalizedListing {
     images: images.length > 0 ? images : undefined,
     origin: ad.origin ? ad.origin.toLowerCase().trim() : undefined,
     publisher: publisher || undefined,
-    isPro, // Toujours défini maintenant (true ou false)
+    isPro, // Toujours défini maintenant (true ou false) - DEPRECATED: utiliser vendorType
     category: ad.category || undefined, // Type de bien
     type: ad.type || undefined, // Type de transaction (sale/rental)
     state: state || null, // État du bien (neuf, ancien, récent, VEFA, travaux, etc.)
   };
+
+  // Déterminer le vendorType de manière synchrone (sans appel API)
+  // Pour LeBonCoin, on utilisera l'API de manière asynchrone plus tard si nécessaire
+  // rawAd est déjà déclaré plus haut (ligne 161)
+  normalizedBase.vendorType = determineVendorTypeSync(normalizedBase, rawAd);
+
+  return normalizedBase;
 }
 
 /**

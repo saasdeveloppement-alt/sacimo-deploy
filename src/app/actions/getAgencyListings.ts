@@ -87,8 +87,20 @@ export async function getAgencyListings(
       url: ad.url,
       pictureUrl: ad.pictureUrl || ad.pictureUrls?.[0],
       description: ad.description,
-      publishedAt: ad.creationDate,
+      publishedAt: ad.creationDate || ad.lastChangeDate || "",
     }));
+
+    // ============================================
+    // TRI AUTOMATIQUE : DU PLUS RÉCENT AU PLUS ANCIEN
+    // ============================================
+    // Force tri du plus récent au plus ancien AVANT l'affichage
+    listings.sort((a, b) => {
+      const dateA = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
+      const dateB = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
+      return dateB - dateA; // Décroissant : plus récent en premier
+    });
+
+    console.info("[SACIMO] ➜ Tri appliqué sur annonces d'agence → du plus récent au plus ancien");
 
     return listings.slice(0, 200); // Limiter à 200 annonces
   } catch (error) {
@@ -96,6 +108,7 @@ export async function getAgencyListings(
     throw new Error(`Failed to get agency listings: ${(error as Error).message}`);
   }
 }
+
 
 
 

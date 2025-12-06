@@ -21,9 +21,10 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   agency        Agency?   @relation(fields: [agencyId], references: [id])
-  Account       Account[]
-  Session       Session[]
-  emailVerified DateTime?
+  Account               Account[]
+  Session               Session[]
+  emailVerified         DateTime?
+  localisationRequests  LocalisationRequest[]
 
   @@map("users")
 }
@@ -298,4 +299,67 @@ model SavedAnalysis {
 
   @@index([userId])
   @@map("saved_analyses")
+}
+
+model AdsCache {
+  id          String   @id @default(cuid())
+  postalCode  String   @unique
+  ads         Json     // Array of normalized ads
+  pagesCount  Int      @default(0)
+  totalCount   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  expiresAt   DateTime // Cache expiration (30 minutes)
+
+  @@index([postalCode, expiresAt])
+  @@map("ads_cache")
+}
+
+// ============================================
+// MODULE DE LOCALISATION AVANCÉ
+// ============================================
+
+model LocalisationRequest {
+  id          String                @id @default(cuid())
+  userId      String?               // Optionnel (peut être anonyme)
+  rawInput    Json                  // { url?: string, text?: string, images?: string[], hintPostalCode?: string, hintCity?: string }
+  userHints   Json?                 // Indices structurés fournis par l'utilisateur (LocalizationUserHints)
+  status      LocalisationStatus    @default(PENDING)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  
+  candidates  LocationCandidate[]
+  user        User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@map("localisation_requests")
+}
+
+model LocationCandidate {
+  id                    String   @id @default(cuid())
+  localisationRequestId  String
+  lat                   Float
+  lng                   Float
+  addressText           String
+  postalCode            String?
+  city                  String?
+  parcelId              String?   // Section + numéro de parcelle cadastrale
+  confidence            Float     // 0-100
+  confidenceBreakdown   Json      // { "text_match": 0.4, "image_match": 0.3, "dvf_density": 0.2, "streetview_similarity": 0.1 }
+  sources               Json      // { "google_geocode": true, "cadastre": true, "dvf": true, "ads": ["hubimo", "seloger"] }
+  best                  Boolean   @default(false) // Candidat retenu comme meilleur
+  
+  localisationRequest   LocalisationRequest @relation(fields: [localisationRequestId], references: [id], onDelete: Cascade)
+
+  @@index([localisationRequestId, best])
+  @@index([localisationRequestId, confidence])
+  @@map("location_candidates")
+}
+
+enum LocalisationStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
 }

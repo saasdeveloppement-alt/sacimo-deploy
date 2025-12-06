@@ -55,7 +55,7 @@ URL : ${listing.url}
 CONTEXTE :
 - Prix au m² : ${listing.price && listing.surface ? Math.round(listing.price / listing.surface) : "N/A"} €/m²
 - Vendeur ${listing.isPro ? "professionnel" : "particulier"}
-- Source : ${listing.origin || "moteurimmo"}
+- Source : ${listing.origin || "Hubimo"}
 
 INSTRUCTIONS :
 1. Le score_opportunite doit refléter la qualité globale de l'opportunité (prix, localisation, description, etc.)
@@ -115,6 +115,7 @@ Réponds UNIQUEMENT avec le JSON, sans texte avant ou après.`
     return null
   }
 }
+
 
 
 

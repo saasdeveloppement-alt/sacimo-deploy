@@ -280,9 +280,12 @@ export default function DashboardPage() {
                     <Button
                       size="lg"
                       className="px-6 py-3 bg-white text-primary-700 font-semibold rounded-xl hover:bg-white/90 transition-all shadow-lg"
+                      asChild
                     >
-                      <Search className="w-5 h-5 mr-2" strokeWidth={1.5} />
-                      Nouvelle recherche
+                      <Link href="/app/annonces">
+                        <Search className="w-5 h-5 mr-2" strokeWidth={1.5} />
+                        Nouvelle recherche
+                      </Link>
                     </Button>
                   </motion.div>
                   <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
@@ -469,8 +472,10 @@ export default function DashboardPage() {
                         <CardTitle className="text-xl font-bold text-gray-900 mb-1">Activités Récentes</CardTitle>
                         <CardDescription className="text-sm text-gray-500">Vos dernières actions</CardDescription>
                       </div>
-                      <Button variant="link" className="text-primary-600 text-sm font-semibold hover:text-primary-700 p-0 h-auto">
-                        Tout voir →
+                      <Button variant="link" className="text-primary-600 text-sm font-semibold hover:text-primary-700 p-0 h-auto" asChild>
+                        <Link href="/app/annonces">
+                          Tout voir →
+                        </Link>
                       </Button>
                     </div>
                   </CardHeader>
@@ -511,14 +516,14 @@ export default function DashboardPage() {
                           hoverBg: "hover:bg-indigo-50",
                         },
                       ].map((activity, index) => (
-                        <motion.div
-                          key={index}
-                          className={`flex items-start space-x-4 p-4 rounded-xl ${activity.hoverBg} transition-colors cursor-pointer`}
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: 0.5 + index * 0.1 }}
-                          whileHover={{ x: 4 }}
-                        >
+                        <Link key={index} href="/app/annonces">
+                          <motion.div
+                            className={`flex items-start space-x-4 p-4 rounded-xl ${activity.hoverBg} transition-colors cursor-pointer`}
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.5 + index * 0.1 }}
+                            whileHover={{ x: 4 }}
+                          >
                           <div className={`flex-shrink-0 w-10 h-10 ${activity.iconBg} rounded-full flex items-center justify-center`}>
                             <activity.icon className={`w-5 h-5 ${activity.iconColor}`} strokeWidth={1.5} />
                           </div>
@@ -541,6 +546,7 @@ export default function DashboardPage() {
                             </div>
                           </div>
                         </motion.div>
+                        </Link>
                       ))}
                     </div>
                   </CardContent>

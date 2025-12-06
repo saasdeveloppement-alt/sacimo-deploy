@@ -9,6 +9,8 @@ import { GeoAIDropzone } from "@/components/localisation/GeoAIDropzone"
 import { GeoAIHistory } from "@/components/localisation/GeoAIHistory"
 import { GeoAIMap } from "@/components/localisation/GeoAIMap"
 import { GeoAIStats } from "@/components/localisation/GeoAIStats"
+import { LocalisationAdvanced } from "@/components/localisation/LocalisationAdvanced"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import PageContainer, { fadeInUp, staggerChildren } from "@/components/ui/PageContainer"
 
 export default function LocalisationPage() {
@@ -113,15 +115,26 @@ export default function LocalisationPage() {
             />
           </motion.div>
 
-          {/* Main Content: Dropzone - Pleine largeur */}
+          {/* Main Content: Tabs pour ancien/nouveau système */}
           <motion.div variants={fadeInUp}>
-            {annonceId ? (
-              <GeoAIDropzone annonceId={annonceId} onLocationValidated={handleLocationValidated} />
-            ) : (
-              <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
-                <p className="text-gray-500">Chargement...</p>
-              </div>
-            )}
+            <Tabs defaultValue="advanced" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 mb-6">
+                <TabsTrigger value="advanced">🎯 Localisation Avancée (Nouveau)</TabsTrigger>
+                <TabsTrigger value="legacy">📸 Par Image (Ancien)</TabsTrigger>
+              </TabsList>
+              <TabsContent value="advanced">
+                <LocalisationAdvanced />
+              </TabsContent>
+              <TabsContent value="legacy">
+                {annonceId ? (
+                  <GeoAIDropzone annonceId={annonceId} onLocationValidated={handleLocationValidated} />
+                ) : (
+                  <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
+                    <p className="text-gray-500">Chargement...</p>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
           </motion.div>
 
           {/* Grid: History + Map - Equal columns */}
