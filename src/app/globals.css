@@ -427,6 +427,46 @@
   }
 }
 
+/* Animations pour le fond de localisation */
+@keyframes gradient {
+  0%, 100% {
+    background-position: 0% 50%;
+    transform: scale(1);
+  }
+  50% {
+    background-position: 100% 50%;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes float-particles {
+  0%, 100% {
+    transform: translate(0px, 0px) scale(1);
+    opacity: 0.3;
+  }
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+    opacity: 0.4;
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+    opacity: 0.2;
+  }
+}
+
+.animate-gradient {
+  animation: gradient 15s ease infinite;
+  background-size: 200% 200%;
+}
+
+.animate-float {
+  animation: float-particles 20s ease-in-out infinite;
+}
+
+.animate-float-delay {
+  animation: float-particles 20s ease-in-out 10s infinite;
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;

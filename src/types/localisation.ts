@@ -48,4 +48,74 @@ export type LocalisationRawInput = {
   hintCity?: string
 }
 
+/**
+ * Input utilisateur pour la localisation (nouvelle interface)
+ */
+export interface LocalisationInput {
+  method: 'image' | 'url' | 'text'
+  imageFile?: File // Première image (pour compatibilité)
+  imageFiles?: File[] // Toutes les images
+  imageUrl?: string // URL de la première image (pour compatibilité)
+  imageUrls?: string[] // URLs de toutes les images
+  url?: string
+  description?: string
+  hints?: LocalisationHints
+}
+
+/**
+ * Hints simplifiés pour la nouvelle interface
+ */
+export interface LocalisationHints {
+  codePostal?: string
+  ville?: string
+  typeBien?: 'appartement' | 'maison' | 'terrain' | 'commerce'
+  surfaceMin?: number
+  surfaceMax?: number
+  prixMin?: number
+  prixMax?: number
+  pieces?: number
+  caracteristiques?: {
+    piscine?: boolean
+    jardin?: boolean
+    vueMer?: boolean
+    balcon?: boolean
+    parking?: boolean
+  }
+}
+
+/**
+ * Hypothèse de localisation
+ */
+export interface LocalisationHypothese {
+  id: string
+  adresse: string
+  codePostal: string
+  ville: string
+  coordonnees: { lat: number; lng: number }
+  scoreConfiance: number // 0-100
+  distanceHints: number // km
+  parcellesCadastrales?: string[]
+  images?: string[]
+  similarieteVisuelle?: number
+  scoreImage?: number
+  scorePiscine?: number
+  scoreToiture?: number
+  scoreTerrain?: number
+  scoreHints?: number
+  satelliteImageUrl?: string
+  streetViewUrl?: string
+}
+
+/**
+ * Résultat complet de localisation
+ */
+export interface LocalisationResult {
+  id: string
+  timestamp: Date
+  input: LocalisationInput
+  hypotheses: LocalisationHypothese[]
+  precisionMoyenne: number
+  tempsAnalyse: number // ms
+}
+
 
