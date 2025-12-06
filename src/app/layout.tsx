@@ -41,7 +41,7 @@ export default function RootLayout({
           </CustomCursor>
         </Providers>
         <ChatWidget />
-        <Toaster position="top-right" richColors />
+        <Toaster position="top-right" richColors expand={true} />
       </body>
     </html>
   );

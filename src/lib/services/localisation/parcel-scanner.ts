@@ -234,29 +234,197 @@ export function getSatelliteCrop(
 /**
  * Construit la liste complète de candidats parcelles
  */
+/**
+ * Calcule la distance Haversine entre deux points GPS (en km)
+ */
+function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371; // Rayon de la Terre en km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+/**
+ * Filtre les parcelles selon une zone de recherche (CONTRAINTE DURE)
+ * 
+ * Si radiusKm === 0 : filtre strict par bounds (commune stricte)
+ * Si radiusKm > 0 : filtre strict par distance Haversine (rayon strict)
+ */
+export function filterParcelsByZone(
+  parcels: ParcelCandidate[],
+  zone: { lat: number; lng: number; radiusKm: number; bounds?: { north: number; south: number; east: number; west: number } }
+): ParcelCandidate[] {
+  const totalBefore = parcels.length;
+  
+  console.log(`[ZONE] Zone reçue: lat=${zone.lat}, lng=${zone.lng}, radiusKm=${zone.radiusKm}, bounds=${zone.bounds ? 'présents' : 'absents'}`);
+  console.log(`[CANDIDATES] Total avant filtrage zone: ${totalBefore}`);
+  
+  let filtered: ParcelCandidate[] = [];
+  let rejectedCount = 0;
+  
+  if (zone.radiusKm === 0 && zone.bounds) {
+    // FILTRAGE STRICT PAR BOUNDS (commune stricte)
+    console.log(`[ZONE] Filtrage strict par bounds (commune stricte)`);
+    filtered = parcels.filter((parcel) => {
+      const { lat, lng } = parcel.centroid;
+      const inBounds = (
+        lat >= zone.bounds!.south &&
+        lat <= zone.bounds!.north &&
+        lng >= zone.bounds!.west &&
+        lng <= zone.bounds!.east
+      );
+      
+      if (!inBounds) {
+        rejectedCount++;
+        console.log(`[ZONE] Candidat rejeté hors bounds: id=${parcel.id}, lat=${lat}, lng=${lng}`);
+      }
+      
+      return inBounds;
+    });
+    console.log(`[CANDIDATES] Après filtre commune stricte: ${filtered.length} (${rejectedCount} rejetés)`);
+  } else if (zone.radiusKm > 0) {
+    // FILTRAGE STRICT PAR RAYON (distance Haversine)
+    console.log(`[ZONE] Filtrage strict par rayon: ${zone.radiusKm} km`);
+    filtered = parcels.filter((parcel) => {
+      const distance = haversineDistance(
+        zone.lat,
+        zone.lng,
+        parcel.centroid.lat,
+        parcel.centroid.lng
+      );
+      const inRadius = distance <= zone.radiusKm;
+      
+      if (!inRadius) {
+        rejectedCount++;
+        console.log(`[ZONE] Candidat rejeté hors rayon: id=${parcel.id}, distanceKm=${distance.toFixed(2)} (max=${zone.radiusKm})`);
+      }
+      
+      return inRadius;
+    });
+    console.log(`[CANDIDATES] Après filtre rayon: ${filtered.length} (${rejectedCount} rejetés)`);
+  } else {
+    // Si pas de zone définie, retourner toutes les parcelles (mais log un warning)
+    console.warn(`[ZONE] ⚠️ Pas de zone définie, retour de toutes les parcelles (${parcels.length})`);
+    return parcels;
+  }
+  
+  return filtered;
+}
+
+/**
+ * Extrait la ville et le code postal depuis le label d'une zone
+ * Ex: "Bordeaux, Gironde, France" -> { city: "Bordeaux", postalCode: null }
+ * Ex: "Bordeaux, 33000, France" -> { city: "Bordeaux", postalCode: "33000" }
+ */
+function extractCityAndPostalCodeFromLabel(label: string): { city: string | null; postalCode: string | null } {
+  const parts = label.split(',').map(p => p.trim());
+  let city: string | null = null;
+  let postalCode: string | null = null;
+  
+  if (parts.length > 0) {
+    city = parts[0]; // La première partie est généralement la ville
+  }
+  
+  // Chercher un code postal dans les parties (format 5 chiffres)
+  for (const part of parts) {
+    const postalMatch = part.match(/\b(\d{5})\b/);
+    if (postalMatch) {
+      postalCode = postalMatch[1];
+      break;
+    }
+  }
+  
+  return { city, postalCode };
+}
+
+/**
+ * Normalise une ville pour la comparaison (enlève accents, majuscules, etc.)
+ */
+function normalizeCity(city: string | undefined | null): string | null {
+  if (!city) return null;
+  return city
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Enlève les accents
+    .trim();
+}
+
 export async function buildParcelCandidates(
   city?: string,
   postalCode?: string,
-  customBbox?: BoundingBox
+  customBbox?: BoundingBox,
+  searchZone?: { 
+    lat: number; 
+    lng: number; 
+    radiusKm: number; 
+    bounds?: { north: number; south: number; east: number; west: number };
+    label?: string; // Label de la zone (ex: "Bordeaux, Gironde, France")
+  }
 ): Promise<ParcelCandidate[]> {
   try {
-    // Calculer ou utiliser le bounding box
-    const bbox = customBbox || (await calculateBoundingBox(city, postalCode))
+    // Extraire la ville et le code postal cibles depuis le label de la zone
+    const { city: extractedCity, postalCode: extractedPostalCode } = searchZone?.label 
+      ? extractCityAndPostalCodeFromLabel(searchZone.label)
+      : { city: city || null, postalCode: postalCode || null };
+    
+    const targetCity = extractedCity || city;
+    const targetPostalCode = extractedPostalCode || postalCode;
+    const normalizedTargetCity = normalizeCity(targetCity);
+
+    // Si une zone de recherche est fournie, l'utiliser directement
+    let bbox: BoundingBox | null = null;
+    
+    if (searchZone) {
+      if (searchZone.radiusKm === 0 && searchZone.bounds) {
+        // Utiliser les bounds directement
+        bbox = {
+          minLat: searchZone.bounds.south,
+          maxLat: searchZone.bounds.north,
+          minLng: searchZone.bounds.west,
+          maxLng: searchZone.bounds.east,
+        };
+      } else if (searchZone.radiusKm > 0) {
+        // Calculer un bbox approximatif depuis le centre et le rayon
+        // 1 degré ≈ 111 km
+        const radiusDeg = searchZone.radiusKm / 111;
+        bbox = {
+          minLat: searchZone.lat - radiusDeg,
+          maxLat: searchZone.lat + radiusDeg,
+          minLng: searchZone.lng - radiusDeg,
+          maxLng: searchZone.lng + radiusDeg,
+        };
+      }
+    }
+    
+    // Sinon, calculer ou utiliser le bounding box classique
+    if (!bbox) {
+      bbox = customBbox || (await calculateBoundingBox(city, postalCode));
+    }
 
     if (!bbox) {
       console.warn("⚠️ [Parcel Scanner] Impossible de calculer bounding box")
       return []
     }
 
-    // Récupérer les parcelles
+    // Récupérer les parcelles (on récupère plus que nécessaire pour pouvoir filtrer après)
     const parcels = await fetchParcels(bbox, city, postalCode)
+    
+    // Filtrer par zone géographique si fournie
+    const filteredParcels = searchZone
+      ? filterParcelsByZone(parcels, searchZone)
+      : parcels;
 
     // Enrichir avec les footprints de bâtiments
-    const enriched = await fetchBuildingFootprints(parcels)
+    const enriched = await fetchBuildingFootprints(filteredParcels)
 
     // Enrichir avec les adresses (reverse geocoding)
-    // Limiter à 20 parcelles pour éviter trop de requêtes
-    const toEnrich = enriched.slice(0, 20)
+    // Limiter à 30 parcelles pour éviter trop de requêtes et timeouts
+    const toEnrich = enriched.slice(0, 30)
     const withAddresses = await Promise.all(
       toEnrich.map(async (parcel) => {
         try {
@@ -285,14 +453,62 @@ export async function buildParcelCandidates(
       })
     )
 
-    // Ajouter les parcelles non enrichies
-    const remaining = enriched.slice(20)
+    // FILTRAGE STRICT PAR VILLE ET CODE POSTAL : Ne garder que les parcelles qui correspondent
+    let finalParcels = withAddresses;
+    if (normalizedTargetCity || targetPostalCode) {
+      finalParcels = withAddresses.filter((parcel) => {
+        // Si pas de ville ni code postal, on garde quand même (peut être enrichi plus tard)
+        if (!parcel.city && !parcel.postalCode) {
+          return true;
+        }
+        
+        // Vérifier le code postal en priorité (plus précis)
+        if (targetPostalCode && parcel.postalCode) {
+          // Si le code postal correspond, c'est bon
+          if (parcel.postalCode === targetPostalCode) {
+            return true;
+          }
+          // Sinon, exclure
+          return false;
+        }
+        
+        // Vérifier la ville si pas de code postal
+        if (normalizedTargetCity && parcel.city) {
+          const normalizedParcelCity = normalizeCity(parcel.city);
+          // Vérifier si la ville correspond (exact match ou contient la ville cible)
+          const cityMatches = normalizedParcelCity === normalizedTargetCity || 
+                             normalizedParcelCity.includes(normalizedTargetCity) ||
+                             normalizedTargetCity.includes(normalizedParcelCity);
+          return cityMatches;
+        }
+        
+        // Si on a une ville cible mais pas de ville dans la parcelle, exclure
+        if (normalizedTargetCity && !parcel.city) {
+          return false;
+        }
+        
+        // Sinon, garder
+        return true;
+      });
+      
+      console.log(`🔍 [Parcel Scanner] Filtrage par zone "${targetCity || '?'}" ${targetPostalCode ? `(${targetPostalCode})` : ''}: ${withAddresses.length} -> ${finalParcels.length} parcelles`);
+    }
 
-    const allParcels = [...withAddresses, ...remaining]
+    // Ajouter les parcelles non enrichies (mais seulement si elles sont dans la zone géographique)
+    const remaining = enriched.slice(20);
+    const remainingInZone = searchZone 
+      ? filterParcelsByZone(remaining, searchZone)
+      : remaining;
 
-    console.log(`✅ [Parcel Scanner] ${allParcels.length} parcelles candidates construites`)
+    const allParcels = [...finalParcels, ...remainingInZone]
 
-    return allParcels
+    // OPTIMISATION : Limiter à 30 parcelles max pour éviter les timeouts
+    const maxParcels = 30
+    const limitedParcels = allParcels.slice(0, maxParcels)
+
+    console.log(`✅ [Parcel Scanner] ${limitedParcels.length} parcelles candidates construites (sur ${allParcels.length} disponibles, filtrées par zone: ${targetCity || 'toutes'})`)
+
+    return limitedParcels
   } catch (error) {
     console.error("❌ [Parcel Scanner] Erreur buildParcelCandidates:", error)
     return []

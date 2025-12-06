@@ -25,31 +25,104 @@ const requestSchema = z.object({
   hintCity: z.string().optional(),
   userHints: z.any().optional(), // LocalizationUserHints (schéma complexe, validation souple)
   multiCandidates: z.boolean().optional().default(false), // Mode multi-candidats
+  selectedZone: z.object({
+    placeId: z.string(),
+    label: z.string(),
+    lat: z.number(),
+    lng: z.number(),
+    radiusKm: z.number(),
+    bounds: z.object({
+      north: z.number(),
+      south: z.number(),
+      east: z.number(),
+      west: z.number(),
+    }).optional(),
+  }).optional(),
 })
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('🚀 [API Localisation] POST request received');
+    
     // Auth optionnel (peut être anonyme)
     const session = await getServerSession(authOptions)
     const userId = session?.user?.id || null
+    console.log('👤 [API Localisation] User ID:', userId || 'anonymous');
 
     // Parser le body
     const body = await request.json()
+    console.log('📦 [API Localisation] Request body:', JSON.stringify(body, null, 2));
+    
+    // Validation des inputs
+    if (!body.url && !body.text && (!body.images || body.images.length === 0)) {
+      console.error('❌ [API Localisation] No input provided');
+      return NextResponse.json(
+        { 
+          success: false,
+          error: 'Au moins une source doit être fournie : url, text ou images',
+          details: 'url, text ou images manquant'
+        },
+        { status: 400 }
+      );
+    }
+    
+    // Vérification des clés API
+    if (!process.env.OPENAI_API_KEY) {
+      console.error('❌ [API Localisation] OPENAI_API_KEY missing');
+      return NextResponse.json(
+        { 
+          success: false,
+          error: 'Configuration manquante: OPENAI_API_KEY' 
+        },
+        { status: 500 }
+      );
+    }
+    
+    if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
+      console.error('❌ [API Localisation] GOOGLE_MAPS_API_KEY missing');
+      return NextResponse.json(
+        { 
+          success: false,
+          error: 'Configuration manquante: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY' 
+        },
+        { status: 500 }
+      );
+    }
+    
+    console.log('✅ [API Localisation] API Keys validated');
+    
     const parsed = requestSchema.parse(body)
+    console.log('✅ [API Localisation] Request validated:', {
+      hasUrl: !!parsed.url,
+      hasText: !!parsed.text,
+      imagesCount: parsed.images?.length || 0,
+      hasSelectedZone: !!parsed.selectedZone,
+      hasUserHints: !!parsed.userHints,
+    });
 
-    // Vérifier qu'au moins une source est fournie
-    if (!parsed.url && !parsed.text && (!parsed.images || parsed.images.length === 0)) {
+    // Vérifier qu'une zone de recherche est fournie
+    if (!parsed.selectedZone) {
+      console.error('❌ [API Localisation] No selectedZone provided');
       return NextResponse.json(
         {
           success: false,
-          error: "Au moins une source doit être fournie : url, text ou images",
+          error: "Une zone de recherche est requise",
+          details: "selectedZone manquant dans la requête"
         },
         { status: 400 }
       )
     }
+    
+    console.log('✅ [API Localisation] Selected zone:', {
+      placeId: parsed.selectedZone.placeId,
+      label: parsed.selectedZone.label,
+      radiusKm: parsed.selectedZone.radiusKm,
+      hasBounds: !!parsed.selectedZone.bounds,
+    });
 
     // Créer la requête de localisation
     const userHints = parsed.userHints as LocalizationUserHints | undefined
+    console.log('📝 [API Localisation] Creating localisation request...');
     
     const localisationRequest = await prisma.localisationRequest.create({
       data: {
@@ -65,6 +138,11 @@ export async function POST(request: NextRequest) {
         status: "PENDING",
       },
     })
+    
+    console.log('✅ [API Localisation] Request created:', {
+      requestId: localisationRequest.id,
+      status: localisationRequest.status,
+    });
 
     // Si URL LeBonCoin fournie, convertir les images via proxy
     let processedImages = parsed.images || []
@@ -105,6 +183,7 @@ export async function POST(request: NextRequest) {
 
     // Lancer le pipeline en arrière-plan (non bloquant)
     // Pour une vraie implémentation, utiliser un job queue (Bull, BullMQ, etc.)
+    console.log('🚀 [API Localisation] Launching pipeline...');
     runLocalizationPipeline(
       localisationRequest.id,
       {
@@ -113,12 +192,20 @@ export async function POST(request: NextRequest) {
         images: processedImages,
         hintPostalCode: parsed.hintPostalCode,
         hintCity: parsed.hintCity,
+        selectedZone: parsed.selectedZone,
       },
       userHints,
       parsed.multiCandidates || false
     ).catch((error) => {
-      console.error("❌ [API Localisation] Erreur pipeline:", error)
+      console.error("❌ [API Localisation] Erreur pipeline:", error);
+      if (error instanceof Error) {
+        console.error('Error name:', error.name);
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+      }
     })
+    
+    console.log('✅ [API Localisation] Pipeline launched, returning request ID');
 
     // Retourner immédiatement avec l'ID de la requête
     return NextResponse.json({
@@ -128,23 +215,50 @@ export async function POST(request: NextRequest) {
       message: "Localisation en cours de traitement",
     })
   } catch (error: any) {
-    console.error("❌ [API Localisation] Erreur:", error)
+    console.error("💥 [API Localisation] Erreur:", error);
+    
+    // Log détaillé de l'erreur
+    if (error instanceof Error) {
+      console.error('Error name:', error.name);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+    } else {
+      console.error('Error type:', typeof error);
+      console.error('Error value:', JSON.stringify(error, null, 2));
+    }
 
     if (error instanceof z.ZodError) {
+      const errorMessages = error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
+      console.error('❌ [API Localisation] Validation error:', errorMessages);
       return NextResponse.json(
         {
           success: false,
           error: "Données invalides",
+          message: `Les données fournies ne sont pas valides : ${errorMessages}`,
           details: error.errors,
         },
         { status: 400 }
       )
     }
 
+    // Messages d'erreur plus spécifiques selon le type
+    let errorMessage = error.message || "Erreur lors de la création de la requête de localisation";
+    let errorDetails = "Une erreur inattendue s'est produite. Veuillez réessayer.";
+
+    if (errorMessage.includes("zone") || errorMessage.includes("Zone")) {
+      errorDetails = "La zone de recherche fournie est invalide. Vérifiez que vous avez sélectionné une ville ou un code postal valide.";
+    } else if (errorMessage.includes("image") || errorMessage.includes("Image")) {
+      errorDetails = "Les images fournies sont invalides ou corrompues. Vérifiez que les fichiers sont au format JPG, PNG ou WEBP et qu'ils ne dépassent pas 10Mo chacun.";
+    } else if (errorMessage.includes("URL") || errorMessage.includes("url")) {
+      errorDetails = "L'URL fournie est invalide ou inaccessible. Vérifiez que l'URL est correcte et que le site est accessible.";
+    }
+
     return NextResponse.json(
       {
         success: false,
-        error: error.message || "Erreur lors de la création de la requête de localisation",
+        error: errorMessage,
+        message: errorDetails,
+        type: error instanceof Error ? error.name : typeof error,
       },
       { status: 500 }
     )
@@ -157,10 +271,13 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
+    console.log('🔍 [API Localisation] GET request received');
     const { searchParams } = new URL(request.url)
     const requestId = searchParams.get("requestId")
+    console.log('📋 [API Localisation] Request ID:', requestId);
 
     if (!requestId) {
+      console.error('❌ [API Localisation] No requestId provided');
       return NextResponse.json(
         {
           success: false,
@@ -171,6 +288,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Récupérer la requête avec ses candidates
+    console.log('🔍 [API Localisation] Fetching request from database...');
     const localisationRequest = await prisma.localisationRequest.findUnique({
       where: { id: requestId },
       include: {
@@ -182,6 +300,7 @@ export async function GET(request: NextRequest) {
     })
 
     if (!localisationRequest) {
+      console.error('❌ [API Localisation] Request not found:', requestId);
       return NextResponse.json(
         {
           success: false,
@@ -190,18 +309,28 @@ export async function GET(request: NextRequest) {
         { status: 404 }
       )
     }
+    
+    console.log('✅ [API Localisation] Request found:', {
+      id: localisationRequest.id,
+      status: localisationRequest.status,
+      candidatesCount: localisationRequest.candidates?.length || 0,
+    });
 
     // Trouver le meilleur candidat
     const bestCandidate = localisationRequest.candidates.find((c) => c.best) || localisationRequest.candidates[0] || null
 
     // Générer l'explication
-    const explanation = bestCandidate
+    let explanation = bestCandidate
       ? `Probable à ${Math.round(bestCandidate.confidence)}% : ${bestCandidate.addressText}. 
          Raisons : ${Object.entries((bestCandidate.confidenceBreakdown as Record<string, number>) || {})
            .filter(([_, v]) => v > 0)
            .map(([k, v]) => `${k}: ${Math.round(v)}%`)
            .join(", ")}.`
-      : "Aucune localisation fiable trouvée."
+      : localisationRequest.status === 'DONE' && localisationRequest.candidates.length === 0
+        ? "Aucun candidat trouvé respectant toutes les contraintes strictes (zone, piscine, jardin, type de bien). Essayez d'élargir le rayon de recherche ou d'assouplir certaines contraintes."
+        : localisationRequest.status === 'FAILED'
+          ? "Le traitement a échoué. Vérifiez vos paramètres et réessayez."
+          : "Aucune localisation fiable trouvée."
 
     // Déterminer le statut
     const status = bestCandidate
@@ -234,6 +363,7 @@ export async function GET(request: NextRequest) {
             sources: bestCandidate.sources,
           }
         : null,
+      explanation, // Inclure l'explication dans la réponse
       candidates: localisationRequest.candidates.map((c) => {
         const breakdown = c.confidenceBreakdown as Record<string, number> | null
         return {
@@ -257,6 +387,7 @@ export async function GET(request: NextRequest) {
           scoreDVF: breakdown?.scoreDVF || undefined,
           // URLs depuis les sources
           satelliteImageUrl: (c.sources as any)?.satelliteImageUrl || undefined,
+          cadastralUrl: (c.sources as any)?.cadastralUrl || undefined,
           streetViewUrl: (c.sources as any)?.streetViewUrl || undefined,
         }
       }),
@@ -271,15 +402,30 @@ export async function GET(request: NextRequest) {
       }),
     })
   } catch (error: any) {
-    console.error("❌ [API Localisation] Erreur GET:", error)
+    console.error("💥 [API Localisation] Erreur GET:", error);
+    
+    // Log détaillé de l'erreur
+    if (error instanceof Error) {
+      console.error('Error name:', error.name);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+    } else {
+      console.error('Error type:', typeof error);
+      console.error('Error value:', JSON.stringify(error, null, 2));
+    }
 
     return NextResponse.json(
       {
         success: false,
         error: error.message || "Erreur lors de la récupération de la localisation",
+        type: error instanceof Error ? error.name : typeof error,
       },
       { status: 500 }
     )
   }
 }
+
+// Configuration Vercel pour timeout long (nécessaire pour le pipeline de localisation)
+export const maxDuration = 300; // 5 minutes (maximum autorisé par Vercel Pro)
+export const runtime = 'nodejs';
 

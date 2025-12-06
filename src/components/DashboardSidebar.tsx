@@ -35,6 +35,7 @@ const pilotage = [
   { name: "Annonces", href: "/app/annonces", icon: Target },
   { name: "Suivi concurrents", href: "/app/concurrents", icon: Building2 },
   { name: "Localisation", href: "/app/localisation", icon: MapPin },
+  { name: "Localisation PRO", href: "/app/localisation-pro", icon: Zap, badge: "Picarta", badgeColor: "purple" },
 ]
 
 const analyseIA = [
@@ -144,6 +145,8 @@ export function DashboardSidebar({ sidebarOpen, setSidebarOpen, user }: Dashboar
                       ? "bg-blue-100 text-blue-600"
                       : item.badgeColor === "orange"
                       ? "bg-orange-100 text-orange-600"
+                      : item.badgeColor === "purple"
+                      ? "bg-purple-100 text-purple-700"
                       : "bg-gray-100 text-gray-600"
                   }`}>
                     {item.badge}
@@ -191,6 +194,8 @@ export function DashboardSidebar({ sidebarOpen, setSidebarOpen, user }: Dashboar
                       ? "bg-blue-100 text-blue-600"
                       : item.badgeColor === "orange"
                       ? "bg-orange-100 text-orange-600"
+                      : item.badgeColor === "purple"
+                      ? "bg-purple-100 text-purple-700"
                       : "bg-gray-100 text-gray-600"
                   }`}>
                     {item.badge}
@@ -238,6 +243,8 @@ export function DashboardSidebar({ sidebarOpen, setSidebarOpen, user }: Dashboar
                       ? "bg-blue-100 text-blue-600"
                       : item.badgeColor === "orange"
                       ? "bg-orange-100 text-orange-600"
+                      : item.badgeColor === "purple"
+                      ? "bg-purple-100 text-purple-700"
                       : "bg-gray-100 text-gray-600"
                   }`}>
                     {item.badge}

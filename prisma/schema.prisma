@@ -329,6 +329,7 @@ model LocalisationRequest {
   updatedAt   DateTime              @updatedAt
   
   candidates  LocationCandidate[]
+  runs        LocalisationRun[]     // Historique des runs (pour éviter les doublons)
   user        User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
@@ -355,6 +356,21 @@ model LocationCandidate {
   @@index([localisationRequestId, best])
   @@index([localisationRequestId, confidence])
   @@map("location_candidates")
+}
+
+model LocalisationRun {
+  id          String   @id @default(cuid())
+  requestId   String
+  level       Int      // 1 = local (+150m), 2 = commune (±2km), 3 = code postal complet
+  candidates  Json     // Array: [{ coords: {lat, lng}, bbox: {...}, score: number, piscineHash?: string, roofHash?: string, parcelId?: string }]
+  excludedCount Int    @default(0) // Nombre de candidats exclus
+  createdAt   DateTime @default(now())
+  
+  localisationRequest LocalisationRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId, createdAt])
+  @@index([requestId, level])
+  @@map("localisation_runs")
 }
 
 enum LocalisationStatus {

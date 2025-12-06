@@ -23,8 +23,25 @@ import {
   scoreRepere,
 } from "./hints-scoring"
 import { buildParcelCandidates, type BoundingBox } from "./parcel-scanner"
+
+/**
+ * Calcule la distance Haversine entre deux points GPS (en km)
+ * (Dupliqué depuis parcel-scanner.ts pour éviter dépendance circulaire)
+ */
+function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371; // Rayon de la Terre en km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
 import { matchParcels, type MatchedParcel } from "./parcel-matcher"
-import type { LocalizationUserHints } from "@/types/localisation"
+import type { LocalizationUserHints, LocalisationInput as LocalisationInputType } from "@/types/localisation"
+import type { LocalizationHardConstraints } from "@/types/localisation-advanced"
 import OpenAI from "openai"
 import type { LocalisationRequest, LocationCandidate } from "@prisma/client"
 
@@ -33,6 +50,74 @@ const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY
 
 const openai = OPENAI_API_KEY ? new OpenAI({ apiKey: OPENAI_API_KEY }) : null
 
+// Debug mode (activé via variable d'environnement)
+const DEBUG = process.env.LOCALISATION_DEBUG === "true" || process.env.NODE_ENV === "development"
+
+/**
+ * Construit les contraintes dures depuis les inputs utilisateur
+ */
+function buildHardConstraints(
+  input: LocalisationInput,
+  hints?: LocalizationUserHints
+): LocalizationHardConstraints | null {
+  if (!input.selectedZone) {
+    if (DEBUG) console.log('[CONSTRAINTS] Pas de zone sélectionnée, contraintes dures non applicables');
+    return null;
+  }
+
+  const zone = input.selectedZone;
+  const strictZone = zone.radiusKm === 0;
+  
+  // Extraire le nom de la commune depuis le label (ex: "La Tresne, 33360, France" -> "La Tresne")
+  const communeName = zone.label?.split(',')[0]?.trim() || undefined;
+  
+  const constraints: LocalizationHardConstraints = {
+    strictZone,
+    centerLat: zone.lat,
+    centerLng: zone.lng,
+    radiusKm: zone.radiusKm,
+    bounds: zone.bounds,
+    communeName,
+    postalCode: zone.label?.match(/\b(\d{5})\b/)?.[1] || undefined,
+  };
+
+  // Type de bien
+  if (hints?.propertyType) {
+    const typeMap: Record<string, 'house' | 'apartment' | 'land' | 'building'> = {
+      'maison': 'house',
+      'appartement': 'apartment',
+      'terrain': 'land',
+      'commerce': 'building',
+    };
+    constraints.propertyType = typeMap[hints.propertyType] || 'unknown';
+  }
+
+  // Piscine (contrainte dure si l'utilisateur l'a indiquée)
+  if (hints?.piscine && hints.piscine !== "inconnu" && hints.piscine !== "aucune") {
+    constraints.hasPool = true;
+  }
+
+  // Jardin (contrainte dure si l'utilisateur l'a indiquée)
+  if (hints?.caracteristiques?.jardin === true) {
+    constraints.hasGarden = true;
+  }
+
+  if (DEBUG) {
+    console.log('[CONSTRAINTS] Contraintes dures construites:', {
+      strictZone: constraints.strictZone,
+      center: `${constraints.centerLat}, ${constraints.centerLng}`,
+      radiusKm: constraints.radiusKm,
+      communeName: constraints.communeName,
+      postalCode: constraints.postalCode,
+      propertyType: constraints.propertyType,
+      hasPool: constraints.hasPool,
+      hasGarden: constraints.hasGarden,
+    });
+  }
+
+  return constraints;
+}
+
 // Types pour le pipeline
 export interface LocalisationInput {
   url?: string
@@ -40,6 +125,19 @@ export interface LocalisationInput {
   images?: string[] // URLs ou base64
   hintPostalCode?: string
   hintCity?: string
+  selectedZone?: {
+    placeId: string
+    label: string
+    lat: number
+    lng: number
+    radiusKm: number
+    bounds?: {
+      north: number
+      south: number
+      east: number
+      west: number
+    }
+  }
 }
 
 export interface LocationCandidateRaw {
@@ -77,6 +175,8 @@ export interface LocalisationResult {
     nearbyCommune?: string
     dvfDensity?: number
   }
+  // Flag pour indiquer qu'aucun candidat n'a été trouvé dans la zone (contrainte dure)
+  noCandidatesInZone?: boolean
 }
 
 /**
@@ -453,6 +553,27 @@ async function generateDetailedExplanation(
           .join(", ")
       : "Aucun breakdown disponible"
 
+    // Construire un message enrichi avec les informations de piscine
+    let poolInfo = "";
+    if (breakdown?.hasPoolFromImage !== undefined || breakdown?.hasPoolFromSatellite !== undefined) {
+      const hasPool = breakdown.hasPoolFromImage || breakdown.hasPoolFromSatellite;
+      const userIndicatedPool = breakdown.userIndicatedPool;
+      
+      if (hasPool && userIndicatedPool) {
+        if (breakdown.hasPoolFromImage && breakdown.hasPoolFromSatellite) {
+          poolInfo = "Une piscine a été détectée à la fois sur la photo de l'annonce et sur la vue satellite, ce qui confirme fortement cette localisation.";
+        } else if (breakdown.hasPoolFromImage) {
+          poolInfo = "Une piscine a été détectée sur la photo de l'annonce, ce qui correspond à votre indication.";
+        } else if (breakdown.hasPoolFromSatellite) {
+          poolInfo = "Une piscine a été détectée sur la vue satellite, ce qui correspond à votre indication.";
+        }
+      } else if (!hasPool && userIndicatedPool) {
+        poolInfo = "⚠️ Aucune piscine n'a été clairement détectée dans cette zone, bien que vous ayez indiqué qu'il y en a une. Ce candidat est proposé en fallback.";
+      } else if (hasPool && !userIndicatedPool) {
+        poolInfo = "Une piscine a été détectée (bonus de correspondance).";
+      }
+    }
+
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -461,23 +582,25 @@ async function generateDetailedExplanation(
           content: `Tu es un assistant expert en localisation immobilière. 
           Génère une explication claire et rassurante pour l'utilisateur expliquant pourquoi 
           cette localisation a été choisie, en utilisant les hints fournis et le breakdown de confiance.
-          Sois précis, naturel et rassurant.`,
+          Sois précis, naturel et rassurant. Si des informations sur la piscine sont fournies, intègre-les naturellement dans l'explication.`,
         },
         {
           role: "user",
           content: `Génère une explication pour cette localisation :
           
           Adresse: ${bestCandidate.address}
-          Confiance: ${Math.round(bestCandidate.confidence || 0)}%
+          Confiance: ${Math.round((bestCandidate as any).confidence || 0)}%
           
           Hints utilisateur: ${hintsSummary}
           
           Breakdown de confiance: ${breakdownSummary}
           
+          ${poolInfo ? `Information piscine: ${poolInfo}` : ''}
+          
           Génère une explication en français, naturelle et rassurante.`,
         },
       ],
-      max_tokens: 200,
+      max_tokens: 250,
     })
 
     return response.choices[0].message.content || `Probable à ${Math.round(bestCandidate.confidence || 0)}% : ${bestCandidate.address}.`
@@ -515,70 +638,282 @@ export async function runLocalizationPipeline(
     if (multiCandidatesMode && (input.images?.length || 0) > 0) {
       if (DEBUG) console.log("🎯 [Localisation] Mode multi-candidats activé avec analyse parcelles...")
 
-      // Construire les candidats parcelles
+      // LOGS DÉTAILLÉS DE LA ZONE (CONTRAINTE DURE)
+      if (input.selectedZone) {
+        console.log(`[ZONE] Zone reçue: lat=${input.selectedZone.lat}, lng=${input.selectedZone.lng}, radiusKm=${input.selectedZone.radiusKm}`);
+        if (input.selectedZone.bounds) {
+          console.log(`[ZONE] Bounds: north=${input.selectedZone.bounds.north}, south=${input.selectedZone.bounds.south}, east=${input.selectedZone.bounds.east}, west=${input.selectedZone.bounds.west}`);
+        }
+        console.log(`[ZONE] Label: ${input.selectedZone.label || 'non fourni'}`);
+        if (input.selectedZone.radiusKm === 0) {
+          console.log(`[ZONE] Mode: COMMUNE STRICTE (radiusKm=0, filtrage strict par bounds)`);
+        } else {
+          console.log(`[ZONE] Mode: RAYON STRICT (radiusKm=${input.selectedZone.radiusKm}km, filtrage strict par distance Haversine)`);
+        }
+      } else {
+        console.warn(`[ZONE] ⚠️ Aucune zone sélectionnée - le filtrage géographique ne sera pas appliqué`);
+      }
+
+      // Construire les contraintes dures depuis les inputs
+      const constraints = buildHardConstraints(input, hints);
+      if (constraints && DEBUG) {
+        console.log(`[CONSTRAINTS] Contraintes dures construites:`, {
+          strictZone: constraints.strictZone,
+          center: `${constraints.centerLat}, ${constraints.centerLng}`,
+          radiusKm: constraints.radiusKm,
+          communeName: constraints.communeName,
+          postalCode: constraints.postalCode,
+          propertyType: constraints.propertyType,
+          hasPool: constraints.hasPool,
+          hasGarden: constraints.hasGarden,
+        });
+      }
+
+      // Construire les candidats parcelles avec la zone de recherche
       const parcels = await buildParcelCandidates(
         extracted.city || hints?.city,
-        extracted.postalCode || hints?.postalCode
+        extracted.postalCode || hints?.postalCode,
+        undefined,
+        input.selectedZone ? {
+          lat: input.selectedZone.lat,
+          lng: input.selectedZone.lng,
+          radiusKm: input.selectedZone.radiusKm,
+          bounds: input.selectedZone.bounds,
+          label: input.selectedZone.label, // Passer le label pour filtrage par ville
+        } : undefined
       )
+      
+      console.log(`[CANDIDATES] Total parcelles après buildParcelCandidates: ${parcels.length}`);
 
       if (parcels.length === 0) {
         throw new Error("Aucune parcelle trouvée pour cette zone")
       }
 
-      // Matcher les parcelles avec les images et hints
-      const matched = await matchParcels(parcels, input.images || [], hints, 15)
+      // Matcher les parcelles avec les images, hints et contraintes
+      // Limiter à 15 parcelles max pour éviter les timeouts
+      const matched = await matchParcels(parcels, input.images || [], hints, 15, constraints)
 
-      // Filtrer les candidats avec score > 40%
-      const validCandidates = matched.filter((m) => m.scoreTotal >= 40)
+      // FILTRAGE FINAL STRICT PAR ZONE (CONTRAINTE DURE) - APRÈS MATCHING
+      // Ce filtre est une sécurité supplémentaire pour éliminer TOUS les candidats hors zone
+      let zoneFiltered = matched;
+      if (input.selectedZone) {
+        const beforeZoneFilter = zoneFiltered.length;
+        console.log(`[ZONE] Filtrage final strict par zone: ${beforeZoneFilter} candidats avant filtrage`);
+        
+        zoneFiltered = matched.filter((m) => {
+          const { lat, lng } = m.parcel.centroid;
+          
+          if (input.selectedZone!.radiusKm === 0 && input.selectedZone!.bounds) {
+            // FILTRAGE STRICT PAR BOUNDS (commune stricte)
+            const inBounds = (
+              lat >= input.selectedZone!.bounds!.south &&
+              lat <= input.selectedZone!.bounds!.north &&
+              lng >= input.selectedZone!.bounds!.west &&
+              lng <= input.selectedZone!.bounds!.east
+            );
+            if (!inBounds) {
+              console.log(`[ZONE] Candidat rejeté hors bounds après matching: id=${m.parcel.id}, lat=${lat.toFixed(6)}, lng=${lng.toFixed(6)}, score=${m.scoreTotal}`);
+            }
+            return inBounds;
+          } else if (input.selectedZone!.radiusKm > 0) {
+            // FILTRAGE STRICT PAR RAYON (distance Haversine)
+            const distance = haversineDistance(
+              input.selectedZone!.lat,
+              input.selectedZone!.lng,
+              lat,
+              lng
+            );
+            const inRadius = distance <= input.selectedZone!.radiusKm;
+            if (!inRadius) {
+              console.log(`[ZONE] Candidat rejeté hors rayon après matching: id=${m.parcel.id}, distanceKm=${distance.toFixed(2)} (max=${input.selectedZone!.radiusKm}), score=${m.scoreTotal}`);
+            }
+            return inRadius;
+          }
+          // Si pas de zone définie correctement, on garde (mais log un warning)
+          console.warn(`[ZONE] ⚠️ Zone mal définie (radiusKm=${input.selectedZone!.radiusKm}, bounds=${input.selectedZone!.bounds ? 'présents' : 'absents'}), candidat conservé`);
+          return true;
+        });
+        
+        const rejectedCount = beforeZoneFilter - zoneFiltered.length;
+        console.log(`[CANDIDATES] Après filtre zone strict: ${zoneFiltered.length} candidats (${rejectedCount} rejetés)`);
+        
+        if (zoneFiltered.length === 0 && beforeZoneFilter > 0) {
+          console.warn(`[ZONE] ⚠️ TOUS les candidats ont été rejetés par le filtre de zone strict`);
+        }
+      } else {
+        console.warn(`[ZONE] ⚠️ Pas de zone définie, aucun filtrage géographique appliqué`);
+      }
 
-      if (validCandidates.length === 0) {
-        // Fail-safe : élargir la recherche
-        if (DEBUG) console.log("⚠️ [Localisation] Aucun candidat > 40%, élargissement...")
+      // FILTRAGE FINAL STRICT PAR CONTRAINTES DURES (piscine, jardin, type bien)
+      let constraintFiltered = zoneFiltered;
+      
+      // 1. FILTRAGE PAR PISCINE (si contrainte dure)
+      if (constraints?.hasPool === true) {
+        const beforePoolFilter = constraintFiltered.length;
+        console.log(`[CONSTRAINTS] Filtrage strict piscine activé`);
+        console.log(`[CONSTRAINTS] Candidats avant filtrage piscine: ${beforePoolFilter}`);
+        
+        const candidatesWithPool = constraintFiltered.filter((m) => 
+          m.hasPoolFromImage || m.hasPoolFromSatellite
+        );
+        const candidatesWithoutPool = constraintFiltered.filter((m) => 
+          !m.hasPoolFromImage && !m.hasPoolFromSatellite
+        );
+        
+        console.log(`[CONSTRAINTS] Candidats avec piscine: ${candidatesWithPool.length}`);
+        console.log(`[CONSTRAINTS] Candidats sans piscine: ${candidatesWithoutPool.length}`);
+        
+        if (candidatesWithPool.length > 0) {
+          // Si au moins un candidat avec piscine → ne garder QUE ceux-là (CONTRAINTE DURE)
+          constraintFiltered = candidatesWithPool;
+          const rejectedCount = beforePoolFilter - constraintFiltered.length;
+          console.log(`[CONSTRAINTS] Filtrage strict piscine: ${beforePoolFilter} -> ${constraintFiltered.length} candidats (${rejectedCount} rejetés)`);
+          
+          // Marquer les candidats rejetés avec un flag
+          candidatesWithoutPool.forEach((m) => {
+            if (!m.flags) m.flags = [];
+            m.flags.push('noPoolMatched');
+            console.log(`[CONSTRAINTS] Candidat rejeté (pas de piscine): id=${m.parcel.id}, score=${m.scoreTotal}`);
+          });
+        } else {
+          // Si aucun candidat avec piscine → garder les meilleurs mais marquer avec flag
+          console.warn(`[CONSTRAINTS] ⚠️ Aucun candidat avec piscine détectée, mais contrainte piscine activée`);
+          console.warn(`[CONSTRAINTS] ⚠️ Garde des ${constraintFiltered.length} meilleurs candidats sans piscine en fallback`);
+          constraintFiltered.forEach((m) => {
+            if (!m.flags) m.flags = [];
+            m.flags.push('noPoolMatched');
+          });
+        }
+      }
 
-        // Élargir le rayon (x2)
-        const expandedParcels = await buildParcelCandidates(
-          extracted.city || hints?.city,
-          extracted.postalCode || hints?.postalCode
-        )
+      // 2. FILTRAGE PAR JARDIN (si contrainte dure)
+      if (constraints?.hasGarden === true) {
+        const beforeGardenFilter = constraintFiltered.length;
+        console.log(`[CONSTRAINTS] Filtrage strict jardin activé`);
+        console.log(`[CONSTRAINTS] Candidats avant filtrage jardin: ${beforeGardenFilter}`);
+        
+        const candidatesWithGarden = constraintFiltered.filter((m) => 
+          m.hasGardenFromImage || m.hasGardenFromSatellite
+        );
+        const candidatesWithoutGarden = constraintFiltered.filter((m) => 
+          !m.hasGardenFromImage && !m.hasGardenFromSatellite
+        );
+        
+        console.log(`[CONSTRAINTS] Candidats avec jardin: ${candidatesWithGarden.length}`);
+        console.log(`[CONSTRAINTS] Candidats sans jardin: ${candidatesWithoutGarden.length}`);
+        
+        if (candidatesWithGarden.length > 0) {
+          constraintFiltered = candidatesWithGarden;
+          const rejectedCount = beforeGardenFilter - constraintFiltered.length;
+          console.log(`[CONSTRAINTS] Filtrage strict jardin: ${beforeGardenFilter} -> ${constraintFiltered.length} candidats (${rejectedCount} rejetés)`);
+        } else {
+          console.warn(`[CONSTRAINTS] ⚠️ Aucun candidat avec jardin détecté, mais contrainte jardin activée`);
+          constraintFiltered.forEach((m) => {
+            if (!m.flags) m.flags = [];
+            m.flags.push('noGardenMatched');
+          });
+        }
+      }
 
-        const expandedMatched = await matchParcels(expandedParcels, input.images || [], hints, 20)
-        const expandedValid = expandedMatched.filter((m) => m.scoreTotal >= 30)
+      // 3. FILTRAGE PAR TYPE DE BIEN (si contrainte dure)
+      if (constraints?.propertyType && constraints.propertyType !== 'unknown') {
+        const beforeTypeFilter = constraintFiltered.length;
+        console.log(`[CONSTRAINTS] Filtrage strict type bien: ${constraints.propertyType}`);
+        console.log(`[CONSTRAINTS] Candidats avant filtrage type: ${beforeTypeFilter}`);
+        
+        const candidatesWithType = constraintFiltered.filter((m) => 
+          m.propertyType === constraints.propertyType
+        );
+        const candidatesWithoutType = constraintFiltered.filter((m) => 
+          m.propertyType !== constraints.propertyType
+        );
+        
+        console.log(`[CONSTRAINTS] Candidats avec type ${constraints.propertyType}: ${candidatesWithType.length}`);
+        console.log(`[CONSTRAINTS] Candidats avec autre type: ${candidatesWithoutType.length}`);
+        
+        if (candidatesWithType.length > 0) {
+          // Pénaliser les candidats avec mauvais type mais ne pas tous les éliminer
+          // (on garde les meilleurs même si type différent, mais avec pénalité)
+          constraintFiltered = constraintFiltered.map((m) => {
+            if (m.propertyType !== constraints.propertyType) {
+              // Pénalité de -20 points pour mauvais type
+              m.scoreTotal = Math.max(0, m.scoreTotal - 20);
+              if (!m.flags) m.flags = [];
+              m.flags.push('wrongPropertyType');
+            }
+            return m;
+          });
+          // Trier à nouveau après pénalités
+          constraintFiltered.sort((a, b) => b.scoreTotal - a.scoreTotal);
+        } else {
+          console.warn(`[CONSTRAINTS] ⚠️ Aucun candidat avec type ${constraints.propertyType}, garde des meilleurs avec pénalité`);
+          constraintFiltered.forEach((m) => {
+            if (!m.flags) m.flags = [];
+            m.flags.push('wrongPropertyType');
+          });
+        }
+      }
 
-        if (expandedValid.length > 0) {
-          return {
-            bestCandidate: {
-              lat: expandedValid[0].parcel.centroid.lat,
-              lng: expandedValid[0].parcel.centroid.lng,
-              address: expandedValid[0].parcel.address || "",
-              postalCode: expandedValid[0].parcel.postalCode,
-              city: expandedValid[0].parcel.city,
-              sources: { cadastre: true },
-              scores: {},
-            },
-            candidates: [],
-            explanation: `Localisation à faible confiance (${expandedValid[0].scoreTotal}%). Zone élargie.`,
-            confidence: expandedValid[0].scoreTotal,
-            multiCandidates: expandedValid,
-            status: "low-confidence",
-            fallbackSuggestions: {
-              expandRadius: true,
-              dvfDensity: expandedValid[0].scoreDVF,
-            },
+      // Filtrer les candidats avec score > 40% (après toutes les pénalités)
+      const validCandidates = constraintFiltered.filter((m) => m.scoreTotal >= 40)
+      
+      // Limiter à 10 candidats maximum
+      const topCandidates = validCandidates.slice(0, 10)
+      
+      console.log(`[CANDIDATES] Après filtrage contraintes: ${topCandidates.length} candidats valides (sur ${validCandidates.length} avec score >= 40%)`);
+
+      if (topCandidates.length === 0) {
+        // AUCUN CANDIDAT DANS LA ZONE : Ne pas élargir automatiquement, retourner message explicite
+        console.warn(`[CONSTRAINTS] ⚠️ Aucun candidat trouvé après filtrage strict`);
+        console.warn(`[CONSTRAINTS] ⚠️ Raisons possibles:`);
+        console.warn(`[CONSTRAINTS]   - Zone trop restrictive (commune stricte ou rayon trop petit)`);
+        console.warn(`[CONSTRAINTS]   - Aucune parcelle correspondante dans la zone`);
+        if (constraints?.hasPool) {
+          console.warn(`[CONSTRAINTS]   - Contrainte piscine: aucune piscine détectée dans la zone`);
+        }
+        if (constraints?.hasGarden) {
+          console.warn(`[CONSTRAINTS]   - Contrainte jardin: aucun jardin détecté dans la zone`);
+        }
+        if (constraints?.propertyType && constraints.propertyType !== 'unknown') {
+          console.warn(`[CONSTRAINTS]   - Contrainte type bien: aucun bien de type '${constraints.propertyType}' dans la zone`);
+        }
+        
+        // Construire un message d'explication détaillé
+        let explanation = `Aucun candidat trouvé respectant toutes les contraintes.`;
+        
+        if (constraints) {
+          if (constraints.strictZone) {
+            explanation += ` La recherche était limitée strictement à la commune "${constraints.communeName || 'sélectionnée'}".`;
+          } else {
+            explanation += ` La recherche était limitée strictement à un rayon de ${constraints.radiusKm} km.`;
+          }
+          
+          const constraintList: string[] = [];
+          if (constraints.hasPool) constraintList.push("piscine");
+          if (constraints.hasGarden) constraintList.push("jardin");
+          if (constraints.propertyType && constraints.propertyType !== 'unknown') {
+            constraintList.push(`type '${constraints.propertyType}'`);
+          }
+          
+          if (constraintList.length > 0) {
+            explanation += ` Contraintes appliquées : ${constraintList.join(", ")}.`;
           }
         }
-
-        // Si toujours rien, retourner erreur
+        
+        explanation += ` Essayez d'élargir le rayon ou assouplir les contraintes.`;
+        
         return {
           bestCandidate: null,
           candidates: [],
-          explanation: "Aucune localisation fiable trouvée même après élargissement.",
+          explanation,
           confidence: 0,
           status: "failed",
+          noCandidatesInZone: true, // Flag pour l'UI
         }
       }
 
       // Convertir en format LocationCandidateRaw pour compatibilité
-      const convertedCandidates: LocationCandidateRaw[] = validCandidates.map((m) => ({
+      const convertedCandidates: LocationCandidateRaw[] = topCandidates.map((m) => ({
         lat: m.parcel.centroid.lat,
         lng: m.parcel.centroid.lng,
         address: m.parcel.address || "",
@@ -596,8 +931,23 @@ export async function runLocalizationPipeline(
         },
       }))
 
-      // Générer l'explication pour le meilleur candidat
-      const best = validCandidates[0]
+      // Générer l'explication pour le meilleur candidat (avec info piscine)
+      const best = topCandidates[0]
+      
+      // Enrichir le breakdown avec les informations de piscine
+      const enrichedBreakdown = {
+        scoreImage: best.scoreImage,
+        scorePiscine: best.scorePiscine,
+        scoreToiture: best.scoreToiture,
+        scoreTerrain: best.scoreTerrain,
+        scoreHints: best.scoreHints,
+        scoreDVF: best.scoreDVF,
+        // Informations de piscine pour l'explication
+        hasPoolFromImage: best.hasPoolFromImage || false,
+        hasPoolFromSatellite: best.hasPoolFromSatellite || false,
+        userIndicatedPool: hints?.piscine && hints.piscine !== "inconnu" && hints.piscine !== "aucune",
+      };
+      
       const explanation = await generateDetailedExplanation(
         {
           lat: best.parcel.centroid.lat,
@@ -609,19 +959,12 @@ export async function runLocalizationPipeline(
           scores: {},
         },
         hints,
-        {
-          scoreImage: best.scoreImage,
-          scorePiscine: best.scorePiscine,
-          scoreToiture: best.scoreToiture,
-          scoreTerrain: best.scoreTerrain,
-          scoreHints: best.scoreHints,
-          scoreDVF: best.scoreDVF,
-        }
+        enrichedBreakdown
       )
 
       // Persister les candidats
       await prisma.locationCandidate.createMany({
-        data: validCandidates.map((m, index) => ({
+        data: topCandidates.map((m, index) => ({
           localisationRequestId: requestId,
           lat: m.parcel.centroid.lat,
           lng: m.parcel.centroid.lng,
@@ -641,6 +984,9 @@ export async function runLocalizationPipeline(
           sources: {
             cadastre: true,
             streetview: !!m.streetViewUrl,
+            satelliteImageUrl: m.satelliteImageUrl,
+            cadastralUrl: m.cadastralUrl,
+            streetViewUrl: m.streetViewUrl,
           },
           best: index === 0,
         })),
@@ -656,7 +1002,7 @@ export async function runLocalizationPipeline(
         candidates: convertedCandidates,
         explanation,
         confidence: best.scoreTotal,
-        multiCandidates: validCandidates,
+        multiCandidates: topCandidates,
         status: best.scoreTotal >= 60 ? "success" : "low-confidence",
       }
     }

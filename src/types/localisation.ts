@@ -60,6 +60,7 @@ export interface LocalisationInput {
   url?: string
   description?: string
   hints?: LocalisationHints
+  selectedZone?: SearchZone // Zone de recherche géographique
 }
 
 /**
@@ -103,7 +104,25 @@ export interface LocalisationHypothese {
   scoreTerrain?: number
   scoreHints?: number
   satelliteImageUrl?: string
+  cadastralUrl?: string
   streetViewUrl?: string
+}
+
+/**
+ * Zone de recherche géographique
+ */
+export interface SearchZone {
+  placeId: string
+  label: string
+  lat: number
+  lng: number
+  radiusKm: number // 0 = strictement dans les bounds, > 0 = rayon en km
+  bounds?: {
+    north: number
+    south: number
+    east: number
+    west: number
+  }
 }
 
 /**
@@ -116,6 +135,8 @@ export interface LocalisationResult {
   hypotheses: LocalisationHypothese[]
   precisionMoyenne: number
   tempsAnalyse: number // ms
+  // Flag pour indiquer qu'aucun candidat n'a été trouvé dans la zone (contrainte dure)
+  noCandidatesInZone?: boolean
 }
 
 

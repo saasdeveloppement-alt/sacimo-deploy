@@ -9,15 +9,19 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import type { LocalisationInput, LocalisationHints } from '@/types/localisation';
+import type { LocalisationInput, LocalisationHints, SearchZone } from '@/types/localisation';
 import { toast } from 'sonner';
+import GooglePlacesAutocomplete from './GooglePlacesAutocomplete';
+import RadiusSlider from './RadiusSlider';
+import ZoneTag from './ZoneTag';
 
 interface LocalisationFormProps {
   onInputChange: (input: LocalisationInput | null) => void;
   onHintsChange: (hints: LocalisationHints) => void;
+  onZoneChange?: (zone: SearchZone | null) => void;
 }
 
-export default function LocalisationForm({ onInputChange, onHintsChange }: LocalisationFormProps) {
+export default function LocalisationForm({ onInputChange, onHintsChange, onZoneChange }: LocalisationFormProps) {
   // État pour la méthode d'entrée
   const [activeTab, setActiveTab] = useState<'image' | 'url'>('image');
   const [imageFiles, setImageFiles] = useState<File[]>([]);
@@ -32,6 +36,19 @@ export default function LocalisationForm({ onInputChange, onHintsChange }: Local
     caracteristiques: {},
   });
 
+  // État pour les zones de recherche (plusieurs zones possibles)
+  const [selectedZones, setSelectedZones] = useState<SearchZone[]>([]);
+  const [radiusKm, setRadiusKm] = useState(0);
+
+  // Debug: surveiller les changements de selectedZones
+  useEffect(() => {
+    console.log('[DEBUG] selectedZones changed:', selectedZones);
+    console.log('[DEBUG] selectedZones.length:', selectedZones.length);
+    if (selectedZones.length > 0) {
+      console.log('[DEBUG] First zone:', selectedZones[0]);
+    }
+  }, [selectedZones]);
+
   // Calcul du pourcentage de complétion
   const calculateCompletion = () => {
     let filled = 0;
@@ -41,6 +58,10 @@ export default function LocalisationForm({ onInputChange, onHintsChange }: Local
     total += 1;
     if (activeTab === 'image' && imageFiles.length > 0) filled += 1;
     else if (activeTab === 'url' && url && validateUrl(url)) filled += 1;
+
+    // Zone de recherche (obligatoire)
+    total += 1;
+    if (selectedZones.length > 0) filled += 1;
 
     // Hints
     total += 2;
@@ -66,12 +87,16 @@ export default function LocalisationForm({ onInputChange, onHintsChange }: Local
   const completion = calculateCompletion();
 
   const updateInput = useCallback((method: 'image' | 'url', data: Partial<LocalisationInput>) => {
+    // Toujours inclure la zone sélectionnée si elle existe
     const input: LocalisationInput = {
       method,
       ...data,
+      // Utiliser selectedZone depuis data si fourni, sinon depuis selectedZones
+      selectedZone: data.selectedZone || (selectedZones.length > 0 ? selectedZones[0] : undefined),
     };
+    console.log('[DEBUG] updateInput called:', { method, data, selectedZones: selectedZones.length, selectedZone: input.selectedZone });
     onInputChange(input);
-  }, [onInputChange]);
+  }, [onInputChange, selectedZones]);
 
   const handleFileSelect = useCallback((files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -146,6 +171,160 @@ export default function LocalisationForm({ onInputChange, onHintsChange }: Local
     const newHints = { ...hints, ...updates };
     setHints(newHints);
     onHintsChange(newHints);
+  };
+
+  // Gérer la sélection d'une zone (ajout à la liste)
+  const handleZoneSelect = (zone: SearchZone) => {
+    console.log('[DEBUG] handleZoneSelect called with zone:', zone);
+    console.log('[DEBUG] Current selectedZones:', selectedZones);
+    
+    // Vérifier si la zone n'est pas déjà sélectionnée
+    const exists = selectedZones.some(z => z.placeId === zone.placeId);
+    if (exists) {
+      console.log('[DEBUG] Zone already exists, skipping');
+      toast.info('Cette zone est déjà sélectionnée');
+      return;
+    }
+
+    const zoneWithRadius = { ...zone, radiusKm };
+    const newZones = [...selectedZones, zoneWithRadius];
+    
+    console.log('[DEBUG] Setting new selectedZones:', newZones);
+    setSelectedZones(newZones);
+    
+    // Pour l'API, on utilise la première zone (ou on fusionne les zones)
+    // On peut aussi envoyer toutes les zones et laisser le backend gérer
+    const primaryZone = newZones[0];
+    console.log('[DEBUG] Primary zone:', primaryZone);
+    
+    // Appeler onZoneChange AVANT de mettre à jour l'input pour que la page parente soit synchronisée
+    onZoneChange?.(primaryZone);
+    
+    // Mettre à jour l'input avec la zone principale (même si pas d'image/URL encore)
+    // Cela garantit que currentInput.selectedZone est toujours à jour
+    if (activeTab === 'image' && imageFiles.length > 0) {
+      updateInput('image', {
+        imageFile: imageFiles[0],
+        imageUrl: imagePreviews[0],
+        selectedZone: primaryZone,
+      });
+    } else if (activeTab === 'url' && url) {
+      updateInput('url', {
+        url,
+        selectedZone: primaryZone,
+      });
+    } else {
+      // Même sans image/URL, mettre à jour l'input avec la zone pour que la validation fonctionne
+      // On crée un input minimal avec juste la zone
+      const minimalInput: LocalisationInput = {
+        method: activeTab,
+        selectedZone: primaryZone,
+      };
+      console.log('[DEBUG] Updating input with zone only (no image/URL yet):', minimalInput);
+      onInputChange(minimalInput);
+    }
+    
+    toast.success(`Zone "${zone.label}" ajoutée`);
+  };
+
+  // Gérer la sélection de plusieurs zones (code postal avec plusieurs villes)
+  const handleMultipleZonesSelect = (zones: SearchZone[]) => {
+    // Ajouter toutes les zones qui ne sont pas déjà sélectionnées
+    const newZones = zones.filter(
+      zone => !selectedZones.some(z => z.placeId === zone.placeId)
+    );
+    
+    if (newZones.length === 0) {
+      toast.info('Toutes ces villes sont déjà sélectionnées');
+      return;
+    }
+
+    const zonesWithRadius = newZones.map(z => ({ ...z, radiusKm }));
+    const updatedZones = [...selectedZones, ...zonesWithRadius];
+    setSelectedZones(updatedZones);
+    
+    // Utiliser la première zone comme zone principale
+    const primaryZone = updatedZones[0];
+    onZoneChange?.(primaryZone);
+    
+    toast.success(`${zonesWithRadius.length} ville(s) ajoutée(s)`);
+    
+    // Mettre à jour l'input
+    if (activeTab === 'image' && imageFiles.length > 0) {
+      updateInput('image', {
+        imageFile: imageFiles[0],
+        imageUrl: imagePreviews[0],
+        selectedZone: primaryZone,
+      });
+    } else if (activeTab === 'url' && url) {
+      updateInput('url', {
+        url,
+        selectedZone: primaryZone,
+      });
+    }
+  };
+
+  // Gérer le changement de rayon (appliqué à toutes les zones)
+  const handleRadiusChange = (newRadius: number) => {
+    setRadiusKm(newRadius);
+    if (selectedZones.length > 0) {
+      const updatedZones = selectedZones.map(z => ({ ...z, radiusKm: newRadius }));
+      setSelectedZones(updatedZones);
+      
+      const primaryZone = updatedZones[0];
+      onZoneChange?.(primaryZone);
+      
+      // Mettre à jour l'input
+      if (activeTab === 'image' && imageFiles.length > 0) {
+        updateInput('image', {
+          imageFile: imageFiles[0],
+          imageUrl: imagePreviews[0],
+          selectedZone: primaryZone,
+        });
+      } else if (activeTab === 'url' && url) {
+        updateInput('url', {
+          url,
+          selectedZone: primaryZone,
+        });
+      }
+    }
+  };
+
+  // Supprimer une zone spécifique
+  const handleRemoveZone = (zoneToRemove: SearchZone) => {
+    const updatedZones = selectedZones.filter(z => z.placeId !== zoneToRemove.placeId);
+    setSelectedZones(updatedZones);
+    
+    if (updatedZones.length === 0) {
+      setRadiusKm(0);
+      onZoneChange?.(null);
+      
+      // Mettre à jour l'input
+      if (activeTab === 'image' && imageFiles.length > 0) {
+        updateInput('image', {
+          imageFile: imageFiles[0],
+          imageUrl: imagePreviews[0],
+        });
+      } else if (activeTab === 'url' && url) {
+        updateInput('url', { url });
+      }
+    } else {
+      const primaryZone = updatedZones[0];
+      onZoneChange?.(primaryZone);
+      
+      if (activeTab === 'image' && imageFiles.length > 0) {
+        updateInput('image', {
+          imageFile: imageFiles[0],
+          imageUrl: imagePreviews[0],
+          selectedZone: primaryZone,
+        });
+      } else if (activeTab === 'url' && url) {
+        updateInput('url', {
+          url,
+          selectedZone: primaryZone,
+        });
+      }
+    }
   };
 
   const validateUrl = (urlString: string) => {
@@ -371,32 +550,65 @@ export default function LocalisationForm({ onInputChange, onHintsChange }: Local
       <div className="bg-white/80 backdrop-blur-sm border border-gray-200/50 rounded-2xl p-6 shadow-lg">
         <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
           <MapPin className="w-5 h-5 text-purple-600" />
-          2. Localisation
+          2. Localisation <span className="text-red-500">*</span>
         </h2>
         <p className="text-sm text-gray-600 mb-6">
-          Indiquez la zone géographique pour affiner la recherche
+          Sélectionnez une zone géographique pour limiter la recherche
         </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <Label className="text-gray-700 mb-2 block">Code postal</Label>
-            <Input
-              value={hints.codePostal || ''}
-              onChange={(e) => updateHints({ codePostal: e.target.value })}
-              placeholder="Ex: 75001"
-              maxLength={5}
-              className="bg-white border-gray-300 text-gray-900"
+        <div className="space-y-6">
+          {/* Autocomplétion Google Places */}
+          <GooglePlacesAutocomplete
+            onPlaceSelect={handleZoneSelect}
+            onMultiplePlacesSelect={handleMultipleZonesSelect}
+            placeholder="Rechercher une ville ou un code postal..."
+          />
+
+          {/* Tags des zones sélectionnées */}
+          {selectedZones.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              {selectedZones.map((zone, index) => (
+                <ZoneTag
+                  key={`${zone.placeId}-${index}-${zone.lat}-${zone.lng}`}
+                  zone={zone}
+                  onRemove={() => handleRemoveZone(zone)}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Slider de rayon */}
+          {selectedZones.length > 0 && (
+            <RadiusSlider
+              value={radiusKm}
+              onChange={handleRadiusChange}
+              disabled={selectedZones.length === 0}
             />
-          </div>
-          <div>
-            <Label className="text-gray-700 mb-2 block">Ville</Label>
-            <Input
-              value={hints.ville || ''}
-              onChange={(e) => updateHints({ ville: e.target.value })}
-              placeholder="Ex: Paris"
-              className="bg-white border-gray-300 text-gray-900"
-            />
-          </div>
+          )}
+
+          {selectedZones.length === 0 && (
+            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-800 font-medium">
+                <Info className="w-4 h-4 inline mr-2" />
+                Veuillez sélectionner une zone de recherche pour continuer
+              </p>
+              <p className="text-xs text-red-600 mt-2">
+                Tapez un code postal (ex: 33360) ou une ville, puis cliquez sur une suggestion dans la liste déroulante.
+              </p>
+            </div>
+          )}
+          
+          {/* Debug info (à retirer en production) */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="p-2 bg-gray-100 rounded text-xs text-gray-600">
+              <strong>Debug:</strong> selectedZones.length = {selectedZones.length}
+              {selectedZones.length > 0 && (
+                <div className="mt-1">
+                  Zones: {selectedZones.map(z => z.label).join(', ')}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
